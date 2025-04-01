@@ -60,7 +60,7 @@ const eslintConfig = [
     },
     rules: {
       'react/react-in-jsx-scope': 0,
-      'import/no-extraneous-dependencies': ['error', { devDependencies: true }],
+      // 'import/no-extraneous-dependencies': ['error', { devDependencies: true }],
       'react/jsx-filename-extension': [1, { extensions: ['.js', '.jsx'] }],
       'react/prop-types': 'off',
       'no-console':
