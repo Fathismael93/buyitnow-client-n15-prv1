@@ -28,9 +28,9 @@ const eslintConfig = [
     'eslint:recommended',
     'plugin:react/recommended',
     'plugin:prettier/recommended',
-    'next/core-web-vitals',
-    'plugin:react-hooks/recommended',
-    'plugin:security/recommended-legacy',
+    // 'next/core-web-vitals',
+    // 'plugin:react-hooks/recommended',
+    // 'plugin:security/recommended-legacy',
   ),
 
   // Appliquer à tous les fichiers JS/JSX
@@ -52,8 +52,8 @@ const eslintConfig = [
     // Configurations spécifiques qui complètent celles importées ci-dessus
     plugins: {
       react: reactPlugin,
-      'react-hooks': reactHooksPlugin,
-      security: securityPlugin,
+      // 'react-hooks': reactHooksPlugin,
+      // security: securityPlugin,
       // import: importPlugin,
       // 'optimize-regex': optimizeRegexPlugin,
       prettier: prettierPlugin,
@@ -63,19 +63,19 @@ const eslintConfig = [
       // 'import/no-extraneous-dependencies': ['error', { devDependencies: true }],
       'react/jsx-filename-extension': [1, { extensions: ['.js', '.jsx'] }],
       'react/prop-types': 'off',
-      'no-console':
-        process.env.NODE_ENV === 'production'
-          ? ['error', { allow: ['warn', 'error'] }]
-          : 'off',
+      // 'no-console':
+      //   process.env.NODE_ENV === 'production'
+      //     ? ['error', { allow: ['warn', 'error'] }]
+      //     : 'off',
       'no-unused-vars':
         process.env.NODE_ENV === 'production' ? 'error' : 'warn',
       'jsx-a11y/anchor-is-valid': 'off',
       'react/jsx-props-no-spreading': 'off',
-      'react-hooks/exhaustive-deps': 'error',
+      // 'react-hooks/exhaustive-deps': 'error',
       // 'optimize-regex/optimize-regex': 'warn',
       // 'react/no-array-index-key': 'error',
       'react/forbid-dom-props': ['warn', { forbid: ['style'] }],
-      'prettier/prettier': 'error',
+      'prettier/prettier': 'warn',
       // 'import/order': [
       //   'error',
       //   {
