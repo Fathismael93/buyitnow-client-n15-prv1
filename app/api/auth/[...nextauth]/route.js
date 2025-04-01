@@ -33,9 +33,6 @@ const auth = {
     jwt: async ({ token, user }) => {
       user && (token.user = user);
 
-      console.log('token.user: ');
-      console.log(token.user);
-
       /****** In Development Mode, url is "/api/auth/session?update" ******/
       /****** In Production Mode, url is "/api/auth/session?update=" ******/
 
