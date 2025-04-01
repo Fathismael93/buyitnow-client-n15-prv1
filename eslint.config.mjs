@@ -72,24 +72,24 @@ const eslintConfig = [
       'jsx-a11y/anchor-is-valid': 'off',
       'react/jsx-props-no-spreading': 'off',
       'react-hooks/exhaustive-deps': 'error',
-      'optimize-regex/optimize-regex': 'warn',
+      // 'optimize-regex/optimize-regex': 'warn',
       'react/no-array-index-key': 'error',
       'react/forbid-dom-props': ['warn', { forbid: ['style'] }],
       'prettier/prettier': 'error',
-      'import/order': [
-        'error',
-        {
-          groups: [
-            'builtin',
-            'external',
-            'internal',
-            'parent',
-            'sibling',
-            'index',
-          ],
-          'newlines-between': 'always',
-        },
-      ],
+      // 'import/order': [
+      //   'error',
+      //   {
+      //     groups: [
+      //       'builtin',
+      //       'external',
+      //       'internal',
+      //       'parent',
+      //       'sibling',
+      //       'index',
+      //     ],
+      //     'newlines-between': 'always',
+      //   },
+      // ],
     },
     settings: {
       'import/resolver': {
