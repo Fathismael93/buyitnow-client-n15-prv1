@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import ResponsivePaginationComponent from 'react-responsive-pagination';
 import 'react-responsive-pagination/themes/classic.css';
 
-// eslint-disable-next-line react/prop-types
 const CustomPagination = memo(({ totalPages }) => {
   const router = useRouter();
   const searchParams = useSearchParams();

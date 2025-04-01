@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import * as Sentry from '@sentry/nextjs';
 import { Replay } from '@sentry/replay';
 
@@ -394,8 +395,8 @@ Sentry.init({
     'bmi_SafeAddOnload',
     'EBCallBackMessageReceived',
     'conduitPage',
-    /__gCrWeb/i,
-    /Blocked a frame with origin/i,
+    /__gcrweb/i,
+    /blocked a frame with origin/i,
   ],
 
   // Patterns à ignorer (expressions régulières)

@@ -1,12 +1,12 @@
 'use client';
 
-import AuthContext from '@/context/AuthContext';
 import dynamic from 'next/dynamic';
 import React, { useContext, useState } from 'react';
 
+import AuthContext from '@/context/AuthContext';
+
 const Sidebar = dynamic(() => import('@/components/layouts/Sidebar'));
 
-// eslint-disable-next-line react/prop-types
 export default function UserLayout({ children }) {
   const { user } = useContext(AuthContext);
   const [open, setOpen] = useState(false);

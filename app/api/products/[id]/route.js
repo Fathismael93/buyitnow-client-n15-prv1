@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+
 import dbConnect from '@/backend/config/dbConnect';
 // eslint-disable-next-line no-unused-vars
 import Category from '@/backend/models/category';

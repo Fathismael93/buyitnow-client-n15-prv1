@@ -1,6 +1,7 @@
+import { NextResponse } from 'next/server';
+
 import dbConnect from '@/backend/config/dbConnect';
 import isAuthenticatedUser from '@/backend/middlewares/auth';
-import { NextResponse } from 'next/server';
 import Order from '@/backend/models/order';
 import APIFilters from '@/backend/utils/APIFilters';
 import User from '@/backend/models/user';

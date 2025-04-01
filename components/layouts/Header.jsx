@@ -5,8 +5,9 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 const Search = dynamic(() => import('./Search'));
 import Image from 'next/image';
-import CartContext from '@/context/CartContext';
 import { useSession } from 'next-auth/react';
+
+import CartContext from '@/context/CartContext';
 import AuthContext from '@/context/AuthContext';
 
 const Header = () => {

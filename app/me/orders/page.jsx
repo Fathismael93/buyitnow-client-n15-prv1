@@ -12,7 +12,6 @@ export const metadata = {
   title: 'Buy It Now - Orders',
 };
 
-// eslint-disable-next-line react/prop-types
 const MyOrdersPage = async ({ searchParams }) => {
   const orders = await getAllOrders(await searchParams);
 

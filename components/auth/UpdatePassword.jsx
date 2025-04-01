@@ -1,8 +1,9 @@
 'use client';
 
-import AuthContext from '@/context/AuthContext';
 import React, { useContext, useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+
+import AuthContext from '@/context/AuthContext';
 
 const UpdatePassword = () => {
   const { error, updatePassword, clearErrors } = useContext(AuthContext);

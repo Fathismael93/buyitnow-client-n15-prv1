@@ -15,7 +15,6 @@ export const metadata = {
   title: 'Single Product',
 };
 
-// eslint-disable-next-line react/prop-types
 const ProductDetailsPage = async ({ params }) => {
   const data = await getProductDetails((await params)?.id);
 

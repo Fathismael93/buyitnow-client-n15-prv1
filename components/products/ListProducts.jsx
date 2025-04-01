@@ -1,8 +1,8 @@
-/* eslint-disable react/prop-types */
 'use client';
 
 import React from 'react';
 import dynamic from 'next/dynamic';
+
 import Loading from '@/app/loading';
 
 const CustomPagination = dynamic(
@@ -17,7 +17,9 @@ const ProductItem = dynamic(() => import('./ProductItem'), {
 });
 
 import { arrayHasData } from '@/helpers/helpers';
+
 import { useContext, useEffect } from 'react';
+
 import AuthContext from '@/context/AuthContext';
 
 const ListProducts = ({ data }) => {

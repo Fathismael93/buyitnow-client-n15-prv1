@@ -2,7 +2,6 @@
 
 import React, { useState, useContext, useEffect } from 'react';
 import Link from 'next/link';
-
 import { toast } from 'react-toastify';
 
 import AuthContext from '@/context/AuthContext';

@@ -1,8 +1,9 @@
+import { NextResponse } from 'next/server';
+
 import User from '@/backend/models/user';
 import Cart from '@/backend/models/cart';
 import isAuthenticatedUser from '@/backend/middlewares/auth';
 import dbConnect from '@/backend/config/dbConnect';
-import { NextResponse } from 'next/server';
 
 export async function DELETE(req, { params }) {
   try {

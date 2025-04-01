@@ -2,11 +2,12 @@
 
 import React, { useContext, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+import ItemCart from './components/ItemCart';
 
 import CartContext from '@/context/CartContext';
 import { DECREASE, INCREASE } from '@/helpers/constants';
-import { useRouter } from 'next/navigation';
-import ItemCart from './components/ItemCart';
 import Loading from '@/app/loading';
 
 const Cart = () => {

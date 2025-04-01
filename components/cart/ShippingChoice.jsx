@@ -1,16 +1,18 @@
-/* eslint-disable react/prop-types */
 'use client';
 
 import dynamic from 'next/dynamic';
-import CartContext from '@/context/CartContext';
 import Link from 'next/link';
 import React, { useContext, useEffect } from 'react';
+
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
-import ItemShipping from './components/ItemShipping';
-import OrderContext from '@/context/OrderContext';
 import { useRouter } from 'next/navigation';
-import { arrayHasData } from '@/helpers/helpers';
 import { toast } from 'react-toastify';
+
+import ItemShipping from './components/ItemShipping';
+
+import OrderContext from '@/context/OrderContext';
+import { arrayHasData } from '@/helpers/helpers';
+import CartContext from '@/context/CartContext';
 
 const ShippingChoice = ({ addresses, payments, deliveryPrice }) => {
   const { cart, checkoutInfo, setOrderInfo } = useContext(CartContext);

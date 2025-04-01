@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useContext, useState } from 'react';
+import { toast } from 'react-toastify';
+
 import AuthContext from '@/context/AuthContext';
 import { emailSchema } from '@/helpers/schemas';
-import { toast } from 'react-toastify';
 
 const Contact = () => {
   const [subject, setSubject] = useState('');

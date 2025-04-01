@@ -1,5 +1,6 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
+
 import Loading from '@/app/loading';
 import { getAllAddresses } from '@/backend/utils/server-only-methods';
 

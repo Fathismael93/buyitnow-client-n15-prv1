@@ -1,8 +1,9 @@
+import { NextResponse } from 'next/server';
+import nodemailer from 'nodemailer';
+
 import dbConnect from '@/backend/config/dbConnect';
 import isAuthenticatedUser from '@/backend/middlewares/auth';
-import { NextResponse } from 'next/server';
 import User from '@/backend/models/user';
-import nodemailer from 'nodemailer';
 import Contact from '@/backend/models/contact';
 
 export async function POST(req) {

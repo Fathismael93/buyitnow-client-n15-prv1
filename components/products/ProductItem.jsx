@@ -1,11 +1,11 @@
-/* eslint-disable react/prop-types */
 import React, { useContext } from 'react';
 import { toast } from 'react-toastify';
+import Link from 'next/link';
+import Image from 'next/image';
+
 import CartContext from '@/context/CartContext';
 import { INCREASE } from '@/helpers/constants';
 import AuthContext from '@/context/AuthContext';
-import Link from 'next/link';
-import Image from 'next/image';
 
 const ProductItem = ({ product }) => {
   const { addItemToCart, updateCart, cart } = useContext(CartContext);

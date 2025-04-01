@@ -3,10 +3,10 @@
 import React, { useContext, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 
 import OrderContext from '@/context/OrderContext';
 import CartContext from '@/context/CartContext';
-import Link from 'next/link';
 import { arrayHasData } from '@/helpers/helpers';
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
 

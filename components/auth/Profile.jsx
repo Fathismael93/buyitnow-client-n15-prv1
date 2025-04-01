@@ -1,18 +1,17 @@
 'use client';
 
-import AuthContext from '@/context/AuthContext';
 import dynamic from 'next/dynamic';
-import Loading from '@/app/loading';
-
 import Link from 'next/link';
 import React, { useContext } from 'react';
 import Image from 'next/image';
+
+import Loading from '@/app/loading';
+import AuthContext from '@/context/AuthContext';
 
 const UserAddresses = dynamic(() => import('@/components/user/UserAddresses'), {
   loading: () => <Loading />,
 });
 
-// eslint-disable-next-line react/prop-types
 const Profile = ({ addresses }) => {
   const { user } = useContext(AuthContext);
 

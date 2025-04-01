@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -176,7 +177,7 @@ const nextConfig = {
         automaticNameDelimiter: '~',
         cacheGroups: {
           defaultVendors: {
-            test: /[\\/]node_modules[\\/]/,
+            test: /[/\\]node_modules[/\\]/,
             priority: -10,
             reuseExistingChunk: true,
           },

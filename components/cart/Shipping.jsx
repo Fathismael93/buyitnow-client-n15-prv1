@@ -1,15 +1,17 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import CartContext from '@/context/CartContext';
 import Link from 'next/link';
 import React, { useCallback, useContext, useEffect } from 'react';
 import { toast } from 'react-toastify';
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
 import { useRouter } from 'next/navigation';
+
+import ItemShipping from './components/ItemShipping';
+
 import OrderContext from '@/context/OrderContext';
 import { arrayHasData } from '@/helpers/helpers';
-import ItemShipping from './components/ItemShipping';
+import CartContext from '@/context/CartContext';
 
 const Shipping = () => {
   const { cart, checkoutInfo } = useContext(CartContext);

@@ -2,11 +2,10 @@
 
 import React, { useState, useContext, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import Loading from '@/app/loading';
-
 import { countries } from 'countries-list';
 import { toast } from 'react-toastify';
 
+import Loading from '@/app/loading';
 import AuthContext from '@/context/AuthContext';
 const Sidebar = dynamic(() => import('@/components/layouts/Sidebar'), {
   loading: () => <Loading />,

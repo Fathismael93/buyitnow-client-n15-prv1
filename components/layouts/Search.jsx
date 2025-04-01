@@ -1,9 +1,9 @@
-/* eslint-disable react/prop-types */
 'use client';
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
+
 import { searchSchema } from '@/helpers/schemas';
 
 const Search = ({ setLoading }) => {

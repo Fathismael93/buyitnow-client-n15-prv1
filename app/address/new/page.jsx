@@ -1,5 +1,6 @@
-import React from 'react';
+// eslint-disable-next-line import/no-extraneous-dependencies
 import dynamic from 'next/dynamic';
+
 import Loading from '@/app/loading';
 
 const NewAddress = dynamic(() => import('@/components/user/NewAddress'), {

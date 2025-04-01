@@ -1,7 +1,7 @@
-/* eslint-disable react/prop-types */
-import { arrayHasData } from '@/helpers/helpers';
 import Link from 'next/link';
 import React, { memo } from 'react';
+
+import { arrayHasData } from '@/helpers/helpers';
 
 const UserAddresses = memo(({ addresses }) => {
   return arrayHasData(addresses) ? (

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+
 import dbConnect from '@/backend/config/dbConnect';
 import isAuthenticatedUser from '@/backend/middlewares/auth';
 import Order from '@/backend/models/order';

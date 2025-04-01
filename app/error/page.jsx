@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useContext } from 'react';
-import OrderContext from '@/context/OrderContext';
-import { arrayHasData } from '@/helpers/helpers';
 import Link from 'next/link';
 import Image from 'next/image';
+
+import OrderContext from '@/context/OrderContext';
+import { arrayHasData } from '@/helpers/helpers';
 
 const ErrorPage = () => {
   const { lowStockProducts } = useContext(OrderContext);

@@ -1,11 +1,10 @@
-/* eslint-disable react/prop-types */
 'use client';
 
-import { arrayHasData } from '@/helpers/helpers';
 import dynamic from 'next/dynamic';
-import Loading from '@/app/loading';
-
 import React, { useContext, useEffect } from 'react';
+
+import { arrayHasData } from '@/helpers/helpers';
+import Loading from '@/app/loading';
 import OrderContext from '@/context/OrderContext';
 
 const OrderItem = dynamic(() => import('@/components/orders/OrderItem'), {

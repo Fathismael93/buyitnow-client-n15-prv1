@@ -6,7 +6,9 @@
         "dev": "next dev --turbopack",
         "build": "next build",
         "start": "next start",
-        "lint": "next lint"
+        "lint": "next lint",
+        "format": "prettier --write .",
+        "lint:fix": "next lint --fix"
     },
     "dependencies": {
         "@next/bundle-analyzer": "^15.2.2",

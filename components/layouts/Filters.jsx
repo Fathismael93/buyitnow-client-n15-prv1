@@ -1,10 +1,10 @@
-/* eslint-disable react/prop-types */
 'use client';
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { arrayHasData, getPriceQueryParams } from '@/helpers/helpers';
 import { toast } from 'react-toastify';
+
+import { arrayHasData, getPriceQueryParams } from '@/helpers/helpers';
 
 const Filters = ({ categories, setLoading }) => {
   const [min, setMin] = useState('');

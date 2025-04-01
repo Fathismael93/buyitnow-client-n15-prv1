@@ -1,10 +1,11 @@
+import { NextResponse } from 'next/server';
+
 import Address from '@/backend/models/address';
 import User from '@/backend/models/user';
 import PaymentType from '@/backend/models/paymentType';
 import DeliveryPrice from '@/backend/models/deliveryPrice';
 import isAuthenticatedUser from '@/backend/middlewares/auth';
 import dbConnect from '@/backend/config/dbConnect';
-import { NextResponse } from 'next/server';
 
 export async function GET(req) {
   try {

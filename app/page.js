@@ -1,4 +1,4 @@
-import React from 'react';
+/* eslint-disable import/order */
 import dynamic from 'next/dynamic';
 
 import { getAllProducts } from '@/backend/utils/server-only-methods';
@@ -11,7 +11,6 @@ export const metadata = {
   title: 'Buy It Now',
 };
 
-// eslint-disable-next-line react/prop-types
 const HomePage = async ({ searchParams }) => {
   const productsData = await getAllProducts(await searchParams);
 

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useContext } from 'react';
 import { CldImage, CldUploadWidget } from 'next-cloudinary';
-
 import { toast } from 'react-toastify';
 
 import AuthContext from '@/context/AuthContext';

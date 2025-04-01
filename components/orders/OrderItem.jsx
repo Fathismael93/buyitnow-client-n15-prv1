@@ -1,10 +1,10 @@
-/* eslint-disable react/prop-types */
 'use client';
 
 import dynamic from 'next/dynamic';
+import React, { useContext } from 'react';
+
 import Loading from '@/app/loading';
 import OrderContext from '@/context/OrderContext';
-import React, { useContext } from 'react';
 
 const OrderedProduct = dynamic(() => import('./OrderedProduct'), {
   loading: () => <Loading />,
