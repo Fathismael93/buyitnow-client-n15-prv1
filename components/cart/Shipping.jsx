@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import React, { useCallback, useContext, useEffect } from 'react';
+import { useCallback, useContext, useEffect } from 'react';
 import { toast } from 'react-toastify';
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
 import { useRouter } from 'next/navigation';
@@ -31,7 +31,6 @@ const Shipping = () => {
     }
 
     router.prefetch('/payment');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const totalAmount = Number(checkoutInfo?.amount) + deliveryPrice;
@@ -42,7 +41,6 @@ const Shipping = () => {
     }
 
     router.push('/payment');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shippingInfo]);
 
   const setShippingAddress = (address) => {

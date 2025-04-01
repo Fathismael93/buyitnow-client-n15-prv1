@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useContext, useEffect } from 'react';
+import { useContext, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 const Search = dynamic(() => import('./Search'));
@@ -21,7 +21,6 @@ const Header = () => {
       setUser(data?.user);
       setCartToState();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   return (

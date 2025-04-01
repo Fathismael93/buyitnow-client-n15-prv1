@@ -1,4 +1,3 @@
-// eslint-disable-next-line import/no-extraneous-dependencies
 import dynamic from 'next/dynamic';
 
 import Loading from '@/app/loading';

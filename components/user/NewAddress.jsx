@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useContext, useEffect } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { countries } from 'countries-list';
 import { toast } from 'react-toastify';
@@ -30,7 +30,6 @@ const NewAddress = () => {
       toast.error(error);
       clearErrors();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error]);
 
   const submitHandler = async (e) => {

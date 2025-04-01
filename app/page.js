@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 import dynamic from 'next/dynamic';
 
 import { getAllProducts } from '@/backend/utils/server-only-methods';

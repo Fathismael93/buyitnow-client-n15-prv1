@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import React, { useContext, useEffect } from 'react';
+import { useContext, useEffect } from 'react';
 
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
 import { useRouter } from 'next/navigation';
@@ -62,7 +62,6 @@ const ShippingChoice = ({ addresses, payments, deliveryPrice }) => {
     });
 
     router.prefetch('/payment');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const breadCrumbs = [

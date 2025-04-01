@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useContext, useEffect } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import Link from 'next/link';
 import { toast } from 'react-toastify';
 
@@ -20,7 +20,6 @@ const Register = () => {
       toast.error(error);
       clearErrors();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error]);
 
   const submitHandler = async (e) => {

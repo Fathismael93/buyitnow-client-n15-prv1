@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { CldImage, CldUploadWidget } from 'next-cloudinary';
 import { toast } from 'react-toastify';
 
@@ -28,7 +28,6 @@ const UpdateProfile = () => {
       toast.error(error);
       clearErrors();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error, user]);
 
   const submitHandler = async (e) => {

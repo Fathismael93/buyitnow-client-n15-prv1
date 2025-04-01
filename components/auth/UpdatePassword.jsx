@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useContext, useState, useEffect } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 
 import AuthContext from '@/context/AuthContext';
@@ -16,7 +16,6 @@ const UpdatePassword = () => {
       toast.error(error);
       clearErrors();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error]);
 
   const submitHandler = (e) => {

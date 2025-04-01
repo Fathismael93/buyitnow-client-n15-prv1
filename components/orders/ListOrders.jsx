@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import React, { useContext, useEffect } from 'react';
+import { useContext, useEffect } from 'react';
 
 import { arrayHasData } from '@/helpers/helpers';
 import Loading from '@/app/loading';
@@ -20,7 +20,6 @@ const ListOrders = ({ orders }) => {
 
   useEffect(() => {
     setDeliveryPrice(orders?.deliveryPrice[0]?.deliveryPrice);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { toast } from 'react-toastify';
@@ -35,7 +35,6 @@ const Payment = () => {
       ...orderInfo,
       shippingInfo,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const breadCrumbs = [

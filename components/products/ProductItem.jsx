@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import { useContext } from 'react';
 import { toast } from 'react-toastify';
 import Link from 'next/link';
 import Image from 'next/image';

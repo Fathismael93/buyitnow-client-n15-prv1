@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useContext, useEffect } from 'react';
+import { useContext, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -16,7 +16,6 @@ const Confirmation = () => {
 
   useEffect(() => {
     setCartToState();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (secret === undefined || secret === null) {

@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import dynamic from 'next/dynamic';
 
 import Loading from '@/app/loading';
@@ -29,7 +28,6 @@ const ListProducts = ({ data }) => {
     if (loading) {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   return (

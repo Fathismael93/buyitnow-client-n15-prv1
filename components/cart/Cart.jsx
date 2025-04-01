@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useContext, useEffect } from 'react';
+import { useContext, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -27,7 +27,6 @@ const Cart = () => {
   useEffect(() => {
     setCartToState();
     router.prefetch('/shipping');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const increaseQty = (cartItem) => {
