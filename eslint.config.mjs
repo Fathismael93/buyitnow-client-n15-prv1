@@ -1,5 +1,6 @@
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
+
 import { FlatCompat } from '@eslint/eslintrc';
 import globals from 'globals';
 import js from '@eslint/js';
@@ -26,8 +27,8 @@ const eslintConfig = [
     'plugin:react/recommended',
     'plugin:prettier/recommended',
     'next/core-web-vitals',
-    'plugin:react-hooks/recommended-legacy',
-    'plugin:security/recommended',
+    'plugin:react-hooks/recommended',
+    'plugin:security/recommended-legacy',
   ),
 
   // Appliquer à tous les fichiers JS/JSX

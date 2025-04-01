@@ -1,8 +1,8 @@
-/** @type {import('next').NextConfig} */
-import { withSentryConfig } from '@sentry/nextjs';
-import withBundleAnalyzer from '@next/bundle-analyzer';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
+
+import { withSentryConfig } from '@sentry/nextjs';
+import withBundleAnalyzer from '@next/bundle-analyzer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -77,7 +77,6 @@ const nextConfig = {
           }
         : false,
   },
-  swcMinify: true,
   // Configuration du cache des pages statiques
   staticPageGenerationTimeout: 180,
   // Configuration de la sortie en standalone
