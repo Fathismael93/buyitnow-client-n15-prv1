@@ -1,4 +1,3 @@
-/* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable prettier/prettier */
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -7,8 +6,8 @@ import { FlatCompat } from '@eslint/eslintrc';
 import globals from 'globals';
 import js from '@eslint/js';
 import reactPlugin from 'eslint-plugin-react';
-import reactHooksPlugin from 'eslint-plugin-react-hooks';
-import securityPlugin from 'eslint-plugin-security';
+// import reactHooksPlugin from 'eslint-plugin-react-hooks';
+// import securityPlugin from 'eslint-plugin-security';
 // import importPlugin from 'eslint-plugin-import';
 // import optimizeRegexPlugin from 'eslint-plugin-optimize-regex';
 import prettierPlugin from 'eslint-plugin-prettier';
