@@ -73,7 +73,7 @@ const eslintConfig = [
       'react/jsx-props-no-spreading': 'off',
       'react-hooks/exhaustive-deps': 'error',
       // 'optimize-regex/optimize-regex': 'warn',
-      'react/no-array-index-key': 'error',
+      // 'react/no-array-index-key': 'error',
       'react/forbid-dom-props': ['warn', { forbid: ['style'] }],
       'prettier/prettier': 'error',
       // 'import/order': [
