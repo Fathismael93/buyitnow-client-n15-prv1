@@ -7,7 +7,7 @@ import APIFilters from '@/backend/utils/APIFilters';
 
 export async function GET(req) {
   try {
-    const connectionInstance = dbConnect();
+    const connectionInstance = await dbConnect();
 
     if (!connectionInstance.connection) {
       console.error('Database connection failed', 'Products Route');
