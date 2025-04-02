@@ -21,22 +21,25 @@ const logger = winston.createLogger({
   ],
 });
 
+// Variables globales
+const MONGODB_URI = process.env.DB_URI;
+
 // Configuration de la connexion à partir des variables d'environnement
-const config = {
-  MONGODB_URI: process.env.DB_URI,
-  MAX_POOL_SIZE: parseInt(process.env.DB_MAX_POOL_SIZE || '10', 10),
-  MIN_POOL_SIZE: parseInt(process.env.DB_MIN_POOL_SIZE || '5', 10),
-  SOCKET_TIMEOUT_MS: parseInt(process.env.DB_SOCKET_TIMEOUT_MS || '45000', 10),
-  CONNECT_TIMEOUT_MS: parseInt(
-    process.env.DB_CONNECT_TIMEOUT_MS || '10000',
-    10,
-  ),
-  MAX_RETRY_ATTEMPTS: parseInt(process.env.DB_MAX_RETRY_ATTEMPTS || '5', 10),
-  RETRY_INTERVAL_MS: parseInt(process.env.DB_RETRY_INTERVAL_MS || '5000', 10),
-  USE_UNIFIED_TOPOLOGY: process.env.DB_USE_UNIFIED_TOPOLOGY !== 'false',
-  SSL_ENABLED: process.env.DB_SSL_ENABLED === 'true',
-  SSL_VALIDATE: process.env.DB_SSL_VALIDATE !== 'false',
-};
+// const config = {
+//   MONGODB_URI: process.env.DB_URI,
+//   MAX_POOL_SIZE: parseInt(process.env.DB_MAX_POOL_SIZE || '10', 10),
+//   MIN_POOL_SIZE: parseInt(process.env.DB_MIN_POOL_SIZE || '5', 10),
+//   SOCKET_TIMEOUT_MS: parseInt(process.env.DB_SOCKET_TIMEOUT_MS || '45000', 10),
+//   CONNECT_TIMEOUT_MS: parseInt(
+//     process.env.DB_CONNECT_TIMEOUT_MS || '10000',
+//     10,
+//   ),
+//   MAX_RETRY_ATTEMPTS: parseInt(process.env.DB_MAX_RETRY_ATTEMPTS || '5', 10),
+//   RETRY_INTERVAL_MS: parseInt(process.env.DB_RETRY_INTERVAL_MS || '5000', 10),
+//   USE_UNIFIED_TOPOLOGY: process.env.DB_USE_UNIFIED_TOPOLOGY !== 'false',
+//   SSL_ENABLED: process.env.DB_SSL_ENABLED === 'true',
+//   SSL_VALIDATE: process.env.DB_SSL_VALIDATE !== 'false',
+// };
 
 // Variables globales et système de cache
 let cached = global.mongoose;
@@ -128,7 +131,7 @@ const dbConnect = async (forceNew = false) => {
   }
 
   // Vérifier si l'URI est définie
-  if (!config.MONGODB_URI) {
+  if (MONGODB_URI) {
     const error = new Error(
       'MongoDB URI is not defined in environment variables',
     );
@@ -141,7 +144,7 @@ const dbConnect = async (forceNew = false) => {
   }
 
   // Valider le format de l'URI
-  if (!isValidMongoURI(config.MONGODB_URI)) {
+  if (!isValidMongoURI(MONGODB_URI)) {
     const error = new Error('Invalid MongoDB URI format');
     logger.error('Invalid MongoDB URI', { error });
     captureException(error, {
@@ -156,21 +159,22 @@ const dbConnect = async (forceNew = false) => {
 
   // Options de connexion recommandées pour MongoDB et Mongoose
   const opts = {
+    // Options de connexion recommandées pour MongoDB et Mongoose
     bufferCommands: false,
-    maxPoolSize: config.MAX_POOL_SIZE,
-    minPoolSize: config.MIN_POOL_SIZE,
-    socketTimeoutMS: config.SOCKET_TIMEOUT_MS,
-    connectTimeoutMS: config.CONNECT_TIMEOUT_MS,
-    serverSelectionTimeoutMS: config.CONNECT_TIMEOUT_MS,
+    maxPoolSize: 100, // Garder un nombre raisonnable de connexions
+    minPoolSize: 5, // Connexions minimales (utile en production)
+    socketTimeoutMS: 45000, // Éviter déconnexion trop rapide
+    connectTimeoutMS: 10000, // 10 secondes max pour se connecter
+    serverSelectionTimeoutMS: 10000, // 10 sec max pour sélection serveur
     family: 4, // Forcer IPv4 (plus stable dans certains environnements)
-    heartbeatFrequencyMS: 10000,
-    autoIndex: process.env.NODE_ENV !== 'production',
+    heartbeatFrequencyMS: 10000, // Fréquence de pulsation pour la réplication
+    autoIndex: process.env.NODE_ENV !== 'production', // Désactiver l'auto-indexation en production
     // Options SSL pour sécuriser la connexion
-    ssl: config.SSL_ENABLED,
-    sslValidate: config.SSL_VALIDATE,
+    // ssl: config.SSL_ENABLED,
+    // sslValidate: config.SSL_VALIDATE,
     retryWrites: true,
     // Activer les transactions seulement si on utilise un replica set
-    readPreference: process.env.DB_READ_PREFERENCE || 'primary',
+    // readPreference: process.env.DB_READ_PREFERENCE || 'primary',
   };
 
   // Configuration stricte des requêtes pour éviter les erreurs
@@ -203,7 +207,7 @@ const dbConnect = async (forceNew = false) => {
         dbConnect(true).catch((err) => {
           logger.error('Failed to reconnect to MongoDB', { error: err });
         });
-      }, config.RETRY_INTERVAL_MS);
+      }, 5);
     }
   });
 
@@ -217,7 +221,6 @@ const dbConnect = async (forceNew = false) => {
   // Gérer plusieurs signaux
   process.on('SIGINT', () => handleShutdown('SIGINT'));
   process.on('SIGTERM', () => handleShutdown('SIGTERM'));
-  process.on('SIGUSR2', () => handleShutdown('SIGUSR2')); // Pour nodemon
 
   // Fonction de connexion avec retry
   const connectWithRetry = async (retryAttempt = 0) => {
@@ -225,7 +228,7 @@ const dbConnect = async (forceNew = false) => {
       logger.info('Attempting to connect to MongoDB', {
         attempt: retryAttempt + 1,
       });
-      const mongooseInstance = await mongoose.connect(config.MONGODB_URI, opts);
+      const mongooseInstance = await mongoose.connect(MONGODB_URI, opts);
       logger.info('MongoDB connection established');
 
       // Ajout de métriques de connexion (exemple)
@@ -237,15 +240,15 @@ const dbConnect = async (forceNew = false) => {
     } catch (err) {
       // Implémenter un backoff exponentiel
       const nextRetryAttempt = retryAttempt + 1;
-      if (nextRetryAttempt <= config.MAX_RETRY_ATTEMPTS) {
+      if (nextRetryAttempt <= 5) {
         const retryDelay = Math.min(
-          config.RETRY_INTERVAL_MS * Math.pow(1.5, retryAttempt),
+          5 * Math.pow(1.5, retryAttempt),
           30000, // Maximum 30 secondes entre les tentatives
         );
 
         logger.warn(`Connection failed, retrying in ${retryDelay}ms`, {
           attempt: nextRetryAttempt,
-          maxAttempts: config.MAX_RETRY_ATTEMPTS,
+          maxAttempts: 5,
           error: err.message,
         });
 
@@ -260,7 +263,7 @@ const dbConnect = async (forceNew = false) => {
         captureException(err, {
           tags: { service: 'database', action: 'connect' },
           level: 'fatal',
-          extra: { maxRetries: config.MAX_RETRY_ATTEMPTS },
+          extra: { maxRetries: 5 },
         });
         throw err;
       }
