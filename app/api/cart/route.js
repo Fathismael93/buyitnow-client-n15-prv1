@@ -11,7 +11,18 @@ export async function GET(req) {
   try {
     await isAuthenticatedUser(req, NextResponse);
 
-    dbConnect();
+    const connectionInstance = await dbConnect();
+
+    if (!connectionInstance.connection) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Database connection failed',
+        },
+        { status: 500 },
+      );
+    }
+
     const user = await User.findOne({ email: req.user.email }).select('_id');
 
     if (!user) {
@@ -72,7 +83,17 @@ export async function POST(req) {
   try {
     await isAuthenticatedUser(req, NextResponse);
 
-    dbConnect();
+    const connectionInstance = await dbConnect();
+
+    if (!connectionInstance.connection) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Database connection failed',
+        },
+        { status: 500 },
+      );
+    }
 
     const user = await User.findOne({ email: req.user.email }).select('_id');
 
@@ -147,7 +168,18 @@ export async function PUT(req) {
   try {
     await isAuthenticatedUser(req, NextResponse);
 
-    dbConnect();
+    const connectionInstance = await dbConnect();
+
+    if (!connectionInstance.connection) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Database connection failed',
+        },
+        { status: 500 },
+      );
+    }
+
     const user = await User.findOne({ email: req.user.email });
 
     if (!user) {

@@ -9,7 +9,18 @@ export async function DELETE(req, { params }) {
   try {
     await isAuthenticatedUser(req, NextResponse);
 
-    dbConnect();
+    const connectionInstance = await dbConnect();
+
+    if (!connectionInstance.connection) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Database connection failed',
+        },
+        { status: 500 },
+      );
+    }
+
     const user = await User.findOne({ email: req.user.email });
 
     if (!user) {
