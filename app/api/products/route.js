@@ -7,7 +7,19 @@ import APIFilters from '@/backend/utils/APIFilters';
 
 export async function GET(req) {
   try {
-    dbConnect();
+    const connectionInstance = dbConnect();
+
+    if (!connectionInstance.connection) {
+      console.error('Database connection failed', 'Products Route');
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Database connection failed',
+        },
+        { status: 500 },
+      );
+    }
+
     const resPerPage = 2;
 
     const apiFilters = new APIFilters(Product.find(), req.nextUrl.searchParams)
