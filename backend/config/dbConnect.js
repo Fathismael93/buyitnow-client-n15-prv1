@@ -131,7 +131,7 @@ const dbConnect = async (forceNew = false) => {
   }
 
   // Vérifier si l'URI est définie
-  if (MONGODB_URI) {
+  if (!MONGODB_URI) {
     const error = new Error(
       'MongoDB URI is not defined in environment variables',
     );
