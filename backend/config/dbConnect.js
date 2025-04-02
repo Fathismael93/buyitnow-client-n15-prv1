@@ -402,9 +402,17 @@ const dbConnect = async (forceNew = false) => {
   // Attendre la résolution de la promesse
   try {
     logger.debug('Awaiting connection promise resolution');
-    cached.conn = await cached.promise;
+    await cached.promise
+      .then((result) => {
+        console.log('Result : ');
+        console.log(result);
+      })
+      .catch((error) => {
+        console.log('Error : ');
+        console.log(error);
+      });
     logger.debug('Connection promise resolved successfully');
-    return cached.conn;
+    // return cached.conn;
   } catch (e) {
     logger.error('Connection promise rejected', {
       error: e.message,
