@@ -619,15 +619,18 @@ const dbConnect = async () => {
     const mongooseInstance = await mongoose.connect(MONGODB_URI, opts);
 
     logger.info('MongoDB connection established successfully', {
+      connectionExists: !!mongooseInstance.connection,
+      hasDb: !!(mongooseInstance.connection && mongooseInstance.connection.db),
       databaseName:
-        mongooseInstance.connection.readyState === 1 &&
-        mongooseInstance.connection.db.databaseName,
-      host:
-        mongooseInstance.connection.readyState === 1 &&
-        mongooseInstance.connection.host,
-      port:
-        mongooseInstance.connection.readyState === 1 &&
-        mongooseInstance.connection.port,
+        mongooseInstance.connection && mongooseInstance.connection.db
+          ? mongooseInstance.connection.db.databaseName
+          : 'undefined',
+      host: mongooseInstance.connection
+        ? mongooseInstance.connection.host
+        : 'undefined',
+      port: mongooseInstance.connection
+        ? mongooseInstance.connection.port
+        : 'undefined',
     });
 
     return mongooseInstance;
