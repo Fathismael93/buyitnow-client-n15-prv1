@@ -1,4 +1,3 @@
-/* eslint-disable security/detect-unsafe-regex */
 /* eslint-disable prettier/prettier */
 /* eslint-disable no-unused-vars */
 // instrumentation.js

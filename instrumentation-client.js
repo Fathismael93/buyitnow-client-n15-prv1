@@ -148,10 +148,6 @@ Sentry.init({
   environment,
   release: process.env.NEXT_PUBLIC_VERSION || '0.1.0',
 
-  // Échantillonnage adaptatif
-  replaysSessionSampleRate: isProd ? 0.05 : isStaging ? 0.1 : 0.3,
-  replaysOnErrorSampleRate: isProd ? 0.5 : 1.0,
-
   // Configuration de débogage
   debug: isDev,
   enabled:
