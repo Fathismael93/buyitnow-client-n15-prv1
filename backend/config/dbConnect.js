@@ -3,9 +3,9 @@ import { captureException } from '@/monitoring/sentry';
 import winston from 'winston';
 import { isValidMongoURI } from '../utils/validation';
 
-// Création d'un logger structuré avec niveau debug si nécessaire
+// Création d'un logger structuré
 const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'debug', // Modifier en 'debug' pour plus de détails
+  level: process.env.LOG_LEVEL || 'info', // Niveau par défaut : info
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.json(),
@@ -38,8 +38,6 @@ if (!cached) {
 
 /**
  * Fonction utilitaire pour masquer les identifiants dans l'URI pour les logs
- * @param {string} uri - URI MongoDB complète
- * @returns {string} - URI avec les identifiants masqués
  */
 const sanitizeUri = (uri) => {
   if (!uri) return 'undefined-uri';
@@ -55,10 +53,7 @@ const sanitizeUri = (uri) => {
  * @returns {Object} État de santé de la connexion
  */
 export const checkDbHealth = async () => {
-  logger.debug('Checking MongoDB connection health');
-
   if (!cached.conn) {
-    logger.debug('No connection available for health check');
     return {
       status: 'disconnected',
       healthy: false,
@@ -68,9 +63,7 @@ export const checkDbHealth = async () => {
 
   try {
     // Vérification que la connexion répond avec un ping
-    logger.debug('Attempting ping to verify connection');
     await cached.conn.connection.db.admin().ping();
-    logger.debug('Ping successful, connection is healthy');
     return {
       status: 'connected',
       healthy: true,
@@ -79,9 +72,7 @@ export const checkDbHealth = async () => {
   } catch (error) {
     logger.error('MongoDB health check failed', {
       error: error.message,
-      stack: error.stack,
       code: error.code,
-      name: error.name,
     });
     return {
       status: 'unhealthy',
@@ -97,8 +88,6 @@ export const checkDbHealth = async () => {
  * Ferme proprement la connexion à MongoDB
  */
 export const closeDbConnection = async () => {
-  logger.debug('Closing MongoDB connection');
-
   if (cached.conn) {
     try {
       await cached.conn.connection.close();
@@ -108,15 +97,11 @@ export const closeDbConnection = async () => {
     } catch (error) {
       logger.error('Error closing MongoDB connection', {
         error: error.message,
-        stack: error.stack,
-        code: error.code,
       });
       captureException(error, {
         tags: { service: 'database', action: 'disconnect' },
       });
     }
-  } else {
-    logger.debug('No active connection to close');
   }
 };
 
@@ -126,36 +111,21 @@ export const closeDbConnection = async () => {
  * @returns {Promise<Mongoose>} - Instance de connexion Mongoose
  */
 const dbConnect = async (forceNew = false) => {
-  logger.debug(`dbConnect called with forceNew=${forceNew}`);
-
   // Si déjà connecté et pas de force, retourner la connexion existante
   if (cached.conn && !forceNew) {
-    logger.debug('Existing connection found, checking if still valid');
-    // Vérifier que la connexion est toujours valide
     try {
-      logger.debug('Pinging existing connection');
       await cached.conn.connection.db.admin().ping();
-      logger.debug('Existing connection is valid, reusing it');
       return cached.conn;
     } catch (error) {
       logger.warn('Existing connection is not responding, will reconnect', {
         error: error.message,
-        code: error.code,
-        name: error.name,
       });
       await closeDbConnection();
     }
-  } else {
-    logger.debug(
-      `Reason for new connection: ${cached.conn ? 'forceNew flag' : 'no existing connection'}`,
-    );
   }
 
   // Éviter les tentatives de connexion simultanées
   if (cached.isConnecting) {
-    logger.debug(
-      'Connection attempt already in progress, waiting for existing promise',
-    );
     return cached.promise;
   }
 
@@ -164,7 +134,7 @@ const dbConnect = async (forceNew = false) => {
     const error = new Error(
       'MongoDB URI is not defined in environment variables',
     );
-    logger.error('Missing MongoDB URI', { error: error.message });
+    logger.error('Missing MongoDB URI');
     captureException(error, {
       tags: { service: 'database', action: 'connect' },
       level: 'fatal',
@@ -172,16 +142,10 @@ const dbConnect = async (forceNew = false) => {
     throw error;
   }
 
-  // Log de l'URI (version sécurisée sans identifiants)
-  logger.debug(`Using MongoDB URI: ${sanitizeUri(MONGODB_URI)}`);
-
   // Valider le format de l'URI
   if (!isValidMongoURI(MONGODB_URI)) {
     const error = new Error('Invalid MongoDB URI format');
-    logger.error('Invalid MongoDB URI format', {
-      uri: sanitizeUri(MONGODB_URI),
-      error: error.message,
-    });
+    logger.error('Invalid MongoDB URI format');
     captureException(error, {
       tags: { service: 'database', action: 'connect' },
       level: 'fatal',
@@ -190,12 +154,9 @@ const dbConnect = async (forceNew = false) => {
   }
 
   // Marquer comme en cours de connexion
-  logger.debug(
-    'Setting connection flag to prevent parallel connection attempts',
-  );
   cached.isConnecting = true;
 
-  // Log des options de connexion
+  // Options de connexion
   const opts = {
     bufferCommands: false,
     maxPoolSize: 100,
@@ -207,17 +168,11 @@ const dbConnect = async (forceNew = false) => {
     heartbeatFrequencyMS: 10000,
     autoIndex: process.env.NODE_ENV !== 'production',
     retryWrites: true,
-    ssl: true, // Ajout de ssl explicite pour MongoDB Atlas
+    ssl: true,
   };
-
-  logger.debug('Connection options:', { options: JSON.stringify(opts) });
 
   // Configuration stricte des requêtes pour éviter les erreurs
   mongoose.set('strictQuery', true);
-  logger.debug('Mongoose strictQuery set to true');
-
-  // Configurer les gestionnaires d'événements
-  logger.debug('Setting up event handlers for mongoose connection');
 
   // Nettoyer les écouteurs existants pour éviter les duplications
   mongoose.connection.removeAllListeners('connected');
@@ -227,17 +182,14 @@ const dbConnect = async (forceNew = false) => {
   // Événement de connexion réussie
   mongoose.connection.on('connected', () => {
     logger.info('MongoDB connected successfully');
-    // Réinitialiser le compteur de tentatives
     cached.retryCount = 0;
   });
 
   // Événement d'erreur de connexion
   mongoose.connection.on('error', (err) => {
-    logger.error('MongoDB connection error event received', {
+    logger.error('MongoDB connection error', {
       error: err.message,
       code: err.code,
-      name: err.name,
-      stack: err.stack,
     });
     captureException(err, {
       tags: { service: 'database', action: 'connect' },
@@ -246,24 +198,16 @@ const dbConnect = async (forceNew = false) => {
 
   // Événement de déconnexion
   mongoose.connection.on('disconnected', () => {
-    logger.warn('MongoDB disconnected event received');
-    // Si pas déjà en train de se reconnecter et que l'application est toujours en cours
+    logger.warn('MongoDB disconnected');
     if (!cached.isConnecting && process.env.NODE_ENV === 'production') {
-      logger.info('Attempting to reconnect to MongoDB after disconnection...');
-      // Tenter de se reconnecter après un délai
+      logger.info('Attempting to reconnect to MongoDB...');
       setTimeout(() => {
-        logger.debug('Attempting reconnection after timeout');
         dbConnect(true).catch((err) => {
-          logger.error('Failed to reconnect to MongoDB after timeout', {
+          logger.error('Failed to reconnect to MongoDB', {
             error: err.message,
-            stack: err.stack,
           });
         });
-      }, 5000); // Correction du délai à 5000ms (était 5ms)
-    } else {
-      logger.debug(
-        `Not reconnecting automatically: isConnecting=${cached.isConnecting}, NODE_ENV=${process.env.NODE_ENV}`,
-      );
+      }, 5000);
     }
   });
 
@@ -280,101 +224,53 @@ const dbConnect = async (forceNew = false) => {
 
   // Fonction de connexion avec retry
   const connectWithRetry = async (retryAttempt = 0) => {
-    logger.debug(`connectWithRetry called with attempt ${retryAttempt}`);
-
     try {
       logger.info(
         `Attempting to connect to MongoDB (attempt ${retryAttempt + 1})`,
-        {
-          attempt: retryAttempt + 1,
-          uri: sanitizeUri(MONGODB_URI),
-        },
       );
 
-      // Tentative de connexion
-      logger.debug('Calling mongoose.connect');
       const mongooseInstance = await mongoose.connect(MONGODB_URI, opts);
 
-      // Si on arrive ici, la connexion a réussi
-      logger.info('MongoDB connection established successfully', {
-        databaseName: mongooseInstance.connection.db.databaseName,
-        host: mongooseInstance.connection.host,
-        port: mongooseInstance.connection.port,
-      });
-
-      // Log des détails de la connexion
-      const connectionDetails = {
-        readyState: mongooseInstance.connection.readyState,
-        models: Object.keys(mongooseInstance.models),
-        dbName: mongooseInstance.connection.name,
-      };
-      logger.debug('Connection details:', connectionDetails);
-
-      // Ajout de métriques de connexion (exemple)
-      if (global.metrics) {
-        global.metrics.dbConnectionsTotal.inc();
-        logger.debug('Incremented metrics counter for successful connections');
-      }
+      logger.info('MongoDB connection established successfully');
 
       return mongooseInstance;
     } catch (err) {
-      // Log détaillé de l'erreur de connexion
+      // Log d'erreur de connexion
       logger.error('MongoDB connection attempt failed', {
         attempt: retryAttempt + 1,
         error: err.message,
         code: err.code,
         name: err.name,
-        stack: err.stack,
-        driverDetails: err.driver
-          ? 'Driver error present'
-          : 'No driver details',
       });
 
       // Informations supplémentaires pour erreurs spécifiques
       if (err.name === 'MongoServerSelectionError') {
-        logger.error('Server selection error details', {
-          reason: err.reason ? err.reason.toString() : 'No reason provided',
-          topologyDescription: err.topologyDescription
-            ? JSON.stringify(err.topologyDescription)
-            : 'No topology description',
-        });
+        logger.error('Server selection error - check network or IP whitelist');
       }
 
       if (err.name === 'MongoNetworkError') {
-        logger.error('Network error details', {
-          message: err.message,
-          cause: err.cause ? err.cause.toString() : 'No cause provided',
-        });
+        logger.error('Network error - check connectivity');
       }
 
       // Implémenter un backoff exponentiel
       const nextRetryAttempt = retryAttempt + 1;
       if (nextRetryAttempt <= 5) {
         const retryDelay = Math.min(
-          5000 * Math.pow(1.5, retryAttempt), // Correction de 5 à 5000ms pour le délai de base
+          5000 * Math.pow(1.5, retryAttempt),
           30000, // Maximum 30 secondes entre les tentatives
         );
 
         logger.warn(`Connection failed, retrying in ${retryDelay}ms`, {
           attempt: nextRetryAttempt,
           maxAttempts: 5,
-          error: err.message,
-          nextDelay: retryDelay,
         });
 
         // Attendre avant de réessayer
-        logger.debug(`Waiting for ${retryDelay}ms before next attempt`);
         await new Promise((resolve) => setTimeout(resolve, retryDelay));
-        logger.debug('Wait completed, retrying connection');
         return connectWithRetry(nextRetryAttempt);
       } else {
         logger.error(
           'Failed to connect to MongoDB after maximum retry attempts',
-          {
-            error: err.message,
-            maxRetries: 5,
-            finalAttempt: nextRetryAttempt,
-          },
         );
         captureException(err, {
           tags: { service: 'database', action: 'connect' },
@@ -387,24 +283,17 @@ const dbConnect = async (forceNew = false) => {
   };
 
   // Stocker la promesse de connexion dans le cache
-  logger.debug('Initiating connection with retry mechanism');
   cached.promise = await connectWithRetry(cached.retryCount).finally(() => {
-    logger.debug(
-      'Connection attempt completed (success or failure), resetting isConnecting flag',
-    );
     cached.isConnecting = false;
   });
 
   // Attendre la résolution de la promesse
   try {
-    logger.debug('Awaiting connection promise resolution');
     cached.conn = await cached.promise;
-    logger.debug('Connection promise resolved successfully');
     return cached.conn;
   } catch (e) {
     logger.error('Connection promise rejected', {
       error: e.message,
-      stack: e.stack,
     });
     cached.promise = null;
     throw e;
