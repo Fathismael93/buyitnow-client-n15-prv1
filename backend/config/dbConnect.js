@@ -3,6 +3,10 @@ import { captureException } from '@/monitoring/sentry';
 import winston from 'winston';
 import { isValidMongoURI } from '../utils/validation';
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 // Création d'un logger structuré avec niveau debug si nécessaire
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'debug', // Modifier en 'debug' pour plus de détails
