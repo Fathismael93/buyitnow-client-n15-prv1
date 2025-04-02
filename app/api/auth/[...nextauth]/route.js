@@ -9,7 +9,11 @@ const auth = {
   providers: [
     CredentialsProvider({
       async authorize(credentials) {
-        dbConnect();
+        const connectionInstance = await dbConnect();
+
+        if (!connectionInstance.connection) {
+          throw new Error('Database connection failed');
+        }
 
         const { email, password } = credentials;
 

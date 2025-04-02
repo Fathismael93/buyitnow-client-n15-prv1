@@ -10,7 +10,6 @@ export async function GET(req) {
     const connectionInstance = await dbConnect();
 
     if (!connectionInstance.connection) {
-      console.error('Database connection failed', 'Products Route');
       return NextResponse.json(
         {
           success: false,
