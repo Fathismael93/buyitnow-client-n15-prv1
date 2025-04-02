@@ -618,6 +618,11 @@ const dbConnect = async () => {
 
     const mongooseInstance = await mongoose.connect(MONGODB_URI, opts);
 
+    console.log(
+      'MongoDB connection established successfully',
+      mongooseInstance,
+    );
+
     logger.info('MongoDB connection established successfully', {
       databaseName: mongooseInstance.connection.db.databaseName,
       host: mongooseInstance.connection.host,
