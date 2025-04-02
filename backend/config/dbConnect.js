@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { captureException } from '@/monitoring/sentry';
 import winston from 'winston';
-import { isValidMongoURI } from './utils/validation';
+import { isValidMongoURI } from '../utils/validation';
 
 // Création d'un logger structuré
 const logger = winston.createLogger({
