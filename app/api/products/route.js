@@ -20,7 +20,7 @@ export async function GET(req) {
     }
 
     // Exécuter toutes les migrations
-    const results = await Product.runAllMigrations();
+    const results = await Category.runAllMigrations();
     console.log('Résultats des migrations:', results);
 
     const resPerPage = 2;
