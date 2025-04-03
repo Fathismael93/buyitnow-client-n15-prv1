@@ -1,6 +1,4 @@
-/* eslint-disable prettier/prettier */
 import * as Sentry from '@sentry/nextjs';
-import { Replay } from '@sentry/replay';
 
 // Vérification de l'environnement pour une configuration conditionnelle
 const environment = process.env.NODE_ENV || 'development';
@@ -147,6 +145,11 @@ Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   environment,
   release: process.env.NEXT_PUBLIC_VERSION || '0.1.0',
+
+  // Échantillonnage adaptatif
+  tracesSampleRate: isProd ? 0.1 : isStaging ? 0.3 : 1.0,
+  replaysSessionSampleRate: isProd ? 0.05 : isStaging ? 0.1 : 0.3,
+  replaysOnErrorSampleRate: isProd ? 0.5 : 1.0,
 
   // Configuration de débogage
   debug: isDev,
