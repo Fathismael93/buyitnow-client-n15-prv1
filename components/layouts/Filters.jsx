@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import { arrayHasData, getPriceQueryParams } from '@/helpers/helpers';
 
 const Filters = ({ setLoading }) => {
-  const [categories, setCategories] = useState('');
+  const [categories, setCategories] = useState();
   const [min, setMin] = useState('');
   const [max, setMax] = useState('');
   const [open, setOpen] = useState(false);
@@ -32,12 +32,13 @@ const Filters = ({ setLoading }) => {
         ///////
       }
 
-      console.log(data?.data);
-
       return data?.data;
     }
 
-    await getCategories();
+    const categoriesObject = await getCategories();
+    if (categoriesObject?.categories) {
+      setCategories(categoriesObject?.categories);
+    }
   }, []);
 
   let queryParams;
