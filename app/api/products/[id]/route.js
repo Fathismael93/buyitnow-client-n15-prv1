@@ -7,7 +7,17 @@ import Product from '@/backend/models/product';
 
 export async function GET(req, { params }) {
   try {
-    dbConnect();
+    const connectionInstance = await dbConnect();
+
+    if (!connectionInstance.connection) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Database connection failed',
+        },
+        { status: 500 },
+      );
+    }
 
     const { id } = params;
 
