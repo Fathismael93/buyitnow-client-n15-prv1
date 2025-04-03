@@ -53,7 +53,7 @@ export const getProductDetails = async (id) => {
     return [];
   }
 
-  if (data?.product === undefined) {
+  if (data?.data?.product === undefined) {
     return notFound();
   }
 
