@@ -23,8 +23,6 @@ export async function GET(req, { params }) {
 
     const product = await Product.findById(id).populate('category');
 
-    console.log('product', product);
-
     if (!product) {
       return NextResponse.json(
         {
@@ -38,8 +36,6 @@ export async function GET(req, { params }) {
     const sameCategoryProducts = await Product.find({
       category: product?.category,
     }).limit(5);
-
-    console.log('sameCategoryProducts', sameCategoryProducts);
 
     return NextResponse.json(
       {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useContext, useState } from 'react';
+import { useContext, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'react-toastify';
 import Image from 'next/image';
