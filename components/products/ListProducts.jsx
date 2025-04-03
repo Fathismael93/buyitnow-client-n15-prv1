@@ -34,7 +34,7 @@ const ListProducts = ({ data }) => {
     <section className="py-12">
       <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
         <div className="flex flex-col md:flex-row -mx-4">
-          <Filters categories={data?.categories} setLoading={setLoading} />
+          <Filters setLoading={setLoading} />
 
           {loading ? (
             <div className="w-full justify-center items-center">

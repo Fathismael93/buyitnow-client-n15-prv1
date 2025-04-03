@@ -1,17 +1,43 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 
 import { arrayHasData, getPriceQueryParams } from '@/helpers/helpers';
 
-const Filters = ({ categories, setLoading }) => {
+const Filters = ({ setLoading }) => {
+  const [categories, setCategories] = useState('');
   const [min, setMin] = useState('');
   const [max, setMax] = useState('');
   const [open, setOpen] = useState(false);
 
   const router = useRouter();
+
+  useEffect(async () => {
+    async function getCategories() {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/category`,
+      );
+
+      const data = await res.json();
+
+      if (data?.success === false) {
+        toast.info(data?.message);
+        return [];
+      }
+
+      if (data?.error !== undefined) {
+        ///////
+      }
+
+      console.log(data?.data);
+
+      return data?.data;
+    }
+
+    await getCategories();
+  }, []);
 
   let queryParams;
 
