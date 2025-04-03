@@ -17,8 +17,6 @@ export const metadata = {
 const ProductDetailsPage = async ({ params }) => {
   const data = await getProductDetails((await params)?.id);
 
-  console.log('ProductDetailsPage', data);
-
   return (
     <ProductDetails
       product={data?.data?.product}

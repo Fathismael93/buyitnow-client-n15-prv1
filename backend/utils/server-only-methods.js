@@ -46,8 +46,6 @@ export const getProductDetails = async (id) => {
 
   const data = await res.json();
 
-  console.log('getProductDetails', data);
-
   if (data?.success === false) {
     toast.info(data?.message);
     return [];
