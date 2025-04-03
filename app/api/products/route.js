@@ -19,6 +19,10 @@ export async function GET(req) {
       );
     }
 
+    // Exécuter toutes les migrations
+    const results = await Product.runAllMigrations();
+    console.log('Résultats des migrations:', results);
+
     const resPerPage = 2;
 
     const apiFilters = new APIFilters(Product.find(), req.nextUrl.searchParams)
