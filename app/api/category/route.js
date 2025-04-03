@@ -17,7 +17,7 @@ export async function GET() {
       );
     }
 
-    const categories = await Category.find();
+    const categories = await Category.find().select('categoryName');
 
     return NextResponse.json(
       {
