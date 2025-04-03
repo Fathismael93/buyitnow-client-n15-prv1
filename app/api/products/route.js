@@ -1,7 +1,9 @@
+/* eslint-disable no-unused-vars */
 import { NextResponse } from 'next/server';
 
 import dbConnect from '@/backend/config/dbConnect';
 import Product from '@/backend/models/product';
+import Category from '@/backend/models/category';
 import APIFilters from '@/backend/utils/APIFilters';
 
 export async function GET(req) {
