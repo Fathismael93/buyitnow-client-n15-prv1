@@ -141,10 +141,99 @@ productSchema.statics.migrateAddIsActive = async function () {
   return `${result.modifiedCount} produits ont été mis à jour avec isActive = true`;
 };
 
+// Méthode statique pour ajouter le champ isActive
+productSchema.statics.migrateAddIsActive = async function () {
+  const result = await this.updateMany(
+    { isActive: { $exists: false } },
+    { $set: { isActive: true } },
+  );
+
+  console.log(`Migration du champ isActive terminée`);
+  return `${result.modifiedCount} produits ont été mis à jour avec isActive = true`;
+};
+
 // Méthode statique pour ajouter le champ sold et ajuster les stocks
 productSchema.statics.migrateAddSoldAndUpdateStock = async function () {
-  // Obtenir le modèle Order
-  const Order = mongoose.model('Order');
+  // Importer et enregistrer explicitement le modèle Order si nécessaire
+  let Order;
+  try {
+    // Essayer d'obtenir le modèle s'il est déjà enregistré
+    Order = mongoose.model('Order');
+  } catch (error) {
+    // Si le modèle n'est pas enregistré, l'enregistrer manuellement
+    const orderSchema = mongoose.Schema({
+      shippingInfo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Address',
+      },
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'User',
+      },
+      orderItems: [
+        {
+          product: {
+            type: mongoose.Schema.Types.ObjectId,
+            required: true,
+            ref: 'Product',
+          },
+          name: {
+            type: String,
+            required: true,
+          },
+          category: {
+            type: String,
+            required: true,
+          },
+          quantity: {
+            type: Number,
+            required: true,
+          },
+          image: {
+            type: String,
+            required: true,
+          },
+          price: {
+            type: Number,
+            required: true,
+          },
+        },
+      ],
+      paymentInfo: {
+        amountPaid: {
+          type: Number,
+          required: true,
+        },
+        typePayment: {
+          type: String,
+          required: true,
+        },
+        paymentAccountNumber: {
+          type: String,
+          required: true,
+        },
+        paymentAccountName: {
+          type: String,
+          required: true,
+        },
+      },
+      paymentStatus: {
+        type: String,
+        default: 'unpaid',
+      },
+      orderStatus: {
+        type: String,
+        default: 'Processing',
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+    });
+
+    Order = mongoose.model('Order', orderSchema);
+  }
 
   // 1. D'abord, ajouter le champ 'sold' = 0 à tous les produits qui ne l'ont pas
   const soldResult = await this.updateMany(
