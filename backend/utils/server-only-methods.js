@@ -60,7 +60,7 @@ export const getProductDetails = async (id) => {
     return [];
   }
 
-  return data;
+  return data?.data;
 };
 
 export const getAllAddresses = async (page) => {

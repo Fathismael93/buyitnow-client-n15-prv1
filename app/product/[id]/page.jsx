@@ -21,8 +21,8 @@ const ProductDetailsPage = async ({ params }) => {
 
   return (
     <ProductDetails
-      product={data?.data?.product}
-      sameCategoryProducts={data?.data?.sameCategoryProducts}
+      product={data?.product}
+      sameCategoryProducts={data?.sameCategoryProducts}
     />
   );
 };
