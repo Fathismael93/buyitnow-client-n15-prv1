@@ -52,10 +52,12 @@ export const getProductDetails = async (id) => {
   }
 
   if (data?.data?.product === undefined) {
+    console.error('Product not found');
     return notFound();
   }
 
   if (data?.error !== undefined) {
+    console.error('Error fetching product details');
     ///////
     return [];
   }
