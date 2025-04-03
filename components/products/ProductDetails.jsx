@@ -12,9 +12,9 @@
 // import { INCREASE } from '@/helpers/constants';
 // const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
 
-const ProductDetails = ({ product, sameCategoryProducts }) => {
-  console.log('ProductDetails', product);
-  console.log('sameCategoryProducts', sameCategoryProducts);
+const ProductDetails = ({ data }) => {
+  console.log('ProductDetails', data?.product);
+  console.log('sameCategoryProducts', data?.sameCategoryProducts);
   // const { user } = useContext(AuthContext);
   // const { addItemToCart, updateCart, cart } = useContext(CartContext);
   // // State to track the currently selected image
