@@ -449,7 +449,7 @@ Sentry.init({
   // Intégrations avancées
   integrations: [
     // Activation de Replay avec paramètres améliorés
-    new Sentry.Replay({
+    Sentry.replayIntegration({
       // Paramètres généraux
       maskAllText: true,
       blockAllMedia: true,
