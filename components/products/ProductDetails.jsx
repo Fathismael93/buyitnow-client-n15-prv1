@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 'use client';
 
 // import { useContext, useState } from 'react';
@@ -13,8 +14,8 @@
 // const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
 
 const ProductDetails = ({ data }) => {
-  console.log('ProductDetails', data?.product);
-  console.log('sameCategoryProducts', data?.sameCategoryProducts);
+  // console.log('ProductDetails', data?.product);
+  // console.log('sameCategoryProducts', data?.sameCategoryProducts);
   // const { user } = useContext(AuthContext);
   // const { addItemToCart, updateCart, cart } = useContext(CartContext);
   // // State to track the currently selected image
@@ -59,6 +60,8 @@ const ProductDetails = ({ data }) => {
   //       url: `/products/${product?._id}`,
   //     },
   //   ];
+
+  return <h1>Reussi</h1>;
 
   // return (
   //   <>
