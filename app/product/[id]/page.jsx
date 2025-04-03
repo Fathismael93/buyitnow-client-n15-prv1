@@ -1,11 +1,9 @@
 import dynamic from 'next/dynamic';
 
 import { getProductDetails } from '@/backend/utils/server-only-methods';
-import Loading from '@/app/loading';
+// import Loading from '@/app/loading';
 
-const TestingComp = dynamic(() => import('@/components/products/TestingComp'), {
-  loading: () => <Loading />,
-});
+const TestingComp = dynamic(() => import('@/components/products/TestingComp'));
 
 // const ProductDetails = dynamic(
 //   () => import('@/components/products/ProductDetails'),
