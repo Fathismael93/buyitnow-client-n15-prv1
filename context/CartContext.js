@@ -2,7 +2,7 @@
 'use client';
 
 import { DECREASE } from '@/helpers/constants';
-import React, { createContext, useState } from 'react';
+import { createContext, useState } from 'react';
 import { toast } from 'react-toastify';
 
 const CartContext = createContext();

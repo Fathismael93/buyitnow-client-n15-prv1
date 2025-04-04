@@ -2,7 +2,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import React, { createContext, useState } from 'react';
+import { createContext, useState } from 'react';
 
 const OrderContext = createContext();
 

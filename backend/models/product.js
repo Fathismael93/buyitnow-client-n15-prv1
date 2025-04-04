@@ -110,6 +110,18 @@ productSchema.methods.isInStock = function () {
   return this.stock > 0;
 };
 
+//Methode pour recuperer les produits similaires
+// Méthode statique pour trouver des produits similaires
+productSchema.statics.findSimilarProductsLite = function (
+  categoryId,
+  limit = 5,
+) {
+  return this.find({ category: categoryId })
+    .select('name price images')
+    .slice('images', 1)
+    .limit(limit);
+};
+
 // Assurer que les modèles ne sont pas redéfinis en cas de hot-reload
 const Product =
   mongoose.models.Product || mongoose.model('Product', productSchema);

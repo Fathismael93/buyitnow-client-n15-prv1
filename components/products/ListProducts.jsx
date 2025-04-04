@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 'use client';
 
 import dynamic from 'next/dynamic';
@@ -21,20 +22,22 @@ import { useContext, useEffect } from 'react';
 
 import AuthContext from '@/context/AuthContext';
 
-const ListProducts = ({ data }) => {
+const ListProducts = ({ data, categories }) => {
   const { loading, setLoading } = useContext(AuthContext);
 
-  useEffect(() => {
-    if (loading) {
-      setLoading(false);
-    }
-  }, [data]);
+  // useEffect(() => {
+  //   if (loading) {
+  //     setLoading(false);
+  //   }
+
+  //   return () => {};
+  // }, [data]);
 
   return (
     <section className="py-12">
       <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
         <div className="flex flex-col md:flex-row -mx-4">
-          <Filters setLoading={setLoading} />
+          <Filters categories={categories} setLoading={setLoading} />
 
           {loading ? (
             <div className="w-full justify-center items-center">

@@ -36,13 +36,12 @@ const securityHeaders = [
   // Mise à jour de la directive Content-Security-Policy
   {
     key: 'Content-Security-Policy',
-    value:
-      "default-src 'self'; manifest-src 'self'; frame-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; media-src 'self' https://res.cloudinary.com ; img-src 'self' data: blob: https://res.cloudinary.com; font-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; connect-src 'self' https://res.cloudinary.com https://sentry.io https://*.ingest.sentry.io https://*.sentry.io;",
+    value: `default-src 'self'; manifest-src 'self'; worker-src ${process.env.NEXT_PUBLIC_SITE_URL}; frame-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; media-src 'self' https://res.cloudinary.com ; img-src 'self' data: blob: https://res.cloudinary.com; font-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; connect-src 'self' https://res.cloudinary.com https://sentry.io https://*.ingest.sentry.io https://*.sentry.io;`,
   },
 ];
 
 const nextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false,
   poweredByHeader: false,
   images: {
     remotePatterns: [
@@ -81,7 +80,7 @@ const nextConfig = {
   // Configuration du cache des pages statiques
   staticPageGenerationTimeout: 180,
   // Configuration de la sortie en standalone
-  output: 'standalone',
+  // output: 'standalone',
   // Configuration des headers de sécurité
   async headers() {
     return [

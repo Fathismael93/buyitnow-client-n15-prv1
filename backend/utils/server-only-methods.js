@@ -35,6 +35,25 @@ export const getAllProducts = async (searchParams) => {
   return data?.data;
 };
 
+export const getCategories = async () => {
+  try {
+    const res = await fetch(`${process.env.API_URL}/api/category`);
+
+    const data = await res.json();
+
+    if (data?.success === false) {
+      toast.info(data?.message);
+      return [];
+    }
+
+    return data?.data?.categories;
+  } catch (error) {
+    console.error(error);
+    toast.error('Something went wrong!');
+    return [];
+  }
+};
+
 export const getProductDetails = async (id) => {
   const isValidId = mongoose.isValidObjectId(id);
 

@@ -6,6 +6,7 @@ import { FlatCompat } from '@eslint/eslintrc';
 import globals from 'globals';
 import js from '@eslint/js';
 import reactPlugin from 'eslint-plugin-react';
+import pluginNext from '@next/eslint-plugin-next';
 // import reactHooksPlugin from 'eslint-plugin-react-hooks';
 // import securityPlugin from 'eslint-plugin-security';
 // import importPlugin from 'eslint-plugin-import';
@@ -51,6 +52,7 @@ const eslintConfig = [
     // Configurations spécifiques qui complètent celles importées ci-dessus
     plugins: {
       react: reactPlugin,
+      '@next/next': pluginNext,
       // 'react-hooks': reactHooksPlugin,
       // security: securityPlugin,
       // import: importPlugin,
@@ -59,6 +61,7 @@ const eslintConfig = [
     },
     rules: {
       'react/react-in-jsx-scope': 0,
+      ...pluginNext.configs.recommended.rules,
       // 'import/no-extraneous-dependencies': ['error', { devDependencies: true }],
       'react/jsx-filename-extension': [1, { extensions: ['.js', '.jsx'] }],
       'react/prop-types': 'off',

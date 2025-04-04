@@ -2,7 +2,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import React, { createContext, useState } from 'react';
+import { createContext, useState } from 'react';
 import { toast } from 'react-toastify';
 
 const AuthContext = createContext();

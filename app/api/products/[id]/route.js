@@ -36,9 +36,9 @@ export async function GET(req, { params }) {
       );
     }
 
-    const sameCategoryProducts = await Product.find({
-      category: product?.category,
-    }).limit(5);
+    const sameCategoryProducts = await Product.findSimilarProductsLite(
+      product?.category,
+    );
 
     return NextResponse.json(
       {

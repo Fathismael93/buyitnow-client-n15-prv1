@@ -1,45 +1,17 @@
-/* eslint-disable no-unused-vars */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 
 import { arrayHasData, getPriceQueryParams } from '@/helpers/helpers';
 
-const Filters = ({ setLoading }) => {
-  const [categories, setCategories] = useState();
+const Filters = ({ categories, setLoading }) => {
   const [min, setMin] = useState('');
   const [max, setMax] = useState('');
   const [open, setOpen] = useState(false);
 
   const router = useRouter();
-
-  useEffect(async () => {
-    async function getCategories() {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/category`,
-      );
-
-      const data = await res.json();
-
-      if (data?.success === false) {
-        toast.info(data?.message);
-        return [];
-      }
-
-      if (data?.error !== undefined) {
-        ///////
-      }
-
-      return data?.data;
-    }
-
-    const categoriesObject = await getCategories();
-    if (categoriesObject?.categories) {
-      setCategories(categoriesObject?.categories);
-    }
-  }, []);
 
   let queryParams;
 
