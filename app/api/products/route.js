@@ -22,7 +22,12 @@ export async function GET(req) {
 
     const resPerPage = 2;
 
-    const apiFilters = new APIFilters(Product.find(), req.nextUrl.searchParams)
+    const apiFilters = new APIFilters(
+      Product.find()
+        .select('name description stock price images')
+        .slice('images', 1),
+      req.nextUrl.searchParams,
+    )
       .search()
       .filter();
 
