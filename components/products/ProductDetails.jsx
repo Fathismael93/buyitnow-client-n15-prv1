@@ -14,11 +14,11 @@ import { INCREASE } from '@/helpers/constants';
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
 
 const ProductDetails = ({ data }) => {
-  console.log('ProductDetails', data?.product);
-  console.log('sameCategoryProducts', data?.sameCategoryProducts);
   const { user } = useContext(AuthContext);
   const { addItemToCart, updateCart, cart } = useContext(CartContext);
+
   const [product, setProduct] = useState(data?.product);
+
   // State to track the currently selected image
   const [selectedImage, setSelectedImage] = useState(
     data?.product?.images[0]?.url || '/images/default_product.png',

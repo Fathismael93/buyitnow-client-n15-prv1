@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 'use client';
 
 import dynamic from 'next/dynamic';
@@ -25,13 +24,14 @@ import AuthContext from '@/context/AuthContext';
 const ListProducts = ({ data, categories }) => {
   const { loading, setLoading } = useContext(AuthContext);
 
-  // useEffect(() => {
-  //   if (loading) {
-  //     setLoading(false);
-  //   }
+  console.log('ListProducts', data);
+  // console.log('ListProducts', categories);
 
-  //   return () => {};
-  // }, [data]);
+  useEffect(() => {
+    if (loading) {
+      setLoading(false);
+    }
+  }, [data]);
 
   return (
     <section className="py-12">
