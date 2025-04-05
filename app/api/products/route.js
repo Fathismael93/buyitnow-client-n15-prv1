@@ -60,14 +60,9 @@ export async function GET(req) {
     // }
 
     const DEFAULT_PER_PAGE = process.env.DEFAULT_PRODUCTS_PER_PAGE || 2;
-    // const MAX_PER_PAGE = process.env.MAX_PRODUCTS_PER_PAGE || 5;
+    const MAX_PER_PAGE = process.env.MAX_PRODUCTS_PER_PAGE || 5;
 
-    // const resPerPage = Math.min(
-    //   MAX_PER_PAGE,
-    //   Math.max(1, parseInt(req.query.limit) || DEFAULT_PER_PAGE),
-    // );
-
-    const resPerPage = DEFAULT_PER_PAGE;
+    const resPerPage = Math.min(MAX_PER_PAGE, Math.max(1, DEFAULT_PER_PAGE));
 
     const apiFilters = new APIFilters(
       Product.find()
