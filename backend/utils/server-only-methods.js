@@ -14,7 +14,6 @@ export const getAllProducts = async (searchParams) => {
     category: (await searchParams).category,
     'price[gte]': (await searchParams).min,
     'price[lte]': (await searchParams).max,
-    'ratings[gte]': (await searchParams).ratings,
   };
 
   const searchQuery = queryString.stringify(urlParams);

@@ -17,7 +17,9 @@ export async function GET() {
       );
     }
 
-    const categories = await Category.find().select('categoryName');
+    const categories = await Category.find()
+      .select('categoryName')
+      .sort({ categoryName: 1 });
 
     return NextResponse.json(
       {

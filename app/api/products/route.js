@@ -5,6 +5,7 @@ import dbConnect from '@/backend/config/dbConnect';
 import Product from '@/backend/models/product';
 import Category from '@/backend/models/category';
 import APIFilters from '@/backend/utils/APIFilters';
+import { searchSchema } from '@/helpers/schemas';
 
 export async function GET(req) {
   try {
@@ -20,7 +21,42 @@ export async function GET(req) {
       );
     }
 
-    const resPerPage = 2;
+    if (req.nextUrl.searchParams.get('keyword')) {
+      const keyword = req.nextUrl.searchParams.get('keyword');
+      try {
+        const result = await searchSchema.validate(
+          { keyword },
+          { abortEarly: false },
+        );
+
+        if (!result.keyword) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: "Keyword doesn't match yup validation requirements",
+            },
+            { status: 500 },
+          );
+        }
+      } catch (error) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Error encountered during yup validation process',
+            error: error,
+          },
+          { status: 500 },
+        );
+      }
+    }
+
+    const DEFAULT_PER_PAGE = process.env.DEFAULT_PRODUCTS_PER_PAGE || 2;
+    const MAX_PER_PAGE = process.env.MAX_PRODUCTS_PER_PAGE || 5;
+
+    const resPerPage = Math.min(
+      MAX_PER_PAGE,
+      Math.max(1, parseInt(req.query.limit) || DEFAULT_PER_PAGE),
+    );
 
     const apiFilters = new APIFilters(
       Product.find()

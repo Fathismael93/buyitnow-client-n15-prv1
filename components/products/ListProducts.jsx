@@ -24,9 +24,6 @@ import AuthContext from '@/context/AuthContext';
 const ListProducts = ({ data, categories }) => {
   const { loading, setLoading } = useContext(AuthContext);
 
-  console.log('ListProducts', data);
-  // console.log('ListProducts', categories);
-
   useEffect(() => {
     if (loading) {
       setLoading(false);
