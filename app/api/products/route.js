@@ -24,13 +24,13 @@ export async function GET(req) {
 
     console.log('Get Products in GET API', 'Connected to db');
 
-    if (req.nextUrl.searchParams.get('keyword')) {
+    if (req?.nextUrl?.searchParams?.get('keyword')) {
       console.log(
         'Get Products in GET API',
         'Starting to validate keyword with yup',
       );
 
-      const keyword = req.nextUrl.searchParams.get('keyword');
+      const keyword = req?.nextUrl?.searchParams?.get('keyword');
 
       try {
         const result = await searchSchema.validate(
@@ -38,7 +38,7 @@ export async function GET(req) {
           { abortEarly: false },
         );
 
-        if (!result.keyword) {
+        if (!result?.keyword) {
           return NextResponse.json(
             {
               success: false,
