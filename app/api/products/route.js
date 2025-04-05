@@ -8,7 +8,6 @@ import APIFilters from '@/backend/utils/APIFilters';
 import { searchSchema } from '@/helpers/schemas';
 
 export async function GET(req) {
-  console.log('Get Products in GET API');
   try {
     const connectionInstance = await dbConnect();
 
@@ -22,26 +21,13 @@ export async function GET(req) {
       );
     }
 
-    console.log('Get Products in GET API', 'Connected to db');
-
     if (req?.nextUrl?.searchParams?.get('keyword')) {
-      console.log(
-        'Get Products in GET API',
-        'Starting to validate keyword with yup',
-      );
-
       const keyword = req?.nextUrl?.searchParams?.get('keyword');
 
       try {
         const result = await searchSchema.validate(
           { keyword },
           { abortEarly: false },
-        );
-
-        console.log(
-          'Get Products in GET API',
-          'Keyword validation result',
-          result,
         );
 
         if (!result?.keyword) {

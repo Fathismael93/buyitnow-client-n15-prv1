@@ -32,6 +32,9 @@ const Filters = ({ categories, setLoading }) => {
       // Delete the filter from query
       queryParams.delete(checkbox.name);
     } else {
+      console.log('checkbox name', checkbox.name);
+      console.log('checkbox value', checkbox.value);
+
       // Set filter in the query
       if (queryParams.has(checkbox.name)) {
         queryParams.set(checkbox.name, checkbox.value);
