@@ -62,9 +62,8 @@ export async function GET(req) {
           { abortEarly: false },
         );
 
-        console.log('Category Validation', result);
-
-        if (!result?.value) {
+        if (!result) {
+          console.log('Category Validation, result not good');
           return NextResponse.json(
             {
               success: false,
