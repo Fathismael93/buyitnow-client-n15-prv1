@@ -42,7 +42,7 @@ const Filters = ({ categories, setLoading }) => {
           { abortEarly: false },
         );
 
-        console.info(result);
+        console.log(result);
         if (!result?.value) {
           toast.error("Checkbox doesn't match yup validation requirements");
           return;
