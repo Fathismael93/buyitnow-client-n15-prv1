@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 
 import { arrayHasData, getPriceQueryParams } from '@/helpers/helpers';
+import { categorySchema } from '@/helpers/schemas';
 
 const Filters = ({ categories, setLoading }) => {
   const [min, setMin] = useState('');
@@ -15,7 +16,7 @@ const Filters = ({ categories, setLoading }) => {
 
   let queryParams;
 
-  function handleClick(checkbox) {
+  async function handleClick(checkbox) {
     setLoading(true);
 
     if (typeof window !== 'undefined') {
@@ -32,8 +33,30 @@ const Filters = ({ categories, setLoading }) => {
       // Delete the filter from query
       queryParams.delete(checkbox.name);
     } else {
-      console.log('checkbox name', checkbox.name);
-      console.log('checkbox value', checkbox.value);
+      const value = checkbox.value;
+      // Validate the checkbox value with yup
+      try {
+        const result = await categorySchema.validate(
+          { value },
+          { abortEarly: false },
+        );
+
+        console.log('Result in category validation', result);
+
+        // if (!result?.category) {
+        // }
+      } catch (error) {
+        console.error(error);
+        toast.error('Error encountered during yup validation process');
+        // return NextResponse.json(
+        //   {
+        //     success: false,
+        //     message: 'Error encountered during yup validation process',
+        //     error: error,
+        //   },
+        //   { status: 500 },
+        // );
+      }
 
       // Set filter in the query
       if (queryParams.has(checkbox.name)) {
