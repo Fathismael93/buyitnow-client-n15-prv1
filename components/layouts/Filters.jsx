@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 
 import { arrayHasData, getPriceQueryParams } from '@/helpers/helpers';
-import { categorySchema } from '@/helpers/schemas';
+import { categorySchema, priceRangeSchema } from '@/helpers/schemas';
 
 const Filters = ({ categories, setLoading }) => {
   const [min, setMin] = useState('');
@@ -42,8 +42,8 @@ const Filters = ({ categories, setLoading }) => {
           { abortEarly: false },
         );
 
-        console.log(result);
-        if (!result?.value) {
+        console.log('Category Validation', result);
+        if (!result) {
           toast.error("Checkbox doesn't match yup validation requirements");
           return;
         }
@@ -72,6 +72,12 @@ const Filters = ({ categories, setLoading }) => {
     try {
       if (typeof window !== 'undefined') {
         queryParams = new URLSearchParams(window.location.search);
+
+        const result = await priceRangeSchema.validate(
+          { minPrice: min, maxPrice: max },
+          { abortEarly: false },
+        );
+        console.log('Price Range validation', result);
 
         queryParams = getPriceQueryParams(queryParams, 'min', min);
         queryParams = getPriceQueryParams(queryParams, 'max', max);
