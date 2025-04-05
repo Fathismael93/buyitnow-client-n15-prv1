@@ -106,6 +106,109 @@ export const categorySchema = yup.object().shape({
     .transform((value) => (value ? value.toLowerCase() : value)),
 });
 
+export const priceRangeSchema = yup
+  .object()
+  .shape({
+    minPrice: yup
+      .number()
+      .nullable()
+      .transform((value, originalValue) => {
+        // Transforme les chaînes vides en null
+        return originalValue === '' ? null : value;
+      })
+      .typeError('Le prix minimum doit être un nombre valide')
+      .test(
+        'is-positive-or-zero',
+        'Le prix minimum doit être supérieur ou égal à 0',
+        (value) => value === null || value >= 0,
+      )
+      .test(
+        'is-finite-number',
+        'Le prix minimum doit être un nombre fini',
+        (value) =>
+          value === null || (Number.isFinite(value) && value <= 999999999),
+      )
+      .test(
+        'is-valid-price-format',
+        'Le prix minimum doit avoir au maximum 2 décimales',
+        (value) => value === null || /^\d+(\.\d{1,2})?$/.test(String(value)),
+      ),
+
+    maxPrice: yup
+      .number()
+      .nullable()
+      .transform((value, originalValue) => {
+        // Transforme les chaînes vides en null
+        return originalValue === '' ? null : value;
+      })
+      .typeError('Le prix maximum doit être un nombre valide')
+      .test(
+        'is-positive-or-zero',
+        'Le prix maximum doit être supérieur ou égal à 0',
+        (value) => value === null || value >= 0,
+      )
+      .test(
+        'is-finite-number',
+        'Le prix maximum doit être un nombre fini',
+        (value) =>
+          value === null || (Number.isFinite(value) && value <= 999999999),
+      )
+      .test(
+        'is-valid-price-format',
+        'Le prix maximum doit avoir au maximum 2 décimales',
+        (value) => value === null || /^\d+(\.\d{1,2})?$/.test(String(value)),
+      ),
+  })
+  .test(
+    'min-max-constraint',
+    'Le prix minimum doit être inférieur ou égal au prix maximum',
+    function (values) {
+      const { minPrice, maxPrice } = values;
+
+      // Si l'un des deux est null, la validation réussit
+      if (minPrice === null || maxPrice === null) {
+        return true;
+      }
+
+      return minPrice <= maxPrice;
+    },
+  )
+  .test(
+    'at-least-one-price',
+    'Au moins un des prix doit être spécifié pour effectuer une recherche par prix',
+    function (values) {
+      // Cette validation est optionnelle - à décommenter si vous voulez imposer
+      // qu'au moins un des deux champs soit renseigné
+      /*
+    const { minPrice, maxPrice } = values;
+    return minPrice !== null || maxPrice !== null;
+    */
+
+      // Par défaut, on accepte les deux champs vides
+      return true;
+    },
+  );
+
+// Fonction utilitaire pour utiliser ce schéma dans vos contrôleurs
+export const validatePriceRange = async (minPrice, maxPrice) => {
+  try {
+    const validated = await priceRangeSchema.validate({
+      minPrice: minPrice === undefined ? null : minPrice,
+      maxPrice: maxPrice === undefined ? null : maxPrice,
+    });
+
+    return {
+      isValid: true,
+      data: validated,
+    };
+  } catch (error) {
+    return {
+      isValid: false,
+      error: error.message,
+    };
+  }
+};
+
 export const profileSchema = yup.object().shape({
   name: yup.string().required().min(3),
   phone: yup.number().positive().integer().required().min(6),

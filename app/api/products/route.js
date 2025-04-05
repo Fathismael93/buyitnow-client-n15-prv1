@@ -5,7 +5,7 @@ import dbConnect from '@/backend/config/dbConnect';
 import Product from '@/backend/models/product';
 import Category from '@/backend/models/category';
 import APIFilters from '@/backend/utils/APIFilters';
-import { searchSchema } from '@/helpers/schemas';
+import { categorySchema, searchSchema } from '@/helpers/schemas';
 
 export async function GET(req) {
   try {
@@ -21,6 +21,7 @@ export async function GET(req) {
       );
     }
 
+    // Search by product name validation with yup
     if (req?.nextUrl?.searchParams?.get('keyword')) {
       const keyword = req?.nextUrl?.searchParams?.get('keyword');
 
@@ -35,6 +36,38 @@ export async function GET(req) {
             {
               success: false,
               message: "Keyword doesn't match yup validation requirements",
+            },
+            { status: 500 },
+          );
+        }
+      } catch (error) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Error encountered during yup validation process',
+            error: error,
+          },
+          { status: 500 },
+        );
+      }
+    }
+
+    // Filter by product category validation with yup
+    if (req?.nextUrl?.searchParams?.get('category')) {
+      const value = req?.nextUrl?.searchParams?.get('category');
+
+      try {
+        const result = await categorySchema.validate(
+          { value },
+          { abortEarly: false },
+        );
+
+        if (!result?.value) {
+          return NextResponse.json(
+            {
+              success: false,
+              message:
+                "Category value doesn't match yup validation requirements",
             },
             { status: 500 },
           );

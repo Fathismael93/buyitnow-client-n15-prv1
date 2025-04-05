@@ -34,6 +34,7 @@ const Filters = ({ categories, setLoading }) => {
       queryParams.delete(checkbox.name);
     } else {
       const value = checkbox.value;
+
       // Validate the checkbox value with yup
       try {
         const result = await categorySchema.validate(
@@ -41,23 +42,16 @@ const Filters = ({ categories, setLoading }) => {
           { abortEarly: false },
         );
 
-        console.log('Result in category validation', result);
-
-        // if (!result?.category) {
-        // }
+        if (!result?.value) {
+          console.info(result);
+          toast.error("Checkbox doesn't match yup validation requirements");
+          return;
+        }
       } catch (error) {
-        console.error(error);
         toast.error('Error encountered during yup validation process');
-        // return NextResponse.json(
-        //   {
-        //     success: false,
-        //     message: 'Error encountered during yup validation process',
-        //     error: error,
-        //   },
-        //   { status: 500 },
-        // );
+        console.error(error);
+        return;
       }
-
       // Set filter in the query
       if (queryParams.has(checkbox.name)) {
         queryParams.set(checkbox.name, checkbox.value);
@@ -81,6 +75,8 @@ const Filters = ({ categories, setLoading }) => {
 
         queryParams = getPriceQueryParams(queryParams, 'min', min);
         queryParams = getPriceQueryParams(queryParams, 'max', max);
+
+        console.log('queryParams', queryParams);
 
         const path = window.location.pathname + '?' + queryParams.toString();
 
