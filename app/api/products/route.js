@@ -62,6 +62,8 @@ export async function GET(req) {
           { abortEarly: false },
         );
 
+        console.log('Category Validation', result);
+
         if (!result?.value) {
           return NextResponse.json(
             {
