@@ -73,7 +73,7 @@ export const searchSchema = yup.object().shape({
 });
 
 export const categorySchema = yup.object().shape({
-  category: yup
+  value: yup
     .string()
     .required('La catégorie est requise')
     .trim()
