@@ -24,22 +24,20 @@ export async function GET(req) {
     if (req.nextUrl.searchParams.get('keyword')) {
       const keyword = req.nextUrl.searchParams.get('keyword');
       try {
-        const result = await searchSchema.validate(
-          { keyword },
-          { abortEarly: false },
-        );
+        await searchSchema
+          .validate({ keyword }, { abortEarly: false })
+          .then((result) => console.log('Result in Product API', result))
+          .catch((error) => console.log('Error in Product API', error));
 
-        console.log('Result in Product API', result);
-
-        if (!result.keyword) {
-          return NextResponse.json(
-            {
-              success: false,
-              message: "Keyword doesn't match yup validation requirements",
-            },
-            { status: 500 },
-          );
-        }
+        // if (!result.keyword) {
+        //   return NextResponse.json(
+        //     {
+        //       success: false,
+        //       message: "Keyword doesn't match yup validation requirements",
+        //     },
+        //     { status: 500 },
+        //   );
+        // }
       } catch (error) {
         return NextResponse.json(
           {
