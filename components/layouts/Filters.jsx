@@ -42,8 +42,8 @@ const Filters = ({ categories, setLoading }) => {
           { abortEarly: false },
         );
 
+        console.info(result);
         if (!result?.value) {
-          console.info(result);
           toast.error("Checkbox doesn't match yup validation requirements");
           return;
         }
@@ -76,7 +76,7 @@ const Filters = ({ categories, setLoading }) => {
         queryParams = getPriceQueryParams(queryParams, 'min', min);
         queryParams = getPriceQueryParams(queryParams, 'max', max);
 
-        console.log('queryParams', queryParams);
+        console.log('queryParams', queryParams.toString());
 
         const path = window.location.pathname + '?' + queryParams.toString();
 
