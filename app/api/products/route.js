@@ -24,40 +24,46 @@ export async function GET(req) {
 
     console.log('Get Products in GET API', 'Connected to db');
 
-    // if (req?.nextUrl?.searchParams?.get('keyword')) {
-    //   console.log(
-    //     'Get Products in GET API',
-    //     'Starting to validate keyword with yup',
-    //   );
+    if (req?.nextUrl?.searchParams?.get('keyword')) {
+      console.log(
+        'Get Products in GET API',
+        'Starting to validate keyword with yup',
+      );
 
-    //   const keyword = req?.nextUrl?.searchParams?.get('keyword');
+      const keyword = req?.nextUrl?.searchParams?.get('keyword');
 
-    //   try {
-    //     const result = await searchSchema.validate(
-    //       { keyword },
-    //       { abortEarly: false },
-    //     );
+      try {
+        const result = await searchSchema.validate(
+          { keyword },
+          { abortEarly: false },
+        );
 
-    //     if (!result?.keyword) {
-    //       return NextResponse.json(
-    //         {
-    //           success: false,
-    //           message: "Keyword doesn't match yup validation requirements",
-    //         },
-    //         { status: 500 },
-    //       );
-    //     }
-    //   } catch (error) {
-    //     return NextResponse.json(
-    //       {
-    //         success: false,
-    //         message: 'Error encountered during yup validation process',
-    //         error: error,
-    //       },
-    //       { status: 500 },
-    //     );
-    //   }
-    // }
+        console.log(
+          'Get Products in GET API',
+          'Keyword validation result',
+          result,
+        );
+
+        if (!result?.keyword) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: "Keyword doesn't match yup validation requirements",
+            },
+            { status: 500 },
+          );
+        }
+      } catch (error) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Error encountered during yup validation process',
+            error: error,
+          },
+          { status: 500 },
+        );
+      }
+    }
 
     const DEFAULT_PER_PAGE = process.env.DEFAULT_PRODUCTS_PER_PAGE || 2;
     const MAX_PER_PAGE = process.env.MAX_PRODUCTS_PER_PAGE || 5;
