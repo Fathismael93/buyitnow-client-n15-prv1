@@ -57,22 +57,23 @@ export async function GET(req) {
       const value = req?.nextUrl?.searchParams?.get('category');
 
       try {
-        const result = await categorySchema.validate(
-          { value },
-          { abortEarly: false },
-        );
+        await categorySchema
+          .validate({ value }, { abortEarly: false })
+          .then((result) =>
+            console.log('Result in Category Validation', result),
+          )
+          .catch((error) => console.log('Error in Category Validation', error));
 
-        if (!result) {
-          console.log('Category Validation, result not good');
-          return NextResponse.json(
-            {
-              success: false,
-              message:
-                "Category value doesn't match yup validation requirements",
-            },
-            { status: 500 },
-          );
-        }
+        // if (!result) {
+        //   return NextResponse.json(
+        //     {
+        //       success: false,
+        //       message:
+        //         "Category value doesn't match yup validation requirements",
+        //     },
+        //     { status: 500 },
+        //   );
+        // }
       } catch (error) {
         return NextResponse.json(
           {
