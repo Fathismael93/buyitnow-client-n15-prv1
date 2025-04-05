@@ -8,6 +8,7 @@ import APIFilters from '@/backend/utils/APIFilters';
 import { searchSchema } from '@/helpers/schemas';
 
 export async function GET(req) {
+  console.log('Get Products in GET API');
   try {
     const connectionInstance = await dbConnect();
 
@@ -21,23 +22,31 @@ export async function GET(req) {
       );
     }
 
-    if (req.nextUrl.searchParams.get('keyword')) {
-      const keyword = req.nextUrl.searchParams.get('keyword');
-      try {
-        await searchSchema
-          .validate({ keyword }, { abortEarly: false })
-          .then((result) => console.log('Result in Product API', result))
-          .catch((error) => console.log('Error in Product API', error));
+    console.log('Get Products in GET API', 'Connected to db');
 
-        // if (!result.keyword) {
-        //   return NextResponse.json(
-        //     {
-        //       success: false,
-        //       message: "Keyword doesn't match yup validation requirements",
-        //     },
-        //     { status: 500 },
-        //   );
-        // }
+    if (req.nextUrl.searchParams.get('keyword')) {
+      console.log(
+        'Get Products in GET API',
+        'Starting to validate keyword with yup',
+      );
+
+      const keyword = req.nextUrl.searchParams.get('keyword');
+
+      try {
+        const result = await searchSchema.validate(
+          { keyword },
+          { abortEarly: false },
+        );
+
+        if (!result.keyword) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: "Keyword doesn't match yup validation requirements",
+            },
+            { status: 500 },
+          );
+        }
       } catch (error) {
         return NextResponse.json(
           {

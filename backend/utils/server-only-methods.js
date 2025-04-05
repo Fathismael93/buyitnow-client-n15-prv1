@@ -8,6 +8,8 @@ import { getCookieName } from '@/helpers/helpers';
 import { toast } from 'react-toastify';
 
 export const getAllProducts = async (searchParams) => {
+  console.log('In getAllProducts in server-only-methods file');
+
   const urlParams = {
     keyword: (await searchParams).keyword,
     page: (await searchParams).page,
@@ -18,9 +20,24 @@ export const getAllProducts = async (searchParams) => {
 
   const searchQuery = queryString.stringify(urlParams);
 
+  console.log(
+    'GetAllProducts in server-only-methods file',
+    'starting to fetch',
+  );
+
   const res = await fetch(`${process.env.API_URL}/api/products?${searchQuery}`);
 
+  console.log(
+    'GetAllProducts in server-only-methods file',
+    'Fecth method response',
+  );
+
   const data = await res.json();
+
+  console.log(
+    'GetAllProducts in server-only-methods file',
+    'Data in fetch response',
+  );
 
   if (data?.success === false) {
     toast.info(data?.message);
