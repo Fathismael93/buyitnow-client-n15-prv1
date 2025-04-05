@@ -29,6 +29,8 @@ export async function GET(req) {
           { abortEarly: false },
         );
 
+        console.log('Result in Product API', result);
+
         if (!result.keyword) {
           return NextResponse.json(
             {

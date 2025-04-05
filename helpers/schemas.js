@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 import * as yup from 'yup';
 
 export const loginSchema = yup.object().shape({
