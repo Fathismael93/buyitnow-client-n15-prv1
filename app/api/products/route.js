@@ -23,6 +23,8 @@ export async function GET(req) {
     // Vérifier le cache pour une réponse existante
     const cachedResponse = appCache.products.get(cacheKey);
     if (cachedResponse) {
+      console.log('Cache hit for products');
+      // Si la réponse est trouvée dans le cache, la retourner
       return NextResponse.json(cachedResponse, {
         status: 200,
         headers: {
