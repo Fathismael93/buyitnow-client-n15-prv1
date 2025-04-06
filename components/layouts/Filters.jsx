@@ -52,6 +52,7 @@ const Filters = ({ categories, setLoading }) => {
         }
       } catch (error) {
         toast.error(error.message);
+        setLoading(true);
         return;
       }
     }
@@ -87,6 +88,7 @@ const Filters = ({ categories, setLoading }) => {
       }
     } catch (error) {
       toast.error(error.message);
+      setLoading(true);
       return;
     }
   }
