@@ -6,6 +6,7 @@ import User from '@/backend/models/user';
 import Cart from '@/backend/models/cart';
 import Product from '@/backend/models/product';
 import { DECREASE, INCREASE } from '@/helpers/constants';
+import { appCache } from '@/utils/cache';
 
 export async function GET(req) {
   try {
@@ -143,6 +144,9 @@ export async function POST(req) {
 
     const cartAdded = await Cart.create(cart);
 
+    // Après la création réussie, invalider le cache des produits
+    appCache.products.invalidatePattern(/^products:/);
+
     return NextResponse.json(
       {
         success: true,
@@ -226,6 +230,9 @@ export async function PUT(req) {
       });
 
       if (updatedCart) {
+        // Après la création réussie, invalider le cache des produits
+        appCache.products.invalidatePattern(/^products:/);
+
         return NextResponse.json(
           {
             success: true,
@@ -245,6 +252,9 @@ export async function PUT(req) {
       });
 
       if (updatedCart) {
+        // Après la création réussie, invalider le cache des produits
+        appCache.products.invalidatePattern(/^products:/);
+
         return NextResponse.json(
           {
             success: true,

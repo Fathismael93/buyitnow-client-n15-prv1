@@ -23,7 +23,6 @@ export async function GET(req) {
     // Vérifier le cache pour une réponse existante
     const cachedResponse = appCache.products.get(cacheKey);
     if (cachedResponse) {
-      console.log('Cache hit for products');
       // Si la réponse est trouvée dans le cache, la retourner
       return NextResponse.json(cachedResponse, {
         status: 200,
@@ -73,8 +72,6 @@ export async function GET(req) {
     const MAX_PER_PAGE = process.env.MAX_PRODUCTS_PER_PAGE || 5;
 
     const resPerPage = Math.min(MAX_PER_PAGE, Math.max(1, DEFAULT_PER_PAGE));
-
-    const cacheControl = getCacheHeaders('products');
 
     const apiFilters = new APIFilters(
       Product.find()

@@ -16,7 +16,7 @@ class APIFilters {
         }
       : {};
 
-    this.query = this.query.find({ ...keyword });
+    this.query = this.query.find({ ...keyword }).lean();
     return this;
   }
 
@@ -75,7 +75,7 @@ class APIFilters {
     }
     // { price: { $gte: 100, $lte: 1000 } }
 
-    this.query = this.query.find(output);
+    this.query = this.query.find(output).lean();
     return this;
   }
 
@@ -83,7 +83,7 @@ class APIFilters {
     const currentPage = Number(this.queryStr.get('page')) || 1;
     const skip = resPerPage * (currentPage - 1);
 
-    this.query = this.query.limit(resPerPage).skip(skip);
+    this.query = this.query.limit(resPerPage).skip(skip).lean();
     return this;
   }
 }

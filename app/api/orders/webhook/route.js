@@ -8,6 +8,7 @@ import Product from '@/backend/models/product';
 import Cart from '@/backend/models/cart';
 // eslint-disable-next-line no-unused-vars
 import Category from '@/backend/models/category';
+import { appCache } from '@/utils/cache';
 
 export async function POST(req) {
   try {
@@ -59,7 +60,10 @@ export async function POST(req) {
       // GETTING THE PRODUCT ORDERED BY USER
       const element = productsIdsQuantities[index];
       const itemInOrder = orderData?.orderItems[index];
-      const product = await Product.findById(element.id).populate('category');
+      const product = await Product.findById(element.id).populate(
+        'category',
+        'categoryName',
+      );
 
       itemInOrder.category = product?.category.categoryName;
 
@@ -101,6 +105,9 @@ export async function POST(req) {
       }
 
       const order = await Order.create(orderData);
+
+      // Après la création réussie, invalider le cache des produits
+      appCache.products.invalidatePattern(/^products:/);
 
       return NextResponse.json(
         { success: true, id: order?._id },
