@@ -88,6 +88,25 @@ const nextConfig = {
         source: '/:path*',
         headers: securityHeaders,
       },
+      // Dans la section headers, pour les API non-critiques:
+      {
+        source: '/api/products',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=60, stale-while-revalidate=120', // Pour les requêtes GET publiques
+          },
+          // Autres en-têtes...
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*', // Set your origin
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET',
+          },
+        ],
+      },
       {
         source: '/api/:path*',
         headers: [

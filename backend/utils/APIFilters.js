@@ -26,6 +26,11 @@ class APIFilters {
     return this.query;
   }
 
+  // Ajouter cette méthode pour obtenir le filtre actuel
+  getFilter() {
+    return this.query.getFilter();
+  }
+
   filter() {
     let queryCopy = {};
 
@@ -89,6 +94,11 @@ class APIFilters {
 
     this.query = this.query.limit(resPerPage).skip(skip);
     return this;
+  }
+
+  // Ajouter cette méthode pour finaliser et exécuter la requête
+  async execute() {
+    return this.query.lean().exec();
   }
 }
 

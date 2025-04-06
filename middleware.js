@@ -30,6 +30,7 @@ export default withAuth(
         if (!token) {
           return false;
         }
+        return !!token; // Renvoyer explicitement vrai si token existe
       },
     },
   },
