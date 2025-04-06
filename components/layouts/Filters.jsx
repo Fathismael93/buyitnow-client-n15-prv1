@@ -42,21 +42,17 @@ const Filters = ({ categories, setLoading }) => {
           { abortEarly: false },
         );
 
-        console.log('Category Validation', result);
-        if (!result) {
-          toast.error("Checkbox doesn't match yup validation requirements");
-          return;
+        if (result?.value) {
+          // Set filter in the query
+          if (queryParams.has(checkbox.name)) {
+            queryParams.set(checkbox.name, checkbox.value);
+          } else {
+            queryParams.append(checkbox.name, checkbox.value);
+          }
         }
       } catch (error) {
-        toast.error('Error encountered during yup validation process');
-        console.error(error);
+        toast.error(error.message);
         return;
-      }
-      // Set filter in the query
-      if (queryParams.has(checkbox.name)) {
-        queryParams.set(checkbox.name, checkbox.value);
-      } else {
-        queryParams.append(checkbox.name, checkbox.value);
       }
     }
     const path = window.location.pathname + '?' + queryParams.toString();
@@ -77,21 +73,21 @@ const Filters = ({ categories, setLoading }) => {
           { minPrice: min, maxPrice: max },
           { abortEarly: false },
         );
-        console.log('Price Range validation', result);
 
-        queryParams = getPriceQueryParams(queryParams, 'min', min);
-        queryParams = getPriceQueryParams(queryParams, 'max', max);
+        if (result?.minPrice || result?.maxPrice) {
+          queryParams = getPriceQueryParams(queryParams, 'min', min);
+          queryParams = getPriceQueryParams(queryParams, 'max', max);
 
-        console.log('queryParams', queryParams.toString());
+          const path = window.location.pathname + '?' + queryParams.toString();
 
-        const path = window.location.pathname + '?' + queryParams.toString();
+          setOpen(false);
 
-        setOpen(false);
-
-        router.push(path);
+          router.push(path);
+        }
       }
     } catch (error) {
-      toast.error(error);
+      toast.error(error.message);
+      return;
     }
   }
 
