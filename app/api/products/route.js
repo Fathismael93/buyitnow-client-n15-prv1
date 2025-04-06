@@ -82,13 +82,24 @@ export async function GET(req) {
       .search()
       .filter();
 
-    let products = await apiFilters.query.populate('category', 'categoryName');
-    const filteredProductsCount = products.length;
+    // Par celles-ci pour une meilleure performance:
+    // Utiliser countDocuments() pour le comptage est plus efficace
+    const filteredProductsQuery = apiFilters.query.clone();
+    const filteredProductsCount = await filteredProductsQuery.countDocuments();
 
     apiFilters.pagination(resPerPage);
-    products = await apiFilters.query
-      .populate('category', 'categoryName')
-      .clone();
+    const products = await apiFilters.query.populate(
+      'category',
+      'categoryName',
+    );
+
+    // let products = await apiFilters.query.populate('category', 'categoryName');
+    // const filteredProductsCount = products.length;
+
+    // apiFilters.pagination(resPerPage);
+    // products = await apiFilters.query
+    //   .populate('category', 'categoryName')
+    //   .clone();
 
     // Amélioration
     const totalPages = Math.ceil(filteredProductsCount / resPerPage);

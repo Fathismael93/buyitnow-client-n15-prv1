@@ -4,6 +4,7 @@ class APIFilters {
   constructor(query, queryStr) {
     this.query = query;
     this.queryStr = queryStr;
+    this.baseQuery = query.clone(); // Sauvegarder la requête de base
   }
 
   search() {
@@ -16,7 +17,7 @@ class APIFilters {
         }
       : {};
 
-    this.query = this.query.find({ ...keyword }).lean();
+    this.query = this.query.find({ ...keyword });
     return this;
   }
 
@@ -53,9 +54,7 @@ class APIFilters {
     for (let key in queryCopy) {
       if (!key.match(/\b(gt|gte|lt|lte)/)) {
         if (key === 'category') {
-          const categoryId = mongoose.Types.ObjectId.createFromHexString(
-            queryCopy[key],
-          );
+          const categoryId = new mongoose.Types.ObjectId(queryCopy[key]);
 
           output[key] = categoryId;
         } else {
@@ -75,7 +74,7 @@ class APIFilters {
     }
     // { price: { $gte: 100, $lte: 1000 } }
 
-    this.query = this.query.find(output).lean();
+    this.query = this.query.find(output);
     return this;
   }
 
