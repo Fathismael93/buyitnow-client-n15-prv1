@@ -12,9 +12,26 @@ import {
 } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
 import { getCacheHeaders } from '@/utils/cache';
+// Implémenter la mise en cache au niveau de la route
+import { appCache } from '@/utils/cache';
 
 export async function GET(req) {
   try {
+    // Générer une clé de cache basée sur les paramètres de requête
+    const cacheKey = `products:${req.nextUrl.search}`;
+
+    // Vérifier le cache pour une réponse existante
+    const cachedResponse = appCache.products.get(cacheKey);
+    if (cachedResponse) {
+      return NextResponse.json(cachedResponse, {
+        status: 200,
+        headers: {
+          ...getCacheHeaders('products'),
+          'X-Cache': 'HIT',
+        },
+      });
+    }
+
     const connectionInstance = await dbConnect();
 
     if (!connectionInstance.connection) {
@@ -77,16 +94,24 @@ export async function GET(req) {
     // Amélioration
     const totalPages = Math.ceil(filteredProductsCount / resPerPage);
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          totalPages,
-          products,
-        },
+    // Avant de retourner la réponse, la mettre en cache
+    const responseData = {
+      success: true,
+      data: {
+        totalPages,
+        products,
       },
-      { status: 200 },
-    );
+    };
+
+    appCache.products.set(cacheKey, responseData);
+
+    return NextResponse.json(responseData, {
+      status: 200,
+      headers: {
+        ...getCacheHeaders('products'),
+        'X-Cache': 'MISS',
+      },
+    });
   } catch (error) {
     // Capturer l'exception avec Sentry pour le monitoring
     captureException(error, {
