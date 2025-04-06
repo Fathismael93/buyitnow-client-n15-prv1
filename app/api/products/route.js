@@ -32,6 +32,8 @@ export async function GET(req) {
     // Générer une clé de cache basée sur les paramètres de requête
     const cacheKey = `products:${req.nextUrl.search}`;
 
+    console.log('Cache key:', cacheKey);
+
     // Vérifier le cache pour une réponse existante
     const cachedResponse = appCache.products.get(cacheKey);
     if (cachedResponse) {
