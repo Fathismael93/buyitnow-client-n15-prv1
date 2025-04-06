@@ -170,7 +170,7 @@ export const priceRangeSchema = yup
         return true;
       }
 
-      return maxPrice <= minPrice;
+      return minPrice <= maxPrice;
     },
   )
   .test(
