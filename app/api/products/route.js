@@ -40,8 +40,8 @@ export async function GET(req) {
     }
 
     // Filter by price range validation with yup
-    const maxPrice = req?.nextUrl?.searchParams?.get('price[gte]');
-    const minPrice = req?.nextUrl?.searchParams?.get('price[lte]');
+    const minPrice = req?.nextUrl?.searchParams?.get('price[gte]');
+    const maxPrice = req?.nextUrl?.searchParams?.get('price[lte]');
 
     if (minPrice || maxPrice) {
       await priceRangeSchema.validate(
