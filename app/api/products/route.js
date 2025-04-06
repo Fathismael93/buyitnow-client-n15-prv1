@@ -102,7 +102,9 @@ export async function GET(req) {
     // Par celles-ci pour une meilleure performance:
     // Utiliser countDocuments() pour le comptage est plus efficace
     const filteredProductsQuery = apiFilters.query.clone();
-    const filteredProductsCount = await filteredProductsQuery.countDocuments();
+    const filteredProductsCount = await filteredProductsQuery
+      .lean()
+      .countDocuments();
 
     apiFilters.pagination(resPerPage);
     const products = await apiFilters.query

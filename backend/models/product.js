@@ -86,10 +86,19 @@ const productSchema = new mongoose.Schema(
 // Indexer les champs fréquemment recherchés
 productSchema.index({
   name: 'text',
-  category: 1,
-  isActive: Boolean,
-  price: 1,
 });
+
+// Si vous filtrez souvent par catégorie
+productSchema.index({ category: 1 });
+
+// Si vous filtrez souvent par prix
+productSchema.index({ price: 1 });
+
+// Si vous filtrez souvent par catégorie ET prix en même temps
+productSchema.index({ category: 1, price: 1 });
+
+// Si vous filtrez souvent par nom, catégorie ET prix en même temps
+productSchema.index({ name: 'text', category: 1, price: 1 });
 
 // Middleware pre-save pour mettre à jour le champ updatedAt
 productSchema.pre('save', function (next) {
@@ -119,7 +128,8 @@ productSchema.statics.findSimilarProductsLite = function (
   return this.find({ category: categoryId })
     .select('name price images')
     .slice('images', 1)
-    .limit(limit);
+    .limit(limit)
+    .lean();
 };
 
 // Assurer que les modèles ne sont pas redéfinis en cas de hot-reload
