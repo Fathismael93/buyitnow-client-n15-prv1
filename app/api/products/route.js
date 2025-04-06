@@ -161,7 +161,6 @@ export async function GET(req) {
       error.name === 'TimeoutError' ||
       error.message.includes('timeout')
     ) {
-      // return next(new ErrorHandler('La requête a pris trop de temps', 504));
       return NextResponse.json(
         {
           success: false,

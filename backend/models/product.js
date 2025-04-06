@@ -88,12 +88,6 @@ productSchema.index({
   name: 'text',
 });
 
-// Si vous filtrez souvent par catégorie
-productSchema.index({ category: 1 });
-
-// Si vous filtrez souvent par prix
-productSchema.index({ price: 1 });
-
 // Si vous filtrez souvent par catégorie ET prix en même temps
 productSchema.index({ category: 1, price: 1 });
 
