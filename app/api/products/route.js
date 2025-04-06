@@ -7,6 +7,7 @@ import Category from '@/backend/models/category';
 import APIFilters from '@/backend/utils/APIFilters';
 import {
   categorySchema,
+  pageSchema,
   priceRangeSchema,
   searchSchema,
 } from '@/helpers/schemas';
@@ -14,9 +15,20 @@ import { captureException } from '@/monitoring/sentry';
 import { getCacheHeaders } from '@/utils/cache';
 // Implémenter la mise en cache au niveau de la route
 import { appCache } from '@/utils/cache';
+import { rateLimit } from '@/utils/rateLimit';
 
 export async function GET(req) {
+  // Limiter les requêtes par IP
+  const limiter = rateLimit({
+    interval: 60 * 1000, // 1 minute
+    uniqueTokenPerInterval: 500, // Max 500 utilisateurs par intervalle
+  });
+
   try {
+    // Appliquer le rate limiting basé sur l'IP
+    const ip = req.headers.get('x-forwarded-for') || 'anonymous';
+    await limiter.check(req, 20, ip); // 20 requêtes max par minute par IP
+
     // Générer une clé de cache basée sur les paramètres de requête
     const cacheKey = `products:${req.nextUrl.search}`;
 
@@ -77,6 +89,16 @@ export async function GET(req) {
       validationPromises.push(
         priceRangeSchema.validate(
           { minPrice, maxPrice },
+          { abortEarly: false },
+        ),
+      );
+    }
+
+    // Ajouter la validation pour le paramètre page et limit
+    if (req.nextUrl.searchParams.get('page')) {
+      validationPromises.push(
+        pageSchema.validate(
+          { page: req.nextUrl.searchParams.get('page') },
           { abortEarly: false },
         ),
       );

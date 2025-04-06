@@ -188,6 +188,16 @@ export const priceRangeSchema = yup
     },
   );
 
+// Ajoutez ces schémas à votre fichier existant
+export const pageSchema = yup.object().shape({
+  page: yup
+    .number()
+    .typeError('La page doit être un nombre')
+    .positive('La page doit être positive')
+    .integer('La page doit être un entier')
+    .max(1000, 'La page ne peut pas dépasser 1000'),
+});
+
 // Fonction utilitaire pour utiliser ce schéma dans vos contrôleurs
 export const validatePriceRange = async (minPrice, maxPrice) => {
   try {
