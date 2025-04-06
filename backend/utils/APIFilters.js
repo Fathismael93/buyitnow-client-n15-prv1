@@ -21,6 +21,11 @@ class APIFilters {
     return this;
   }
 
+  // Ajoutez une méthode dans APIFilters pour finaliser la requête:
+  getQuery() {
+    return this.query;
+  }
+
   filter() {
     let queryCopy = {};
 

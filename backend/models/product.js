@@ -86,9 +86,9 @@ const productSchema = new mongoose.Schema(
 // Indexer les champs fréquemment recherchés
 productSchema.index({
   name: 'text',
-  category: mongoose.Schema.Types.ObjectId,
+  category: 1,
   isActive: Boolean,
-  price: Number,
+  price: 1,
 });
 
 // Middleware pre-save pour mettre à jour le champ updatedAt

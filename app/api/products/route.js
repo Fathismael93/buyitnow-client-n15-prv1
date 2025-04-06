@@ -36,37 +36,54 @@ export async function GET(req) {
     const connectionInstance = await dbConnect();
 
     if (!connectionInstance.connection) {
+      captureException(new Error('Database connection failed'), {
+        tags: { action: 'get_products', type: 'connection_error' },
+        level: 'error',
+      });
+
       return NextResponse.json(
         {
           success: false,
           message: 'Database connection failed',
+          code: 'DB_CONNECTION_ERROR',
         },
         { status: 500 },
       );
     }
+    const validationPromises = [];
 
-    // Search by product name validation with yup
-    if (req?.nextUrl?.searchParams?.get('keyword')) {
-      const keyword = req?.nextUrl?.searchParams?.get('keyword');
-      await searchSchema.validate({ keyword }, { abortEarly: false });
-    }
-
-    // Filter by product category validation with yup
-    if (req?.nextUrl?.searchParams?.get('category')) {
-      const value = req?.nextUrl?.searchParams?.get('category');
-      await categorySchema.validate({ value }, { abortEarly: false });
-    }
-
-    // Filter by price range validation with yup
-    const minPrice = req?.nextUrl?.searchParams?.get('price[gte]');
-    const maxPrice = req?.nextUrl?.searchParams?.get('price[lte]');
-
-    if (minPrice || maxPrice) {
-      await priceRangeSchema.validate(
-        { minPrice, maxPrice },
-        { abortEarly: false },
+    if (req.nextUrl.searchParams.get('keyword')) {
+      validationPromises.push(
+        searchSchema.validate(
+          { keyword: req.nextUrl.searchParams.get('keyword') },
+          { abortEarly: false },
+        ),
       );
     }
+
+    if (req.nextUrl.searchParams.get('category')) {
+      validationPromises.push(
+        categorySchema.validate(
+          { value: req.nextUrl.searchParams.get('category') },
+          { abortEarly: false },
+        ),
+      );
+    }
+
+    const minPrice = req.nextUrl.searchParams.get('price[gte]');
+    const maxPrice = req.nextUrl.searchParams.get('price[lte]');
+
+    if (minPrice || maxPrice) {
+      validationPromises.push(
+        priceRangeSchema.validate(
+          { minPrice, maxPrice },
+          { abortEarly: false },
+        ),
+      );
+    }
+
+    // Exécuter toutes les validations en parallèle
+    await Promise.all(validationPromises);
 
     const DEFAULT_PER_PAGE = process.env.DEFAULT_PRODUCTS_PER_PAGE || 2;
     const MAX_PER_PAGE = process.env.MAX_PRODUCTS_PER_PAGE || 5;
@@ -88,18 +105,9 @@ export async function GET(req) {
     const filteredProductsCount = await filteredProductsQuery.countDocuments();
 
     apiFilters.pagination(resPerPage);
-    const products = await apiFilters.query.populate(
-      'category',
-      'categoryName',
-    );
-
-    // let products = await apiFilters.query.populate('category', 'categoryName');
-    // const filteredProductsCount = products.length;
-
-    // apiFilters.pagination(resPerPage);
-    // products = await apiFilters.query
-    //   .populate('category', 'categoryName')
-    //   .clone();
+    const products = await apiFilters.query
+      .populate('category', 'categoryName')
+      .lean();
 
     // Amélioration
     const totalPages = Math.ceil(filteredProductsCount / resPerPage);
