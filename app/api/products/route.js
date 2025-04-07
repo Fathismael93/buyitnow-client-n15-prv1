@@ -18,6 +18,7 @@ import { appCache } from '@/utils/cache';
 import { rateLimit } from '@/utils/rateLimit';
 
 export async function GET(req) {
+  console.log('GET request received for products');
   // Limiter les requêtes par IP
   const limiter = rateLimit({
     interval: 60 * 1000, // 1 minute
@@ -103,6 +104,8 @@ export async function GET(req) {
         ),
       );
     }
+
+    console.log('Validating query parameters...');
 
     // Exécuter toutes les validations en parallèle
     await Promise.all(validationPromises);
