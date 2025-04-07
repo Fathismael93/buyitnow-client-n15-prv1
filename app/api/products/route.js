@@ -136,7 +136,7 @@ export async function GET(req) {
     // Amélioration
     const totalPages = Math.ceil(filteredProductsCount / resPerPage);
 
-    if (products.length === 0) {
+    if (products?.length === 0) {
       return NextResponse.json(
         {
           success: true,
@@ -151,7 +151,7 @@ export async function GET(req) {
     }
 
     // Enrichir les données des produits
-    const enhancedProducts = products.map((product) => {
+    const enhancedProducts = products?.map((product) => {
       // Vérifier la disponibilité du stock
       const stockStatus =
         product.stock > 10
@@ -165,6 +165,8 @@ export async function GET(req) {
         stockStatus,
       };
     });
+
+    console.log('Creating response data...');
 
     // Avant de retourner la réponse, la mettre en cache
     const responseData = {
