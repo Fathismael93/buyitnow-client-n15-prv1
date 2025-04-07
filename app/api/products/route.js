@@ -51,13 +51,7 @@ export async function GET(req) {
     }
 
     const connectionInstance = await dbConnect();
-
     if (!connectionInstance.connection) {
-      captureException(new Error('Database connection failed'), {
-        tags: { action: 'get_products', type: 'connection_error' },
-        level: 'error',
-      });
-
       return NextResponse.json(
         {
           success: false,
@@ -67,6 +61,7 @@ export async function GET(req) {
         { status: 500 },
       );
     }
+
     const validationPromises = [];
 
     if (req.nextUrl.searchParams.get('keyword')) {
@@ -155,12 +150,30 @@ export async function GET(req) {
       );
     }
 
+    // Enrichir les données des produits
+    const enhancedProducts = products.map((product) => {
+      // Vérifier la disponibilité du stock
+      const stockStatus =
+        product.stock > 10
+          ? 'in_stock'
+          : product.stock > 0
+            ? 'low_stock'
+            : 'out_of_stock';
+
+      return {
+        ...product.toObject(),
+        stockStatus,
+      };
+    });
+
     // Avant de retourner la réponse, la mettre en cache
     const responseData = {
       success: true,
       data: {
         totalPages,
-        products,
+        productsCount: filteredProductsCount,
+        products: enhancedProducts,
+        resPerPage,
       },
     };
 
