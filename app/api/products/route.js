@@ -171,9 +171,11 @@ export async function GET(req) {
       success: true,
       data: {
         totalPages,
-        productsCount: filteredProductsCount,
-        products: enhancedProducts,
-        resPerPage,
+        products,
+        // totalPages,
+        // productsCount: filteredProductsCount,
+        // products: enhancedProducts,
+        // resPerPage,
       },
     };
 
