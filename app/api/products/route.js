@@ -124,14 +124,57 @@ export async function GET(req) {
     // Par celles-ci pour une meilleure performance:
     // Utiliser countDocuments() pour le comptage est plus efficace
     const filteredProductsQuery = apiFilters.query.clone();
-    const filteredProductsCount = await filteredProductsQuery
-      .lean()
-      .countDocuments();
+
+    // Ajouter un timeout pour les requêtes de comptage
+    const QUERY_TIMEOUT = parseInt(process.env.QUERY_TIMEOUT || 5000); // 5 secondes par défaut
+
+    // Pour la requête de comptage
+    const countPromise = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Count query timeout exceeded'));
+      }, QUERY_TIMEOUT);
+
+      filteredProductsQuery
+        .lean()
+        .countDocuments()
+        .then((count) => {
+          clearTimeout(timeout);
+          resolve(count);
+        })
+        .catch((err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+    });
+
+    const filteredProductsCount = await countPromise;
+
+    // const filteredProductsCount = await filteredProductsQuery
+    //   .countDocuments()
+    //   .lean();
 
     apiFilters.pagination(resPerPage);
-    const products = await apiFilters.query
-      .populate('category', 'categoryName')
-      .lean();
+
+    // Pour la requête principale de produits
+    const productsPromise = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Products query timeout exceeded'));
+      }, QUERY_TIMEOUT);
+
+      apiFilters.query
+        .populate('category', 'categoryName')
+        .lean()
+        .then((results) => {
+          clearTimeout(timeout);
+          resolve(results);
+        })
+        .catch((err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+    });
+
+    const products = await productsPromise;
 
     // Amélioration
     const totalPages = Math.ceil(filteredProductsCount / resPerPage);
