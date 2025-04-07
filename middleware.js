@@ -9,7 +9,28 @@ export default withAuth(
     const user = req?.nextauth?.token?.user;
 
     if (url.startsWith('/api')) {
-      NextResponse.next().headers.append('Access-Control-Allow-Origin', '*');
+      // Pour les requêtes preflight OPTIONS
+      if (req.method === 'OPTIONS') {
+        const response = new NextResponse(null, {
+          status: 200,
+          headers: {
+            'Access-Control-Allow-Origin': `${process.env.NEXT_PUBLIC_API_URL}`, // ou vos domaines spécifiques
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers':
+              'Content-Type, Authorization, X-Requested-With',
+            'Access-Control-Max-Age': '86400', // 24 heures
+          },
+        });
+        return response;
+      }
+
+      // Pour les requêtes normales
+      const response = NextResponse.next();
+      response.headers.set(
+        'Access-Control-Allow-Origin',
+        `${process.env.NEXT_PUBLIC_API_URL}`,
+      ); // ou vos domaines spécifiques
+      return response;
     }
 
     if (

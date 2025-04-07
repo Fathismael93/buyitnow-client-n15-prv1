@@ -32,8 +32,6 @@ export async function GET(req) {
     // Générer une clé de cache basée sur les paramètres de requête
     const cacheKey = `products:${req.nextUrl.search}`;
 
-    console.log('Cache key:', cacheKey);
-
     // Vérifier le cache pour une réponse existante
     const cachedResponse = appCache.products.get(cacheKey);
     if (cachedResponse) {
@@ -43,6 +41,11 @@ export async function GET(req) {
         headers: {
           ...getCacheHeaders('products'),
           'X-Cache': 'HIT',
+          'Content-Security-Policy': "default-src 'self'",
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'Cache-Control': 'no-store, max-age=0',
+          'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
         },
       });
     }
@@ -138,6 +141,20 @@ export async function GET(req) {
     // Amélioration
     const totalPages = Math.ceil(filteredProductsCount / resPerPage);
 
+    if (products.length === 0) {
+      return NextResponse.json(
+        {
+          success: true,
+          message: 'No products found matching the criteria',
+          data: {
+            totalPages: 0,
+            products: [],
+          },
+        },
+        { status: 200 },
+      );
+    }
+
     // Avant de retourner la réponse, la mettre en cache
     const responseData = {
       success: true,
@@ -154,6 +171,11 @@ export async function GET(req) {
       headers: {
         ...getCacheHeaders('products'),
         'X-Cache': 'MISS',
+        'Content-Security-Policy': "default-src 'self'",
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Cache-Control': 'no-store, max-age=0',
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
       },
     });
   } catch (error) {
@@ -170,6 +192,12 @@ export async function GET(req) {
         {
           success: false,
           message: 'Paramètres de requête invalides',
+          errors:
+            error.errors ||
+            error.inner?.map((e) => ({
+              field: e.path,
+              message: e.message,
+            })),
         },
         { status: 400 },
       );
