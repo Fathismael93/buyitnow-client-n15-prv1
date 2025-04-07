@@ -154,20 +154,20 @@ export async function GET(req) {
     }
 
     // Enrichir les données des produits
-    const enhancedProducts = products?.map((product) => {
-      // Vérifier la disponibilité du stock
-      const stockStatus =
-        product.stock > 10
-          ? 'in_stock'
-          : product.stock > 0
-            ? 'low_stock'
-            : 'out_of_stock';
+    // const enhancedProducts = products?.map((product) => {
+    //   // Vérifier la disponibilité du stock
+    //   const stockStatus =
+    //     product.stock > 10
+    //       ? 'in_stock'
+    //       : product.stock > 0
+    //         ? 'low_stock'
+    //         : 'out_of_stock';
 
-      return {
-        ...product.toObject(),
-        stockStatus,
-      };
-    });
+    //   return {
+    //     ...product.toObject(),
+    //     stockStatus,
+    //   };
+    // });
 
     console.log('Creating response data...');
 
