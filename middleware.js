@@ -14,7 +14,7 @@ export default withAuth(
         const response = new NextResponse(null, {
           status: 200,
           headers: {
-            'Access-Control-Allow-Origin': `www.google.fr`, // ou vos domaines spécifiques
+            'Access-Control-Allow-Origin': `${process.env.NEXT_PUBLIC_API_URL}`, // ou vos domaines spécifiques
             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
             'Access-Control-Allow-Headers':
               'Content-Type, Authorization, X-Requested-With',
@@ -26,7 +26,10 @@ export default withAuth(
 
       // Pour les requêtes normales
       const response = NextResponse.next();
-      response.headers.set('Access-Control-Allow-Origin', `www.google.fr`); // ou vos domaines spécifiques
+      response.headers.set(
+        'Access-Control-Allow-Origin',
+        `${process.env.NEXT_PUBLIC_API_URL}`,
+      ); // ou vos domaines spécifiques
       return response;
     }
 

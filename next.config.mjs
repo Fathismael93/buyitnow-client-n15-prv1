@@ -112,7 +112,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: 'www.google.fr', // Set your origin
+            value: `${process.env.NEXT_PUBLIC_API_URL}`, // Set your origin
           },
           {
             key: 'Access-Control-Allow-Methods',
