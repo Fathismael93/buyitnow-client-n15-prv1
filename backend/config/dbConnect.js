@@ -164,7 +164,7 @@ const dbConnect = async (forceNew = false) => {
     socketTimeoutMS: 45000, // Timeout pour les opérations inactives
     connectTimeoutMS: 30000,
     serverSelectionTimeoutMS: 45000, // Timeout pour la sélection du serveur
-    maxTimeMS: 50000, // Timeout pour la requête elle-même
+    maxTimeMS: 100000, // Timeout pour la requête elle-même
     family: 4,
     heartbeatFrequencyMS: 10000,
     autoIndex: process.env.NODE_ENV !== 'production',
