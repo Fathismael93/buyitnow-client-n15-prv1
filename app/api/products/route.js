@@ -174,10 +174,6 @@ export async function GET(req) {
       data: {
         totalPages,
         products,
-        // totalPages,
-        // productsCount: filteredProductsCount,
-        // products: enhancedProducts,
-        // resPerPage,
       },
     };
 
