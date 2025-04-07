@@ -99,7 +99,7 @@ const nextConfig = {
           // Autres en-têtes...
           {
             key: 'Access-Control-Allow-Origin',
-            value: '*', // Set your origin
+            value: 'www.google.fr', // Set your origin
           },
           {
             key: 'Access-Control-Allow-Methods',
@@ -112,7 +112,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: '*', // Set your origin
+            value: 'www.google.fr', // Set your origin
           },
           {
             key: 'Access-Control-Allow-Methods',
