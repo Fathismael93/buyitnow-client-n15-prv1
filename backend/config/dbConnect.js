@@ -163,7 +163,7 @@ const dbConnect = async (forceNew = false) => {
     minPoolSize: 5,
     socketTimeoutMS: 45000, // Timeout pour les opérations inactives
     connectTimeoutMS: 30000,
-    serverSelectionTimeoutMS: 5000, // Timeout pour la sélection du serveur
+    serverSelectionTimeoutMS: 45000, // Timeout pour la sélection du serveur
     maxTimeMS: 30000, // Timeout pour la requête elle-même
     family: 4,
     heartbeatFrequencyMS: 10000,
