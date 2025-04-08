@@ -168,7 +168,7 @@ export const getAllProducts = async (searchParams) => {
       const data = await res.json();
       console.log(
         'Successfully parsed products data, count:',
-        data?.products?.length || 0,
+        data?.data?.products?.length || 0,
       );
 
       console.log('Data:', data);

@@ -17,6 +17,9 @@ const HomePage = async ({ searchParams }) => {
   const productsData = await getAllProducts(await searchParams);
   const categories = await getCategories();
 
+  console.log('productsData in homepage', productsData);
+  console.log('categories in homepage', categories);
+
   return <ListProducts data={productsData} categories={categories} />;
 };
 
