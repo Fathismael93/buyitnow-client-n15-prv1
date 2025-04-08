@@ -14,6 +14,7 @@ import {
   searchSchema,
 } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
+import logger from '@/utils/logger';
 
 // Cache TTL en secondes
 const CACHE_TTL = {
@@ -24,8 +25,23 @@ const CACHE_TTL = {
 };
 
 export const getAllProducts = async (searchParams) => {
+  const requestId = Math.random().toString(36).substring(2, 10); // ID unique pour suivre une requête
+  logger.info('Starting getAllProducts request', {
+    requestId,
+    searchParams,
+    action: 'get_all_products_start',
+  });
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+    logger.warn('Request timeout in getAllProducts', {
+      requestId,
+      timeoutMs: 10000,
+      action: 'request_timeout',
+    });
+  }, 10000); // 10 secondes
+
   try {
     // Créer un objet pour stocker les paramètres validés
     const urlParams = {};
@@ -104,7 +120,12 @@ export const getAllProducts = async (searchParams) => {
 
     // Si des erreurs de validation sont trouvées, retourner immédiatement
     if (validationErrors?.length > 0) {
-      console.error('Validation errors:', validationErrors);
+      logger.warn('Validation errors in getAllProducts', {
+        requestId,
+        validationErrors,
+        action: 'validation_failed',
+      });
+
       captureException(new Error('Validation failed'), {
         tags: { action: 'validation_failed' },
         extra: { validationErrors, searchParams },
@@ -118,6 +139,13 @@ export const getAllProducts = async (searchParams) => {
 
     // S'assurer que l'URL est correctement formatée
     const apiUrl = `${process.env.API_URL || ''}/api/products${searchQuery ? `?${searchQuery}` : ''}`;
+
+    // Avant l'appel API
+    logger.debug('Fetching products from API', {
+      requestId,
+      apiUrl,
+      action: 'api_request_start',
+    });
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
@@ -133,9 +161,23 @@ export const getAllProducts = async (searchParams) => {
       },
     });
 
+    // Après l'appel API
+    logger.debug('API response received', {
+      requestId,
+      status: res.status,
+      action: 'api_request_complete',
+    });
+
     if (!res.ok) {
       const errorText = await res.text();
-      console.error('Error in getAllProducts API call:', res.status, errorText);
+
+      logger.error('API request failed', {
+        requestId,
+        status: res.status,
+        error: errorText,
+        action: 'api_request_error',
+      });
+
       return { products: [], totalPages: 0 };
     }
 
@@ -149,7 +191,13 @@ export const getAllProducts = async (searchParams) => {
       return { products: [], totalPages: 0 };
     }
   } catch (error) {
-    console.error('Exception in getAllProducts:', error);
+    logger.error('Exception in getAllProducts', {
+      requestId,
+      error: error.message,
+      stack: error.stack,
+      action: 'get_all_products_error',
+    });
+
     captureException(error, {
       tags: { action: 'get_all_products' },
       extra: { searchParams },
