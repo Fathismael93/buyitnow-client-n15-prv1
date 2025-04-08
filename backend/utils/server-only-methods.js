@@ -150,7 +150,7 @@ export const getAllProducts = async (searchParams) => {
     const res = await fetch(apiUrl, {
       signal: controller.signal,
       next: {
-        revalidate: CACHE_CONFIGS.products,
+        revalidate: CACHE_CONFIGS.products.staleWhileRevalidate,
         tags: [
           'products',
           ...(urlParams.category ? [`category-${urlParams.category}`] : []),
