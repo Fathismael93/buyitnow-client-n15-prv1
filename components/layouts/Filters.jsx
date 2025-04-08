@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 
 import { arrayHasData, getPriceQueryParams } from '@/helpers/helpers';
-import { categorySchema, priceRangeSchema } from '@/helpers/schemas';
+import { priceRangeSchema } from '@/helpers/schemas';
 
 const Filters = ({ categories, setLoading }) => {
   const [min, setMin] = useState('');
@@ -16,7 +16,7 @@ const Filters = ({ categories, setLoading }) => {
 
   let queryParams;
 
-  async function handleClick(checkbox) {
+  function handleClick(checkbox) {
     setLoading(true);
 
     if (typeof window !== 'undefined') {
@@ -33,27 +33,11 @@ const Filters = ({ categories, setLoading }) => {
       // Delete the filter from query
       queryParams.delete(checkbox.name);
     } else {
-      const value = checkbox.value;
-
-      // Validate the checkbox value with yup
-      try {
-        const result = await categorySchema.validate(
-          { value },
-          { abortEarly: false },
-        );
-
-        if (result?.value) {
-          // Set filter in the query
-          if (queryParams.has(checkbox.name)) {
-            queryParams.set(checkbox.name, checkbox.value);
-          } else {
-            queryParams.append(checkbox.name, checkbox.value);
-          }
-        }
-      } catch (error) {
-        toast.error(error.message);
-        setLoading(false);
-        return;
+      // Set filter in the query
+      if (queryParams.has(checkbox.name)) {
+        queryParams.set(checkbox.name, checkbox.value);
+      } else {
+        queryParams.append(checkbox.name, checkbox.value);
       }
     }
     const path = window.location.pathname + '?' + queryParams.toString();
