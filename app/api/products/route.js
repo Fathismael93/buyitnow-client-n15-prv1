@@ -135,7 +135,7 @@ export async function GET(req) {
     console.log('Validation des paramètres de recherche terminée');
 
     // Si des erreurs de validation sont trouvées, retourner immédiatement
-    if (validationErrors.length > 0) {
+    if (validationErrors?.length > 0) {
       return NextResponse.json(
         {
           success: false,
