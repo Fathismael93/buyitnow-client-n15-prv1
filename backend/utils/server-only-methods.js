@@ -32,13 +32,9 @@ export const getAllProducts = async (searchParams) => {
     const validationPromises = [];
     const validationErrors = [];
 
-    console.log('searchParams:', searchParams);
-
     // Vérifier si searchParams est défini avant d'y accéder
     if (searchParams) {
       // Validation du paramètre de recherche, keyword
-      console.log('Validating keyword:', searchParams.keyword);
-
       if (searchParams.keyword) {
         validationPromises.push(
           searchSchema
@@ -51,8 +47,6 @@ export const getAllProducts = async (searchParams) => {
             }),
         );
       }
-
-      console.log('Validating page:', searchParams.page);
 
       if (searchParams.page) {
         validationPromises.push(
@@ -67,8 +61,6 @@ export const getAllProducts = async (searchParams) => {
         );
       }
 
-      console.log('Validating category:', searchParams.category);
-
       if (searchParams.category) {
         validationPromises.push(
           categorySchema
@@ -81,12 +73,6 @@ export const getAllProducts = async (searchParams) => {
             }),
         );
       }
-
-      console.log(
-        'Validating price range:',
-        searchParams.min,
-        searchParams.max,
-      );
 
       if (searchParams.min || searchParams.max) {
         validationPromises.push(
@@ -108,21 +94,15 @@ export const getAllProducts = async (searchParams) => {
         urlParams['price[gte]'] = searchParams.min;
       }
 
-      console.log('Starting validation promises...');
-
       // Exécuter toutes les validations en parallèle
       await Promise.all(validationPromises);
-
-      console.log('Validation promises completed.');
     }
 
     // Si des erreurs de validation sont trouvées, retourner immédiatement
     if (validationErrors?.length > 0) {
-      console.error('Validation errors:', validationErrors);
       // a completer
       return;
     } else {
-      console.log('No validation errors found.');
       // Ajouter les paramètres qui existent
       if (searchParams.keyword) {
         urlParams.keyword = searchParams.keyword;
@@ -137,13 +117,8 @@ export const getAllProducts = async (searchParams) => {
     const searchQuery = new URLSearchParams(urlParams).toString();
     const cacheControl = getCacheHeaders('products');
 
-    console.log('Search query:', searchQuery);
-    console.log('Cache-Control header:', cacheControl);
-
     // S'assurer que l'URL est correctement formatée
     const apiUrl = `${process.env.API_URL || ''}/api/products${searchQuery ? `?${searchQuery}` : ''}`;
-
-    console.log('API URL:', apiUrl);
 
     const res = await fetch(apiUrl, {
       next: {
@@ -166,13 +141,6 @@ export const getAllProducts = async (searchParams) => {
 
     try {
       const data = await res.json();
-      console.log(
-        'Successfully parsed products data, count:',
-        data?.data?.products?.length || 0,
-      );
-
-      console.log('Data:', data);
-
       return data;
     } catch (parseError) {
       console.error('JSON parsing error in getAllProducts:', parseError);
