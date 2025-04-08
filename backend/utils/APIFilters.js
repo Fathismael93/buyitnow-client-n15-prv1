@@ -8,6 +8,8 @@ class APIFilters {
   }
 
   search() {
+    console.log('query string', this.queryStr);
+
     const keyword = this.queryStr.get('keyword')
       ? {
           name: {

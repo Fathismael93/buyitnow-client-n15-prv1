@@ -28,6 +28,7 @@ const MAX_PER_PAGE = parseInt(process.env.MAX_PRODUCTS_PER_PAGE || 50);
 
 export async function GET(req) {
   let cacheHit = false;
+  console.log('GET /api/products');
 
   try {
     // Rate limiting
@@ -44,11 +45,16 @@ export async function GET(req) {
     const validationPromises = [];
     const validationErrors = [];
 
+    console.log('Validation des paramètres de recherche des produits');
+
     // Validation du mot-clé de recherche
-    if (sanitizedParams.keyword) {
+    if (req?.nextUrl?.searchParams?.get('keyword')) {
       validationPromises.push(
         searchSchema
-          .validate({ keyword: sanitizedParams.keyword }, { abortEarly: false })
+          .validate(
+            { keyword: req?.nextUrl?.searchParams?.get('keyword') },
+            { abortEarly: false },
+          )
           .catch((err) => {
             validationErrors.push({
               field: 'keyword',
@@ -58,11 +64,16 @@ export async function GET(req) {
       );
     }
 
+    console.log('Validation de la catégorie');
+
     // Validation de la catégorie
-    if (sanitizedParams.category) {
+    if (req?.nextUrl?.searchParams?.get('category')) {
       validationPromises.push(
         categorySchema
-          .validate({ value: sanitizedParams.category }, { abortEarly: false })
+          .validate(
+            { value: req?.nextUrl?.searchParams?.get('category') },
+            { abortEarly: false },
+          )
           .catch((err) => {
             validationErrors.push({
               field: 'category',
@@ -72,17 +83,19 @@ export async function GET(req) {
       );
     }
 
+    console.log('Validation de la plage de prix');
+
     // Validation de la plage de prix
     if (
-      sanitizedParams.minPrice !== undefined ||
-      sanitizedParams.maxPrice !== undefined
+      req?.nextUrl?.searchParams?.get('price[gte]') !== undefined ||
+      req?.nextUrl?.searchParams?.get('price[lte]') !== undefined
     ) {
       validationPromises.push(
         priceRangeSchema
           .validate(
             {
-              minPrice: sanitizedParams.minPrice,
-              maxPrice: sanitizedParams.maxPrice,
+              minPrice: req?.nextUrl?.searchParams?.get('price[gte]'),
+              maxPrice: req?.nextUrl?.searchParams?.get('price[lte]'),
             },
             { abortEarly: false },
           )
@@ -95,11 +108,16 @@ export async function GET(req) {
       );
     }
 
+    console.log('Validation de la page');
+
     // Validation de la page
-    if (sanitizedParams.page !== undefined) {
+    if (req?.nextUrl?.searchParams?.get('page') !== undefined) {
       validationPromises.push(
         pageSchema
-          .validate({ page: sanitizedParams.page }, { abortEarly: false })
+          .validate(
+            { page: req?.nextUrl?.searchParams?.get('page') },
+            { abortEarly: false },
+          )
           .catch((err) => {
             validationErrors.push({
               field: 'page',
@@ -109,14 +127,15 @@ export async function GET(req) {
       );
     }
 
+    console.log('Validation des paramètres de recherche initialisée');
+
     // Exécuter toutes les validations en parallèle
     await Promise.all(validationPromises);
 
+    console.log('Validation des paramètres de recherche terminée');
+
     // Si des erreurs de validation sont trouvées, retourner immédiatement
     if (validationErrors.length > 0) {
-      // Si vous avez un système de métriques
-      // recordMetric('products_api_validation_errors', validationErrors.length);
-
       return NextResponse.json(
         {
           success: false,
@@ -127,6 +146,8 @@ export async function GET(req) {
         { status: 400 },
       );
     }
+
+    console.log('Validation des paramètres de recherche réussie');
 
     // Sanitisation AVANT de générer la clé de cache
     const sanitizedParams = sanitizeProductSearchParams(
@@ -141,8 +162,6 @@ export async function GET(req) {
     const cachedResponse = appCache.products.get(cacheKey);
     if (cachedResponse) {
       cacheHit = true;
-      // Si vous avez un système de métriques
-      // recordMetric('products_api_cache_hit', 1);
 
       return NextResponse.json(cachedResponse, {
         status: 200,
@@ -158,8 +177,7 @@ export async function GET(req) {
       });
     }
 
-    // Si vous avez un système de métriques
-    // recordMetric('products_api_cache_miss', 1);
+    console.log('Aucune réponse en cache trouvée, traitement de la requête');
 
     // Établir la connexion à la base de données
     const connectionInstance = await dbConnect();
@@ -173,6 +191,8 @@ export async function GET(req) {
         { status: 500 },
       );
     }
+
+    console.log('Connexion à la base de données réussie');
 
     // Configuration de la pagination basée sur les valeurs sanitisées
     const resPerPage = Math.min(MAX_PER_PAGE, Math.max(1, DEFAULT_PER_PAGE));
@@ -292,12 +312,6 @@ export async function GET(req) {
     // Mettre en cache la réponse
     appCache.products.set(cacheKey, responseData);
 
-    // Si vous avez un système de métriques
-    // recordMetric('products_api_response_time', queryDuration, {
-    //   cached: cacheHit,
-    //   count: filteredProductsCount,
-    // });
-
     // Renvoyer la réponse
     return NextResponse.json(responseData, {
       status: 200,
@@ -312,11 +326,6 @@ export async function GET(req) {
       },
     });
   } catch (error) {
-    // Si vous avez un système de métriques
-    // recordMetric('products_api_error_time', errorTime, {
-    //   error_type: error.name,
-    // });
-
     // Capturer l'exception avec Sentry pour le monitoring
     captureException(error, {
       tags: { action: 'get_products' },
