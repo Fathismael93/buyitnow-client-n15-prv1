@@ -87,8 +87,8 @@ export async function GET(req) {
 
     // Validation de la plage de prix
     if (
-      req?.nextUrl?.searchParams?.get('price[gte]') !== undefined ||
-      req?.nextUrl?.searchParams?.get('price[lte]') !== undefined
+      req?.nextUrl?.searchParams?.get('price[gte]') ||
+      req?.nextUrl?.searchParams?.get('price[lte]')
     ) {
       validationPromises.push(
         priceRangeSchema
@@ -111,7 +111,7 @@ export async function GET(req) {
     console.log('Validation de la page');
 
     // Validation de la page
-    if (req?.nextUrl?.searchParams?.get('page') !== undefined) {
+    if (req?.nextUrl?.searchParams?.get('page')) {
       validationPromises.push(
         pageSchema
           .validate(
