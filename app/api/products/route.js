@@ -136,6 +136,7 @@ export async function GET(req) {
 
     // Si des erreurs de validation sont trouvées, retourner immédiatement
     if (validationErrors?.length > 0) {
+      console.log('Erreurs de validation trouvées', validationErrors);
       return NextResponse.json(
         {
           success: false,
