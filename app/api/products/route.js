@@ -27,8 +27,6 @@ const DEFAULT_PER_PAGE = parseInt(process.env.DEFAULT_PRODUCTS_PER_PAGE || 10);
 const MAX_PER_PAGE = parseInt(process.env.MAX_PRODUCTS_PER_PAGE || 50);
 
 export async function GET(req) {
-  let cacheHit = false;
-
   try {
     // Rate limiting
     const limiter = rateLimit({
@@ -147,8 +145,6 @@ export async function GET(req) {
     // Vérifier le cache pour une réponse existante
     const cachedResponse = appCache.products.get(cacheKey);
     if (cachedResponse) {
-      cacheHit = true;
-
       return NextResponse.json(cachedResponse, {
         status: 200,
         headers: {
