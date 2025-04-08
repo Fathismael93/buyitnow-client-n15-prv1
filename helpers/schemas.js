@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable no-useless-escape */
 import * as yup from 'yup';
 
@@ -180,11 +181,11 @@ export const priceRangeSchema = yup
       // Cette validation est optionnelle - à décommenter si vous voulez imposer
       // qu'au moins un des deux champs soit renseigné
 
-      const { minPrice, maxPrice } = values;
-      return minPrice !== null || maxPrice !== null;
+      // const { minPrice, maxPrice } = values;
+      // return minPrice !== null || maxPrice !== null;
 
       // Par défaut, on accepte les deux champs vides
-      // return true;
+      return true;
     },
   );
 
