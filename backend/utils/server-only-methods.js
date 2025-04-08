@@ -27,92 +27,89 @@ export const getAllProducts = async (searchParams) => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes
   try {
-    // Créer un objet pour stocker les paramètres filtrés
+    // Créer un objet pour stocker les paramètres validés
     const urlParams = {};
-
-    // Validation avec les schémas Yup après sanitisation
-    const validationPromises = [];
     const validationErrors = [];
 
     // Vérifier si searchParams est défini avant d'y accéder
     if (searchParams) {
-      // Validation du paramètre de recherche, keyword
+      // Validation et stockage du paramètre keyword
       if (searchParams.keyword) {
-        validationPromises.push(
-          searchSchema
-            .validate({ keyword: searchParams.keyword }, { abortEarly: false })
-            .catch((err) => {
-              validationErrors.push({
-                field: 'keyword',
-                message: err.errors[0],
-              });
-            }),
-        );
+        try {
+          await searchSchema.validate(
+            { keyword: searchParams.keyword },
+            { abortEarly: false },
+          );
+          urlParams.keyword = searchParams.keyword;
+        } catch (err) {
+          validationErrors.push({
+            field: 'keyword',
+            message: err.errors[0],
+          });
+        }
       }
 
+      // Validation et stockage du paramètre page
       if (searchParams.page) {
-        validationPromises.push(
-          pageSchema
-            .validate({ page: searchParams.page }, { abortEarly: false })
-            .catch((err) => {
-              validationErrors.push({
-                field: 'page',
-                message: err.errors[0],
-              });
-            }),
-        );
+        try {
+          await pageSchema.validate(
+            { page: searchParams.page },
+            { abortEarly: false },
+          );
+          urlParams.page = searchParams.page;
+        } catch (err) {
+          validationErrors.push({
+            field: 'page',
+            message: err.errors[0],
+          });
+        }
       }
 
+      // Validation et stockage du paramètre category
       if (searchParams.category) {
-        validationPromises.push(
-          categorySchema
-            .validate({ value: searchParams.category }, { abortEarly: false })
-            .catch((err) => {
-              validationErrors.push({
-                field: 'category',
-                message: err.errors[0],
-              });
-            }),
-        );
+        try {
+          await categorySchema.validate(
+            { value: searchParams.category },
+            { abortEarly: false },
+          );
+          urlParams.category = searchParams.category;
+        } catch (err) {
+          validationErrors.push({
+            field: 'category',
+            message: err.errors[0],
+          });
+        }
       }
 
+      // Validation et stockage des paramètres de prix
       if (searchParams.min || searchParams.max) {
-        validationPromises.push(
-          priceRangeSchema
-            .validate(
-              {
-                minPrice: searchParams.min,
-                maxPrice: searchParams.max,
-              },
-              { abortEarly: false },
-            )
-            .catch((err) => {
-              validationErrors.push({
-                field: 'price',
-                message: err.errors[0],
-              });
-            }),
-        );
-        urlParams['price[gte]'] = searchParams.min;
+        try {
+          await priceRangeSchema.validate(
+            {
+              minPrice: searchParams.min,
+              maxPrice: searchParams.max,
+            },
+            { abortEarly: false },
+          );
+          if (searchParams.min) urlParams['price[gte]'] = searchParams.min;
+          if (searchParams.max) urlParams['price[lte]'] = searchParams.max;
+        } catch (err) {
+          validationErrors.push({
+            field: 'price',
+            message: err.errors[0],
+          });
+        }
       }
-
-      // Exécuter toutes les validations en parallèle
-      await Promise.all(validationPromises);
     }
 
     // Si des erreurs de validation sont trouvées, retourner immédiatement
     if (validationErrors?.length > 0) {
-      // a completer
-      return;
-    } else {
-      // Ajouter les paramètres qui existent
-      if (searchParams.keyword) {
-        urlParams.keyword = searchParams.keyword;
-      }
-      if (searchParams.page) urlParams.page = searchParams.page;
-      if (searchParams.category) urlParams.category = searchParams.category;
-      if (searchParams.min) urlParams['price[gte]'] = searchParams.min;
-      if (searchParams.max) urlParams['price[lte]'] = searchParams.max;
+      console.error('Validation errors:', validationErrors);
+      captureException(new Error('Validation failed'), {
+        tags: { action: 'validation_failed' },
+        extra: { validationErrors, searchParams },
+      });
+      return { products: [], totalPages: 0, errors: validationErrors };
     }
 
     // Construire la chaîne de requête
