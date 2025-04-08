@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { NextResponse } from 'next/server';
 
 import dbConnect from '@/backend/config/dbConnect';
@@ -174,11 +175,7 @@ export async function GET(req) {
     }
 
     // Configuration de la pagination basée sur les valeurs sanitisées
-    const page = sanitizedParams.page || 1;
-    const resPerPage = Math.min(
-      MAX_PER_PAGE,
-      Math.max(1, sanitizedParams.limit || DEFAULT_PER_PAGE),
-    );
+    const resPerPage = Math.min(MAX_PER_PAGE, Math.max(1, DEFAULT_PER_PAGE));
 
     // Créer les filtres avec les paramètres sanitisés
     // (Note: Vous devrez peut-être adapter APIFilters pour qu'il accepte un objet plutôt que URLSearchParams)
