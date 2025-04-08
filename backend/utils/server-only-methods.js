@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import queryString from 'query-string';
 import { getCookieName } from '@/helpers/helpers';
 import { toast } from 'react-toastify';
-import { getCacheHeaders } from '@/utils/cache';
+import { CACHE_CONFIGS, getCacheHeaders } from '@/utils/cache';
 import {
   categorySchema,
   pageSchema,
@@ -150,7 +150,7 @@ export const getAllProducts = async (searchParams) => {
     const res = await fetch(apiUrl, {
       signal: controller.signal,
       next: {
-        revalidate: CACHE_TTL.products,
+        revalidate: CACHE_CONFIGS.products,
         tags: [
           'products',
           ...(urlParams.category ? [`category-${urlParams.category}`] : []),
