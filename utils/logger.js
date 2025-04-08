@@ -7,7 +7,7 @@ const logger = winston.createLogger({
     winston.format.timestamp(),
     winston.format.json(),
   ),
-  defaultMeta: { service: 'db-connection' },
+  defaultMeta: { service: 'api-services' },
   transports: [
     new winston.transports.Console({
       format: winston.format.combine(

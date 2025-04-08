@@ -16,22 +16,11 @@ import {
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
 
-// Cache TTL en secondes
-const CACHE_TTL = {
-  products: 300, // 5 minutes
-  product: 600, // 10 minutes
-  addresses: 900, // 15 minutes
-  orders: 300, // 5 minutes
-};
-
-export const getAllProducts = async (searchParams) => {
-  const requestId = Math.random().toString(36).substring(2, 10); // ID unique pour suivre une requête
-  logger.info('Starting getAllProducts request', {
-    requestId,
-    searchParams,
-    action: 'get_all_products_start',
-  });
-
+export const getAllProducts = async (
+  searchParams,
+  retryAttempt = 0,
+  maxRetries = 3,
+) => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
@@ -41,6 +30,16 @@ export const getAllProducts = async (searchParams) => {
       action: 'request_timeout',
     });
   }, 10000); // 10 secondes
+
+  // Générer un ID de requête unique pour suivre les retries dans les logs
+  const requestId = `products-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+  logger.info('Starting getAllProducts request', {
+    requestId,
+    searchParams,
+    retryAttempt,
+    action: 'get_all_products',
+  });
 
   try {
     // Créer un objet pour stocker les paramètres validés
@@ -144,6 +143,7 @@ export const getAllProducts = async (searchParams) => {
     logger.debug('Fetching products from API', {
       requestId,
       apiUrl,
+      retryAttempt,
       action: 'api_request_start',
     });
 
@@ -165,6 +165,7 @@ export const getAllProducts = async (searchParams) => {
     logger.debug('API response received', {
       requestId,
       status: res.status,
+      retryAttempt,
       action: 'api_request_complete',
     });
 
@@ -175,19 +176,80 @@ export const getAllProducts = async (searchParams) => {
         requestId,
         status: res.status,
         error: errorText,
+        retryAttempt,
         action: 'api_request_error',
       });
+
+      // Déterminer si l'erreur est récupérable (5xx ou certaines 4xx)
+      const isRetryable = res.status >= 500 || [408, 429].includes(res.status);
+
+      if (isRetryable && retryAttempt < maxRetries) {
+        // Calculer le délai de retry avec backoff exponentiel
+        const retryDelay = Math.min(
+          1000 * Math.pow(2, retryAttempt), // 1s, 2s, 4s, ...
+          15000, // Maximum 15 secondes
+        );
+
+        logger.warn(`Retrying request after ${retryDelay}ms`, {
+          requestId,
+          retryAttempt: retryAttempt + 1,
+          maxRetries,
+          action: 'retry_scheduled',
+        });
+
+        // Nettoyer le timeout actuel
+        clearTimeout(timeoutId);
+
+        // Attendre avant de réessayer
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+
+        // Réessayer avec le compteur incrémenté
+        return getAllProducts(searchParams, retryAttempt + 1, maxRetries);
+      }
 
       return { products: [], totalPages: 0 };
     }
 
     try {
       const data = await res.json();
+
+      logger.info('Successfully fetched products', {
+        requestId,
+        productCount: data.products?.length || 0,
+        action: 'api_success',
+      });
+
       return data;
     } catch (parseError) {
-      console.error('JSON parsing error in getAllProducts:', parseError);
+      logger.error('JSON parsing error in getAllProducts', {
+        requestId,
+        error: parseError.message,
+        retryAttempt,
+        action: 'parse_error',
+      });
+
+      // Si erreur de parsing et retries disponibles
+      if (retryAttempt < maxRetries) {
+        const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
+        logger.warn(`Retrying after parse error (${retryDelay}ms)`, {
+          requestId,
+          retryAttempt: retryAttempt + 1,
+          action: 'retry_scheduled',
+        });
+
+        clearTimeout(timeoutId);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        return getAllProducts(searchParams, retryAttempt + 1, maxRetries);
+      }
+
       const rawText = await res.clone().text();
-      console.error('Raw response text:', rawText.substring(0, 200) + '...'); // Log des premiers 200 caractères
+
+      logger.error('Raw response text', {
+        requestId,
+        text: rawText.substring(0, 200) + '...',
+        action: 'raw_response',
+      });
+
       return { products: [], totalPages: 0 };
     }
   } catch (error) {
@@ -195,12 +257,34 @@ export const getAllProducts = async (searchParams) => {
       requestId,
       error: error.message,
       stack: error.stack,
+      retryAttempt,
       action: 'get_all_products_error',
     });
 
+    // Déterminer si l'erreur est récupérable
+    const isRetryable =
+      error.name === 'AbortError' ||
+      error.name === 'TimeoutError' ||
+      error.message.includes('network') ||
+      error.message.includes('connection');
+
+    if (isRetryable && retryAttempt < maxRetries) {
+      const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
+      logger.warn(`Retrying after exception (${retryDelay}ms)`, {
+        requestId,
+        retryAttempt: retryAttempt + 1,
+        maxRetries,
+        action: 'retry_scheduled',
+      });
+
+      clearTimeout(timeoutId);
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      return getAllProducts(searchParams, retryAttempt + 1, maxRetries);
+    }
+
     captureException(error, {
       tags: { action: 'get_all_products' },
-      extra: { searchParams },
+      extra: { searchParams, requestId, retryAttempt },
     });
 
     // Renvoyer un objet vide pour éviter de planter l'application
