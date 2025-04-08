@@ -30,6 +30,8 @@ const ListProducts = ({ data, categories }) => {
     }
   }, [data]);
 
+  console.log('ListProducts', data);
+
   return (
     <section className="py-12">
       <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
