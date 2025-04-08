@@ -24,6 +24,8 @@ const CACHE_TTL = {
 };
 
 export const getAllProducts = async (searchParams) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes
   try {
     // Créer un objet pour stocker les paramètres filtrés
     const urlParams = {};
@@ -121,6 +123,7 @@ export const getAllProducts = async (searchParams) => {
     const apiUrl = `${process.env.API_URL || ''}/api/products${searchQuery ? `?${searchQuery}` : ''}`;
 
     const res = await fetch(apiUrl, {
+      signal: controller.signal,
       next: {
         revalidate: CACHE_TTL.products,
         tags: [
@@ -157,6 +160,8 @@ export const getAllProducts = async (searchParams) => {
 
     // Renvoyer un objet vide pour éviter de planter l'application
     return { products: [], totalPages: 0 };
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 
