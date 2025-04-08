@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { NextResponse } from 'next/server';
 
 import dbConnect from '@/backend/config/dbConnect';
@@ -19,7 +18,6 @@ import { rateLimit } from '@/utils/rateLimit';
 import {
   sanitizeProductSearchParams,
   buildSanitizedSearchParams,
-  sanitizeAndValidate,
 } from '@/utils/inputSanitizer';
 
 // Constantes pour la configuration
@@ -28,10 +26,7 @@ const DEFAULT_PER_PAGE = parseInt(process.env.DEFAULT_PRODUCTS_PER_PAGE || 10);
 const MAX_PER_PAGE = parseInt(process.env.MAX_PRODUCTS_PER_PAGE || 50);
 
 export async function GET(req) {
-  // Mesures de performance
-  const startTime = Date.now();
   let cacheHit = false;
-  let queryDuration = 0;
 
   try {
     // Rate limiting
@@ -43,52 +38,6 @@ export async function GET(req) {
     // Appliquer le rate limiting basé sur l'IP
     const ip = req.headers.get('x-forwarded-for') || 'anonymous';
     await limiter.check(req, 20, ip); // 20 requêtes max par minute par IP
-
-    // Sanitisation AVANT de générer la clé de cache
-    const sanitizedParams = sanitizeProductSearchParams(
-      req.nextUrl.searchParams,
-    );
-    const sanitizedSearchParams = buildSanitizedSearchParams(sanitizedParams);
-
-    // Générer une clé de cache fiable basée sur les paramètres sanitisés
-    const cacheKey = `products:${sanitizedSearchParams.toString()}`;
-
-    // Vérifier le cache pour une réponse existante
-    const cachedResponse = appCache.products.get(cacheKey);
-    if (cachedResponse) {
-      cacheHit = true;
-      // Si vous avez un système de métriques
-      // recordMetric('products_api_cache_hit', 1);
-
-      return NextResponse.json(cachedResponse, {
-        status: 200,
-        headers: {
-          ...getCacheHeaders('products'),
-          'X-Cache': 'HIT',
-          'Content-Security-Policy': "default-src 'self'",
-          'X-Content-Type-Options': 'nosniff',
-          'X-Frame-Options': 'DENY',
-          'Cache-Control': 'no-store, max-age=0',
-          'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-        },
-      });
-    }
-
-    // Si vous avez un système de métriques
-    // recordMetric('products_api_cache_miss', 1);
-
-    // Établir la connexion à la base de données
-    const connectionInstance = await dbConnect();
-    if (!connectionInstance.connection) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Database connection failed',
-          code: 'DB_CONNECTION_ERROR',
-        },
-        { status: 500 },
-      );
-    }
 
     // Validation avec les schémas Yup après sanitisation
     const validationPromises = [];
@@ -178,6 +127,52 @@ export async function GET(req) {
       );
     }
 
+    // Sanitisation AVANT de générer la clé de cache
+    const sanitizedParams = sanitizeProductSearchParams(
+      req.nextUrl.searchParams,
+    );
+    const sanitizedSearchParams = buildSanitizedSearchParams(sanitizedParams);
+
+    // Générer une clé de cache fiable basée sur les paramètres sanitisés
+    const cacheKey = `products:${sanitizedSearchParams.toString()}`;
+
+    // Vérifier le cache pour une réponse existante
+    const cachedResponse = appCache.products.get(cacheKey);
+    if (cachedResponse) {
+      cacheHit = true;
+      // Si vous avez un système de métriques
+      // recordMetric('products_api_cache_hit', 1);
+
+      return NextResponse.json(cachedResponse, {
+        status: 200,
+        headers: {
+          ...getCacheHeaders('products'),
+          'X-Cache': 'HIT',
+          'Content-Security-Policy': "default-src 'self'",
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'Cache-Control': 'no-store, max-age=0',
+          'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+        },
+      });
+    }
+
+    // Si vous avez un système de métriques
+    // recordMetric('products_api_cache_miss', 1);
+
+    // Établir la connexion à la base de données
+    const connectionInstance = await dbConnect();
+    if (!connectionInstance.connection) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Database connection failed',
+          code: 'DB_CONNECTION_ERROR',
+        },
+        { status: 500 },
+      );
+    }
+
     // Configuration de la pagination basée sur les valeurs sanitisées
     const page = sanitizedParams.page || 1;
     const resPerPage = Math.min(
@@ -232,7 +227,6 @@ export async function GET(req) {
         .lean()
         .then((results) => {
           clearTimeout(timeout);
-          queryDuration = Date.now() - startTime;
           resolve(results);
         })
         .catch((err) => {
@@ -253,9 +247,6 @@ export async function GET(req) {
         message: 'No products found matching the criteria',
         data: {
           totalPages: 0,
-          currentPage: page,
-          productsPerPage: resPerPage,
-          count: 0,
           products: [],
         },
       };
@@ -282,18 +273,11 @@ export async function GET(req) {
       success: true,
       data: {
         totalPages,
-        currentPage: page,
-        count: filteredProductsCount,
-        productsPerPage: resPerPage,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
         products: products.map((product) => ({
           ...product,
           // Transformer les URLs d'images pour s'assurer qu'elles sont absolues
           images: product.images?.map((img) =>
-            img.startsWith('http')
-              ? img
-              : `${process.env.NEXT_PUBLIC_API_URL}${img}`,
+            img.startsWith('http') ? img : `${process.env.API_URL}${img}`,
           ),
         })),
       },
@@ -322,9 +306,6 @@ export async function GET(req) {
       },
     });
   } catch (error) {
-    // Calculer la durée jusqu'à l'erreur
-    const errorTime = Date.now() - startTime;
-
     // Si vous avez un système de métriques
     // recordMetric('products_api_error_time', errorTime, {
     //   error_type: error.name,

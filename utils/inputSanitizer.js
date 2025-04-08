@@ -175,15 +175,6 @@ export const sanitizeProductSearchParams = (searchParams) => {
     sanitized.page = 1; // Page par défaut
   }
 
-  // Sanitise la limite par page
-  if (searchParams.has('limit')) {
-    sanitized.limit = sanitizeNumber(searchParams.get('limit'), {
-      min: 1,
-      max: 100,
-      allowNull: false,
-    });
-  }
-
   return sanitized;
 };
 
