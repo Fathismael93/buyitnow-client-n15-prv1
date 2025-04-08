@@ -199,26 +199,6 @@ export const pageSchema = yup.object().shape({
     .max(1000, 'La page ne peut pas dépasser 1000'),
 });
 
-// Fonction utilitaire pour utiliser ce schéma dans vos contrôleurs
-export const validatePriceRange = async (minPrice, maxPrice) => {
-  try {
-    const validated = await priceRangeSchema.validate({
-      minPrice: minPrice === undefined ? null : minPrice,
-      maxPrice: maxPrice === undefined ? null : maxPrice,
-    });
-
-    return {
-      isValid: true,
-      data: validated,
-    };
-  } catch (error) {
-    return {
-      isValid: false,
-      error: error.message,
-    };
-  }
-};
-
 export const profileSchema = yup.object().shape({
   name: yup.string().required().min(3),
   phone: yup.number().positive().integer().required().min(6),

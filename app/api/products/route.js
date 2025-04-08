@@ -28,7 +28,6 @@ const MAX_PER_PAGE = parseInt(process.env.MAX_PRODUCTS_PER_PAGE || 50);
 
 export async function GET(req) {
   let cacheHit = false;
-  console.log('GET /api/products');
 
   try {
     // Rate limiting
@@ -44,8 +43,6 @@ export async function GET(req) {
     // Validation avec les schémas Yup après sanitisation
     const validationPromises = [];
     const validationErrors = [];
-
-    console.log('Validation des paramètres de recherche des produits');
 
     // Validation du mot-clé de recherche
     if (req?.nextUrl?.searchParams?.get('keyword')) {
@@ -64,8 +61,6 @@ export async function GET(req) {
       );
     }
 
-    console.log('Validation de la catégorie');
-
     // Validation de la catégorie
     if (req?.nextUrl?.searchParams?.get('category')) {
       validationPromises.push(
@@ -82,8 +77,6 @@ export async function GET(req) {
           }),
       );
     }
-
-    console.log('Validation de la plage de prix');
 
     // Validation de la plage de prix
     if (
@@ -108,8 +101,6 @@ export async function GET(req) {
       );
     }
 
-    console.log('Validation de la page');
-
     // Validation de la page
     if (req?.nextUrl?.searchParams?.get('page')) {
       validationPromises.push(
@@ -127,16 +118,11 @@ export async function GET(req) {
       );
     }
 
-    console.log('Validation des paramètres de recherche initialisée');
-
     // Exécuter toutes les validations en parallèle
     await Promise.all(validationPromises);
 
-    console.log('Validation des paramètres de recherche terminée');
-
     // Si des erreurs de validation sont trouvées, retourner immédiatement
     if (validationErrors?.length > 0) {
-      console.log('Erreurs de validation trouvées', validationErrors);
       return NextResponse.json(
         {
           success: false,
@@ -148,13 +134,16 @@ export async function GET(req) {
       );
     }
 
-    console.log('Validation des paramètres de recherche réussie');
-
     // Sanitisation AVANT de générer la clé de cache
     const sanitizedParams = sanitizeProductSearchParams(
       req.nextUrl.searchParams,
     );
+
+    console.log('Paramètres sanitisés:', sanitizedParams);
+
     const sanitizedSearchParams = buildSanitizedSearchParams(sanitizedParams);
+
+    console.log('Paramètres de recherche sanitisés:', sanitizedSearchParams);
 
     // Générer une clé de cache fiable basée sur les paramètres sanitisés
     const cacheKey = `products:${sanitizedSearchParams.toString()}`;

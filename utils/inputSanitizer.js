@@ -143,16 +143,19 @@ export const sanitizeProductSearchParams = (searchParams) => {
 
   // Sanitise le mot-clé de recherche
   if (searchParams.has('keyword')) {
+    console.log('sanitizing keyword');
     sanitized.keyword = sanitizeString(searchParams.get('keyword'));
   }
 
   // Sanitise la catégorie (ObjectId)
   if (searchParams.has('category')) {
+    console.log('sanitizing category');
     sanitized.category = sanitizeObjectId(searchParams.get('category'));
   }
 
   // Sanitise les prix min et max
   if (searchParams.has('price[gte]')) {
+    console.log('sanitizing min price');
     sanitized.minPrice = sanitizeNumber(searchParams.get('price[gte]'), {
       min: 0,
       max: 999999999,
@@ -161,6 +164,7 @@ export const sanitizeProductSearchParams = (searchParams) => {
   }
 
   if (searchParams.has('price[lte]')) {
+    console.log('sanitizing max price');
     sanitized.maxPrice = sanitizeNumber(searchParams.get('price[lte]'), {
       min: 0,
       max: 999999999,
@@ -170,6 +174,7 @@ export const sanitizeProductSearchParams = (searchParams) => {
 
   // Sanitise la page
   if (searchParams.has('page')) {
+    console.log('sanitizing page');
     sanitized.page = sanitizePage(searchParams.get('page'));
   } else {
     sanitized.page = 1; // Page par défaut
@@ -186,6 +191,8 @@ export const sanitizeProductSearchParams = (searchParams) => {
  */
 export const buildSanitizedSearchParams = (sanitizedParams) => {
   const params = new URLSearchParams();
+
+  console.log('building sanitized search params', sanitizedParams);
 
   Object.entries(sanitizedParams).forEach(([key, value]) => {
     if (value !== null && value !== undefined && value !== '') {
