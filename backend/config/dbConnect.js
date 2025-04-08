@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import mongoose from 'mongoose';
 import { captureException } from '@/monitoring/sentry';
 import winston from 'winston';
@@ -36,18 +35,6 @@ if (!cached) {
     isConnecting: false,
   };
 }
-
-/**
- * Fonction utilitaire pour masquer les identifiants dans l'URI pour les logs
- */
-const sanitizeUri = (uri) => {
-  if (!uri) return 'undefined-uri';
-  try {
-    return uri.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@');
-  } catch (error) {
-    return 'invalid-uri-format';
-  }
-};
 
 /**
  * Vérifie l'état de la connexion à MongoDB
@@ -144,7 +131,7 @@ const dbConnect = async (forceNew = false) => {
   }
 
   // Valider le format de l'URI
-  if (!isValidMongoURI(sanitizeUri(MONGODB_URI))) {
+  if (!isValidMongoURI(MONGODB_URI)) {
     const error = new Error('Invalid MongoDB URI format');
     logger.error('Invalid MongoDB URI format');
     captureException(error, {
@@ -231,10 +218,7 @@ const dbConnect = async (forceNew = false) => {
         `Attempting to connect to MongoDB (attempt ${retryAttempt + 1})`,
       );
 
-      const mongooseInstance = await mongoose.connect(
-        sanitizeUri(MONGODB_URI),
-        opts,
-      );
+      const mongooseInstance = await mongoose.connect(MONGODB_URI, opts);
 
       logger.info('MongoDB connection established successfully');
 
