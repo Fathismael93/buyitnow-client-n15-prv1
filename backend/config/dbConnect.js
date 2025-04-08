@@ -1,25 +1,7 @@
 import mongoose from 'mongoose';
 import { captureException } from '@/monitoring/sentry';
-import winston from 'winston';
 import { isValidMongoURI } from '../utils/validation';
-
-// Création d'un logger structuré
-const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info', // Niveau par défaut : info
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json(),
-  ),
-  defaultMeta: { service: 'db-connection' },
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple(),
-      ),
-    }),
-  ],
-});
+import logger from '@/utils/logger';
 
 // Variables globales
 const MONGODB_URI = process.env.DB_URI;

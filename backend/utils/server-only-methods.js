@@ -6,28 +6,162 @@ import mongoose from 'mongoose';
 import queryString from 'query-string';
 import { getCookieName } from '@/helpers/helpers';
 import { toast } from 'react-toastify';
+import { getCacheHeaders } from '@/utils/cache';
+import {
+  categorySchema,
+  pageSchema,
+  priceRangeSchema,
+  searchSchema,
+} from '@/helpers/schemas';
+import { captureException } from '@/monitoring/sentry';
+
+// Cache TTL en secondes
+const CACHE_TTL = {
+  products: 300, // 5 minutes
+  product: 600, // 10 minutes
+  addresses: 900, // 15 minutes
+  orders: 300, // 5 minutes
+};
 
 export const getAllProducts = async (searchParams) => {
-  const urlParams = {
-    keyword: (await searchParams).keyword,
-    page: (await searchParams).page,
-    category: (await searchParams).category,
-    'price[gte]': (await searchParams).min,
-    'price[lte]': (await searchParams).max,
-  };
+  try {
+    // Créer un objet pour stocker les paramètres filtrés
+    const urlParams = {};
 
-  const searchQuery = queryString.stringify(urlParams);
+    // Validation avec les schémas Yup après sanitisation
+    const validationPromises = [];
+    const validationErrors = [];
 
-  const res = await fetch(`${process.env.API_URL}/api/products?${searchQuery}`);
+    // Vérifier si searchParams est défini avant d'y accéder
+    if (searchParams) {
+      // Validation du paramètre de recherche, keyword
+      if (searchParams.keyword) {
+        validationPromises.push(
+          searchSchema
+            .validate({ keyword: searchParams.keyword }, { abortEarly: false })
+            .catch((err) => {
+              validationErrors.push({
+                field: 'keyword',
+                message: err.errors[0],
+              });
+            }),
+        );
+      }
 
-  const data = await res.json();
+      if (searchParams.page) {
+        validationPromises.push(
+          pageSchema
+            .validate({ page: searchParams.page }, { abortEarly: false })
+            .catch((err) => {
+              validationErrors.push({
+                field: 'page',
+                message: err.errors[0],
+              });
+            }),
+        );
+      }
 
-  if (data?.success === false) {
-    toast.info(data?.message);
-    return [];
+      if (searchParams.category) {
+        validationPromises.push(
+          categorySchema
+            .validate({ value: searchParams.category }, { abortEarly: false })
+            .catch((err) => {
+              validationErrors.push({
+                field: 'category',
+                message: err.errors[0],
+              });
+            }),
+        );
+      }
+
+      if (searchParams.min || searchParams.max) {
+        validationPromises.push(
+          priceRangeSchema
+            .validate(
+              {
+                minPrice: searchParams.min,
+                maxPrice: searchParams.max,
+              },
+              { abortEarly: false },
+            )
+            .catch((err) => {
+              validationErrors.push({
+                field: 'price',
+                message: err.errors[0],
+              });
+            }),
+        );
+        urlParams['price[gte]'] = searchParams.min;
+      }
+
+      // Exécuter toutes les validations en parallèle
+      await Promise.all(validationPromises);
+    }
+
+    // Si des erreurs de validation sont trouvées, retourner immédiatement
+    if (validationErrors?.length > 0) {
+      // a completer
+      return;
+    } else {
+      // Ajouter les paramètres qui existent
+      if (searchParams.keyword) {
+        urlParams.keyword = searchParams.keyword;
+      }
+      if (searchParams.page) urlParams.page = searchParams.page;
+      if (searchParams.category) urlParams.category = searchParams.category;
+      if (searchParams.min) urlParams['price[gte]'] = searchParams.min;
+      if (searchParams.max) urlParams['price[lte]'] = searchParams.max;
+    }
+
+    // Construire la chaîne de requête
+    const searchQuery = new URLSearchParams(urlParams).toString();
+    const cacheControl = getCacheHeaders('products');
+
+    // S'assurer que l'URL est correctement formatée
+    const apiUrl = `${process.env.API_URL || ''}/api/products${searchQuery ? `?${searchQuery}` : ''}`;
+
+    const res = await fetch(apiUrl, {
+      next: {
+        revalidate: CACHE_TTL.products,
+        tags: [
+          'products',
+          ...(urlParams.category ? [`category-${urlParams.category}`] : []),
+        ],
+      },
+      headers: {
+        'Cache-Control': cacheControl,
+      },
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('Error in getAllProducts API call:', res.status, errorText);
+      return { products: [], totalPages: 0 };
+    }
+
+    try {
+      const data = await res.json();
+      console.log(
+        'Successfully parsed products data, count:',
+        data?.products?.length || 0,
+      );
+      return data;
+    } catch (parseError) {
+      console.error('JSON parsing error in getAllProducts:', parseError);
+      const rawText = await res.clone().text();
+      console.error('Raw response text:', rawText.substring(0, 200) + '...'); // Log des premiers 200 caractères
+      return { products: [], totalPages: 0 };
+    }
+  } catch (error) {
+    console.error('Exception in getAllProducts:', error);
+    captureException(error, {
+      tags: { action: 'get_all_products' },
+      extra: { searchParams },
+    });
+
+    // Renvoyer un objet vide pour éviter de planter l'application
+    return { products: [], totalPages: 0 };
   }
-
-  return data?.data;
 };
 
 export const getCategories = async () => {
