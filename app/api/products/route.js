@@ -266,17 +266,26 @@ export async function GET(req) {
     }
 
     // Préparer la réponse avec les données sanitisées et validées
+    // const responseData = {
+    //   success: true,
+    //   data: {
+    //     totalPages,
+    //     products: products.map((product) => ({
+    //       ...product,
+    //       // Transformer les URLs d'images pour s'assurer qu'elles sont absolues
+    //       images: product.images?.map((img) =>
+    //         img.startsWith('http') ? img : `${process.env.API_URL}${img}`,
+    //       ),
+    //     })),
+    //   },
+    // };
+
+    // Préparer la réponse avec les données sanitisées et validées
     const responseData = {
       success: true,
       data: {
         totalPages,
-        products: products.map((product) => ({
-          ...product,
-          // Transformer les URLs d'images pour s'assurer qu'elles sont absolues
-          images: product.images?.map((img) =>
-            img.startsWith('http') ? img : `${process.env.API_URL}${img}`,
-          ),
-        })),
+        products,
       },
     };
 
