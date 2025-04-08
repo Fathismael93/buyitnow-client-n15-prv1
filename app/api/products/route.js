@@ -139,11 +139,7 @@ export async function GET(req) {
       req.nextUrl.searchParams,
     );
 
-    console.log('Paramètres sanitisés:', sanitizedParams);
-
     const sanitizedSearchParams = buildSanitizedSearchParams(sanitizedParams);
-
-    console.log('Paramètres de recherche sanitisés:', sanitizedSearchParams);
 
     // Générer une clé de cache fiable basée sur les paramètres sanitisés
     const cacheKey = `products:${sanitizedSearchParams.toString()}`;
@@ -167,8 +163,6 @@ export async function GET(req) {
       });
     }
 
-    console.log('Aucune réponse en cache trouvée, traitement de la requête');
-
     // Établir la connexion à la base de données
     const connectionInstance = await dbConnect();
     if (!connectionInstance.connection) {
@@ -181,8 +175,6 @@ export async function GET(req) {
         { status: 500 },
       );
     }
-
-    console.log('Connexion à la base de données réussie');
 
     // Configuration de la pagination basée sur les valeurs sanitisées
     const resPerPage = Math.min(MAX_PER_PAGE, Math.max(1, DEFAULT_PER_PAGE));
