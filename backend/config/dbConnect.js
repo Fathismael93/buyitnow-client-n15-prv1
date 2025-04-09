@@ -1,7 +1,7 @@
-/* eslint-disable no-unused-vars */
 import mongoose from 'mongoose';
 import { captureException } from '@/monitoring/sentry';
 import { isValidMongoURI } from '../utils/validation';
+import logger from '@/utils/logger';
 
 // Variables globales
 const MONGODB_URI = process.env.DB_URI;
@@ -40,6 +40,10 @@ export const checkDbHealth = async () => {
       message: 'MongoDB connection is healthy',
     };
   } catch (error) {
+    logger.error('MongoDB health check failed', {
+      error: error.message,
+      code: error.code,
+    });
     return {
       status: 'unhealthy',
       healthy: false,
@@ -59,7 +63,11 @@ export const closeDbConnection = async () => {
       await cached.conn.connection.close();
       cached.conn = null;
       cached.promise = null;
+      logger.info('MongoDB connection closed successfully');
     } catch (error) {
+      logger.error('Error closing MongoDB connection', {
+        error: error.message,
+      });
       captureException(error, {
         tags: { service: 'database', action: 'disconnect' },
       });
@@ -79,6 +87,9 @@ const dbConnect = async (forceNew = false) => {
       await cached.conn.connection.db.admin().ping();
       return cached.conn;
     } catch (error) {
+      logger.warn('Existing connection is not responding, will reconnect', {
+        error: error.message,
+      });
       await closeDbConnection();
     }
   }
@@ -93,6 +104,7 @@ const dbConnect = async (forceNew = false) => {
     const error = new Error(
       'MongoDB URI is not defined in environment variables',
     );
+    logger.error('Missing MongoDB URI');
     captureException(error, {
       tags: { service: 'database', action: 'connect' },
       level: 'fatal',
@@ -103,6 +115,7 @@ const dbConnect = async (forceNew = false) => {
   // Valider le format de l'URI
   if (!isValidMongoURI(MONGODB_URI)) {
     const error = new Error('Invalid MongoDB URI format');
+    logger.error('Invalid MongoDB URI format');
     captureException(error, {
       tags: { service: 'database', action: 'connect' },
       level: 'fatal',
@@ -139,11 +152,16 @@ const dbConnect = async (forceNew = false) => {
 
   // Événement de connexion réussie
   mongoose.connection.on('connected', () => {
+    logger.info('MongoDB connected successfully');
     cached.retryCount = 0;
   });
 
   // Événement d'erreur de connexion
   mongoose.connection.on('error', (err) => {
+    logger.error('MongoDB connection error', {
+      error: err.message,
+      code: err.code,
+    });
     captureException(err, {
       tags: { service: 'database', action: 'connect' },
     });
@@ -151,15 +169,22 @@ const dbConnect = async (forceNew = false) => {
 
   // Événement de déconnexion
   mongoose.connection.on('disconnected', () => {
+    logger.warn('MongoDB disconnected');
     if (!cached.isConnecting && process.env.NODE_ENV === 'production') {
+      logger.info('Attempting to reconnect to MongoDB...');
       setTimeout(() => {
-        dbConnect(true).catch(() => {});
+        dbConnect(true).catch((err) => {
+          logger.error('Failed to reconnect to MongoDB', {
+            error: err.message,
+          });
+        });
       }, 5000);
     }
   });
 
   // Gestion de la fermeture propre pour différents signaux
   const handleShutdown = async (signal) => {
+    logger.info(`Received ${signal} signal, closing MongoDB connection`);
     await closeDbConnection();
     process.exit(0);
   };
@@ -171,9 +196,33 @@ const dbConnect = async (forceNew = false) => {
   // Fonction de connexion avec retry
   const connectWithRetry = async (retryAttempt = 0) => {
     try {
+      logger.info(
+        `Attempting to connect to MongoDB (attempt ${retryAttempt + 1})`,
+      );
+
       const mongooseInstance = await mongoose.connect(MONGODB_URI, opts);
+
+      logger.info('MongoDB connection established successfully');
+
       return mongooseInstance;
     } catch (err) {
+      // Log d'erreur de connexion
+      logger.error('MongoDB connection attempt failed', {
+        attempt: retryAttempt + 1,
+        error: err.message,
+        code: err.code,
+        name: err.name,
+      });
+
+      // Informations supplémentaires pour erreurs spécifiques
+      if (err.name === 'MongoServerSelectionError') {
+        logger.error('Server selection error - check network or IP whitelist');
+      }
+
+      if (err.name === 'MongoNetworkError') {
+        logger.error('Network error - check connectivity');
+      }
+
       // Implémenter un backoff exponentiel
       const nextRetryAttempt = retryAttempt + 1;
       if (nextRetryAttempt <= 5) {
@@ -182,10 +231,18 @@ const dbConnect = async (forceNew = false) => {
           30000, // Maximum 30 secondes entre les tentatives
         );
 
+        logger.warn(`Connection failed, retrying in ${retryDelay}ms`, {
+          attempt: nextRetryAttempt,
+          maxAttempts: 5,
+        });
+
         // Attendre avant de réessayer
         await new Promise((resolve) => setTimeout(resolve, retryDelay));
         return connectWithRetry(nextRetryAttempt);
       } else {
+        logger.error(
+          'Failed to connect to MongoDB after maximum retry attempts',
+        );
         captureException(err, {
           tags: { service: 'database', action: 'connect' },
           level: 'fatal',
@@ -206,6 +263,9 @@ const dbConnect = async (forceNew = false) => {
     cached.conn = await cached.promise;
     return cached.conn;
   } catch (e) {
+    logger.error('Connection promise rejected', {
+      error: e.message,
+    });
     cached.promise = null;
     throw e;
   }
