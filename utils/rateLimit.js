@@ -122,43 +122,7 @@ export const rateLimit = (options = {}) => {
     res.end(JSON.stringify(message));
   };
 
-  // Stocker les métriques d'utilisation
-  let metrics = {
-    totalRequests: 0,
-    limitExceeded: 0,
-    lastReset: Date.now(),
-  };
-
-  // Mettre à jour les métriques périodiquement
-  const metricsInterval = setInterval(() => {
-    // Envoyer des métriques à Sentry avant la réinitialisation
-    if (metrics.limitExceeded > 0) {
-      captureMessage('Rate limiter métriques', {
-        tags: {
-          component: 'rate-limiter',
-          event: 'metrics-reset',
-        },
-        extra: {
-          ...metrics,
-          activeTokens: tokenCache.size,
-          resetTimestamp: Date.now(),
-        },
-        level:
-          metrics.limitExceeded > config.uniqueTokenPerInterval * 0.5
-            ? 'warning'
-            : 'info',
-      });
-    }
-
-    metrics.totalRequests = 0;
-    metrics.limitExceeded = 0;
-    metrics.lastReset = Date.now();
-  }, config.interval);
-
-  // Éviter les fuites de mémoire
-  if (metricsInterval.unref) {
-    metricsInterval.unref();
-  }
+  // Aucune métrique de performance stockée
 
   /**
    * Vérifier si une requête dépasse la limite
@@ -196,12 +160,9 @@ export const rateLimit = (options = {}) => {
 
       // Incrémenter le compteur
       tokenData.count += 1;
-      metrics.totalRequests += 1;
 
       // Vérifier si la limite est dépassée
       if (tokenData.count > limit) {
-        metrics.limitExceeded += 1;
-
         // Obtenir les headers pour les inclure dans l'erreur
         const headers = getRateLimitHeaders(token, limit);
 
@@ -289,28 +250,23 @@ export const rateLimit = (options = {}) => {
           // Utiliser le builder personnalisé
           config.errorResponseBuilder(req, res, next, error);
         } else {
-          // Capturer les événements de rate limiting excessifs dans Sentry
-          if (metrics.limitExceeded % 100 === 0) {
-            // Éviter de surcharger Sentry
-            captureMessage('Seuil important de rate limiting dépassé', {
-              tags: {
-                component: 'rate-limiter',
-                event: 'high-rate-limiting',
-              },
-              extra: {
-                path: req.url,
-                method: req.method,
-                ip:
-                  config.trustProxy && req.headers['x-forwarded-for']
-                    ? req.headers['x-forwarded-for'].split(',')[0].trim()
-                    : req.connection?.remoteAddress ||
-                      req.socket?.remoteAddress,
-                currentCount: metrics.limitExceeded,
-                limit: error.limit,
-              },
-              level: 'warning',
-            });
-          }
+          // Capturer l'événement de rate limiting dans Sentry
+          captureMessage('Rate limiting dépassé', {
+            tags: {
+              component: 'rate-limiter',
+              event: 'rate-limiting',
+            },
+            extra: {
+              path: req.url,
+              method: req.method,
+              ip:
+                config.trustProxy && req.headers['x-forwarded-for']
+                  ? req.headers['x-forwarded-for'].split(',')[0].trim()
+                  : req.connection?.remoteAddress || req.socket?.remoteAddress,
+              limit: error.limit,
+            },
+            level: 'warning',
+          });
 
           // Utiliser la réponse d'erreur par défaut
           defaultErrorResponseBuilder(req, res, next, error);
@@ -334,16 +290,12 @@ export const rateLimit = (options = {}) => {
   };
 
   /**
-   * Obtenir les métriques actuelles
-   * @returns {Object} - Métriques
+   * Obtenir des informations basiques sur l'état du cache
+   * @returns {Object} - Informations sur le cache
    */
-  const getMetrics = () => ({
-    ...metrics,
+  const getStatus = () => ({
     activeTokens: tokenCache.size,
-    hitRate: metrics.totalRequests
-      ? (metrics.totalRequests - metrics.limitExceeded) / metrics.totalRequests
-      : 0,
-    uptime: Date.now() - metrics.lastReset,
+    isActive: tokenCache.size > 0,
   });
 
   // Retourner l'API publique
@@ -352,7 +304,7 @@ export const rateLimit = (options = {}) => {
     middleware,
     resetToken,
     resetAll,
-    getMetrics,
+    getStatus,
     _cache: tokenCache, // Exposé pour les tests, utiliser avec précaution
   };
 };
