@@ -27,7 +27,6 @@ const DEFAULT_PER_PAGE = parseInt(process.env.DEFAULT_PRODUCTS_PER_PAGE || 10);
 const MAX_PER_PAGE = parseInt(process.env.MAX_PRODUCTS_PER_PAGE || 50);
 
 export async function GET(req) {
-  console.log('GET /api/products');
   try {
     // Rate limiting
     const limiter = rateLimit({
@@ -42,8 +41,6 @@ export async function GET(req) {
     // Validation avec les schémas Yup après sanitisation
     const validationPromises = [];
     const validationErrors = [];
-
-    console.log('Validation des paramètres de recherche');
 
     // Validation du mot-clé de recherche
     if (req?.nextUrl?.searchParams?.get('keyword')) {
@@ -119,16 +116,11 @@ export async function GET(req) {
       );
     }
 
-    console.log('Validation des paramètres de recherche commencee');
-
     // Exécuter toutes les validations en parallèle
     await Promise.all(validationPromises);
 
-    console.log('Validation des paramètres de recherche terminée');
-
     // Si des erreurs de validation sont trouvées, retourner immédiatement
     if (validationErrors?.length > 0) {
-      console.log('Erreurs de validation trouvées', validationErrors);
       return NextResponse.json(
         {
           success: false,
@@ -140,16 +132,12 @@ export async function GET(req) {
       );
     }
 
-    console.log('Validation des paramètres de recherche terminée sans erreurs');
-
     // Sanitisation AVANT de générer la clé de cache
     const sanitizedParams = sanitizeProductSearchParams(
       req.nextUrl.searchParams,
     );
 
     const sanitizedSearchParams = buildSanitizedSearchParams(sanitizedParams);
-
-    console.log('Paramètres de recherche sanitisés', sanitizedSearchParams);
 
     // Générer une clé de cache fiable basée sur les paramètres sanitisés
     const cacheKey = `products:${sanitizedSearchParams.toString()}`;
@@ -171,13 +159,9 @@ export async function GET(req) {
       });
     }
 
-    console.log('Aucune réponse en cache trouvée, traitement de la requête');
-
     // Établir la connexion à la base de données
     const connectionInstance = await dbConnect();
     if (!connectionInstance.connection) {
-      console.log('Erreur de connexion à la base de données');
-
       return NextResponse.json(
         {
           success: false,
@@ -188,15 +172,13 @@ export async function GET(req) {
       );
     }
 
-    console.log('Connexion à la base de données réussie');
-
     // Configuration de la pagination basée sur les valeurs sanitisées
     const resPerPage = Math.min(MAX_PER_PAGE, Math.max(1, DEFAULT_PER_PAGE));
 
     // Créer les filtres avec les paramètres sanitisés
     // (Note: Vous devrez peut-être adapter APIFilters pour qu'il accepte un objet plutôt que URLSearchParams)
     const apiFilters = new APIFilters(
-      Product.find({ isActive: true })
+      Product.find()
         .select('name description stock price images')
         .slice('images', 1),
       sanitizedSearchParams, // Utiliser les paramètres sanitisés
