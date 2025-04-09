@@ -178,7 +178,7 @@ export async function GET(req) {
     // Créer les filtres avec les paramètres sanitisés
     // (Note: Vous devrez peut-être adapter APIFilters pour qu'il accepte un objet plutôt que URLSearchParams)
     const apiFilters = new APIFilters(
-      Product.find()
+      Product.find({ isActive: true })
         .select('name description stock price images')
         .slice('images', 1),
       sanitizedSearchParams, // Utiliser les paramètres sanitisés
