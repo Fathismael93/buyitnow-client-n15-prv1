@@ -1,13 +1,70 @@
 import { NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 
 import dbConnect from '@/backend/config/dbConnect';
 import Category from '@/backend/models/category';
+import { createRateLimiter } from '@/utils/rateLimit';
+import logger from '@/utils/logger';
+import { captureException } from '@/monitoring/sentry';
 
-export async function GET() {
+// Créer un rate limiter avec le preset pour les API publiques
+const rateLimiter = createRateLimiter('PUBLIC_API', {
+  prefix: 'category-api', // Préfixe unique pour cette route
+});
+
+export async function GET(req) {
+  const headersList = headers();
+  const ip =
+    headersList.get('x-forwarded-for')?.split(',')[0] ||
+    req.socket?.remoteAddress ||
+    '0.0.0.0';
+
   try {
+    // Vérifier les limites de taux avant de traiter la requête
+    try {
+      const result = await rateLimiter.check(req);
+
+      // Ajouter les en-têtes de rate limiting à la réponse
+      const responseHeaders = {};
+      if (result.headers) {
+        Object.entries(result.headers).forEach(([key, value]) => {
+          responseHeaders[key] = value;
+        });
+      }
+    } catch (rateLimitError) {
+      // Si le rate limiting est dépassé, renvoyer une réponse 429
+      logger.warn(`Rate limit exceeded for categories API: ${ip}`, {
+        component: 'categoryAPI',
+        ip,
+      });
+
+      const headers = {};
+      if (rateLimitError.headers) {
+        Object.entries(rateLimitError.headers).forEach(([key, value]) => {
+          headers[key] = value;
+        });
+      }
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Too many requests. Please try again later.',
+        },
+        {
+          status: 429,
+          headers,
+        },
+      );
+    }
+
+    // Connexion à la base de données
     const connectionInstance = await dbConnect();
 
     if (!connectionInstance.connection) {
+      logger.error('Database connection failed in categories API', {
+        component: 'categoryAPI',
+      });
+
       return NextResponse.json(
         {
           success: false,
@@ -17,9 +74,15 @@ export async function GET() {
       );
     }
 
+    // Récupérer les catégories depuis la base de données
     const categories = await Category.find()
       .select('categoryName')
       .sort({ categoryName: 1 });
+
+    logger.info('Categories fetched successfully', {
+      component: 'categoryAPI',
+      count: categories.length,
+    });
 
     return NextResponse.json(
       {
@@ -31,26 +94,25 @@ export async function GET() {
       { status: 200 },
     );
   } catch (error) {
+    // Capturer l'exception pour le monitoring
+    captureException(error, {
+      tags: { component: 'categoryAPI' },
+      extra: { path: '/api/category' },
+    });
+
+    logger.error(`Error in categories API: ${error.message}`, {
+      error,
+      component: 'categoryAPI',
+    });
+
     return NextResponse.json(
       {
         success: false,
         message: 'Something is wrong with server! Please try again later',
-        error: error,
+        error:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 },
     );
   }
 }
-
-/* 
-
-je ne veux pas de requete post ! je t'ai juste demande la requete GET. 
-J'ai une autre API ROUTE GET PRODUCTS pour recuperer la liste des produits qui est tres complete et tres enrichi, 
-je vais te le passer et tu vas l'analyser de fond en comble, detail par detail, bloc par bloc pour t'en inspirer. 
-Elle a tout rate limiting, caching, gestion des erreurs et tous les autres. 
-J'ai aussi des fichiers pour le rate limiting, rateLimit.js, pour le caching, cache.js, 
-pour le monitoring vers sentry, sentry.js, je vais te les passer et tu vas les analyser de fond en comble, detail par detail, 
-bloc par bloc pour utiliser les methodes qui sont a l'interieur. Mais on va aller progressivement, 
-gerer les modifications une par une.
-
-*/
