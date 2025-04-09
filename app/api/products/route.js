@@ -14,7 +14,7 @@ import {
 import { captureException } from '@/monitoring/sentry';
 import { getCacheHeaders } from '@/utils/cache';
 import { appCache } from '@/utils/cache';
-import { rateLimit } from '@/utils/rateLimit';
+import { createRateLimiter, RATE_LIMIT_ALGORITHMS } from '@/utils/rateLimit';
 // Importer les fonctions de sanitisation
 import {
   sanitizeProductSearchParams,
@@ -26,17 +26,50 @@ const QUERY_TIMEOUT = parseInt(process.env.QUERY_TIMEOUT || 5000); // 5 secondes
 const DEFAULT_PER_PAGE = parseInt(process.env.DEFAULT_PRODUCTS_PER_PAGE || 10);
 const MAX_PER_PAGE = parseInt(process.env.MAX_PRODUCTS_PER_PAGE || 50);
 
+// Création d'un rate limiter optimisé pour l'API de produits
+// Utilisation de l'algorithme de fenêtre glissante pour une meilleure précision
+const productsRateLimiter = createRateLimiter('PUBLIC_API', {
+  prefix: 'products-api',
+  limit: 40, // 40 requêtes par minute
+  interval: 60 * 1000, // 1 minute
+  algorithm: RATE_LIMIT_ALGORITHMS.SLIDING_WINDOW,
+  blockDuration: 10 * 60 * 1000, // 10 minutes de blocage après abus
+});
+
 export async function GET(req) {
   try {
-    // Rate limiting
-    const limiter = rateLimit({
-      interval: 60 * 1000, // 1 minute
-      uniqueTokenPerInterval: 500,
-    });
+    // Rate limiting simple pour API publique
+    let rateLimitInfo;
 
-    // Appliquer le rate limiting basé sur l'IP
-    const ip = req.headers.get('x-forwarded-for') || 'anonymous';
-    await limiter.check(req, 20, ip); // 20 requêtes max par minute par IP
+    try {
+      // Appliquer la même limite pour tous les utilisateurs
+      rateLimitInfo = await productsRateLimiter.check(req);
+
+      // Ajouter les headers de rate limiting à toutes les réponses
+      const rateLimitHeaders = rateLimitInfo.headers || {};
+    } catch (error) {
+      // Si on atteint la limite, retourner une réponse 429 avec headers explicatifs
+      if (error.statusCode === 429) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Trop de requêtes, veuillez réessayer plus tard',
+            code: 'RATE_LIMIT_EXCEEDED',
+            retryAfter: error.headers?.['Retry-After'] || 60,
+          },
+          {
+            status: 429,
+            headers: {
+              ...error.headers,
+              'Retry-After': error.headers?.['Retry-After'] || 60,
+            },
+          },
+        );
+      }
+
+      // Autres erreurs de rate limiting - on continue malgré tout
+      // pour éviter de bloquer le service en cas de problème avec le rate limiter
+    }
 
     // Validation avec les schémas Yup après sanitisation
     const validationPromises = [];
@@ -128,7 +161,10 @@ export async function GET(req) {
           errors: validationErrors,
           code: 'VALIDATION_ERROR',
         },
-        { status: 400 },
+        {
+          status: 400,
+          headers: rateLimitInfo?.headers || {}, // Inclure les headers de rate limiting même en cas d'erreur
+        },
       );
     }
 
@@ -149,6 +185,7 @@ export async function GET(req) {
         status: 200,
         headers: {
           ...getCacheHeaders('products'),
+          ...rateLimitInfo?.headers, // Ajouter les headers de rate limiting
           'X-Cache': 'HIT',
           'Content-Security-Policy': "default-src 'self'",
           'X-Content-Type-Options': 'nosniff',
@@ -168,7 +205,10 @@ export async function GET(req) {
           message: 'Database connection failed',
           code: 'DB_CONNECTION_ERROR',
         },
-        { status: 500 },
+        {
+          status: 500,
+          headers: rateLimitInfo?.headers || {}, // Inclure les headers de rate limiting même en cas d'erreur
+        },
       );
     }
 
@@ -176,9 +216,8 @@ export async function GET(req) {
     const resPerPage = Math.min(MAX_PER_PAGE, Math.max(1, DEFAULT_PER_PAGE));
 
     // Créer les filtres avec les paramètres sanitisés
-    // (Note: Vous devrez peut-être adapter APIFilters pour qu'il accepte un objet plutôt que URLSearchParams)
     const apiFilters = new APIFilters(
-      Product.find()
+      Product.find({ isActive: true })
         .select('name description stock price images')
         .slice('images', 1),
       sanitizedSearchParams, // Utiliser les paramètres sanitisés
@@ -253,6 +292,7 @@ export async function GET(req) {
         status: 200,
         headers: {
           ...getCacheHeaders('products'),
+          ...rateLimitInfo?.headers, // Ajouter les headers de rate limiting
           'X-Cache': 'MISS',
           'Content-Security-Policy': "default-src 'self'",
           'X-Content-Type-Options': 'nosniff',
@@ -262,21 +302,6 @@ export async function GET(req) {
         },
       });
     }
-
-    // Préparer la réponse avec les données sanitisées et validées
-    // const responseData = {
-    //   success: true,
-    //   data: {
-    //     totalPages,
-    //     products: products.map((product) => ({
-    //       ...product,
-    //       // Transformer les URLs d'images pour s'assurer qu'elles sont absolues
-    //       images: product.images?.map((img) =>
-    //         img.startsWith('http') ? img : `${process.env.API_URL}${img}`,
-    //       ),
-    //     })),
-    //   },
-    // };
 
     // Préparer la réponse avec les données sanitisées et validées
     const responseData = {
@@ -295,6 +320,7 @@ export async function GET(req) {
       status: 200,
       headers: {
         ...getCacheHeaders('products'),
+        ...rateLimitInfo?.headers, // Ajouter les headers de rate limiting
         'X-Cache': 'MISS',
         'Content-Security-Policy': "default-src 'self'",
         'X-Content-Type-Options': 'nosniff',
@@ -318,6 +344,17 @@ export async function GET(req) {
       level: error.name === 'ValidationError' ? 'warning' : 'error',
     });
 
+    // Headers de réponse pour toute erreur
+    const baseHeaders = {};
+
+    // Essayer de récupérer des headers de rate limiting même en cas d'erreur
+    try {
+      const rateLimitHeaders = await productsRateLimiter.check(req, 40);
+      Object.assign(baseHeaders, rateLimitHeaders.headers || {});
+    } catch (e) {
+      // Silencieux en cas d'erreur du rate limiter lui-même
+    }
+
     // Déterminer le type d'erreur pour une réponse appropriée
     if (error.name === 'ValidationError') {
       return NextResponse.json(
@@ -331,7 +368,10 @@ export async function GET(req) {
             })) || [{ field: 'unknown', message: error.message }],
           code: 'VALIDATION_ERROR',
         },
-        { status: 400 },
+        {
+          status: 400,
+          headers: baseHeaders,
+        },
       );
     } else if (error.name === 'MongoServerError' && error.code === 11000) {
       return NextResponse.json(
@@ -340,7 +380,10 @@ export async function GET(req) {
           message: 'Erreur de base de données',
           code: 'DB_DUPLICATE_ERROR',
         },
-        { status: 500 },
+        {
+          status: 500,
+          headers: baseHeaders,
+        },
       );
     } else if (
       error.name === 'TimeoutError' ||
@@ -352,7 +395,10 @@ export async function GET(req) {
           message: 'La requête a pris trop de temps',
           code: 'TIMEOUT_ERROR',
         },
-        { status: 504 },
+        {
+          status: 504,
+          headers: baseHeaders,
+        },
       );
     } else if (
       error.name === 'ConnectionError' ||
@@ -364,7 +410,10 @@ export async function GET(req) {
           message: 'Erreur de connexion à la base de données',
           code: 'DB_CONNECTION_ERROR',
         },
-        { status: 503 },
+        {
+          status: 503,
+          headers: baseHeaders,
+        },
       );
     }
 
@@ -376,7 +425,10 @@ export async function GET(req) {
           'Une erreur interne est survenue, veuillez réessayer ultérieurement',
         code: 'INTERNAL_SERVER_ERROR',
       },
-      { status: 500 },
+      {
+        status: 500,
+        headers: baseHeaders,
+      },
     );
   }
 }

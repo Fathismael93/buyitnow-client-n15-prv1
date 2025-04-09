@@ -116,7 +116,6 @@ export const rateLimit = (options = {}) => {
     strategy = RATE_LIMIT_STRATEGIES.IP,
     algorithm = RATE_LIMIT_ALGORITHMS.SLIDING_WINDOW,
     blockDuration = 15 * 60 * 1000, // 15 minutes de blocage par défaut
-    skipSuccessLogging = true,
     getTokenFromReq = null,
   } = options;
 
