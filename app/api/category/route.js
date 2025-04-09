@@ -52,3 +52,16 @@ export async function GET(req) {
     );
   }
 }
+
+/* 
+
+je ne veux pas de requete post ! je t'ai juste demande la requete GET. 
+J'ai une autre API ROUTE GET PRODUCTS pour recuperer la liste des produits qui est tres complete et tres enrichi, 
+je vais te le passer et tu vas l'analyser de fond en comble, detail par detail, bloc par bloc pour t'en inspirer. 
+Elle a tout rate limiting, caching, gestion des erreurs et tous les autres. 
+J'ai aussi des fichiers pour le rate limiting, rateLimit.js, pour le caching, cache.js, 
+pour le monitoring vers sentry, sentry.js, je vais te les passer et tu vas les analyser de fond en comble, detail par detail, 
+bloc par bloc pour utiliser les methodes qui sont a l'interieur. Mais on va aller progressivement, 
+gerer les modifications une par une.
+
+*/
