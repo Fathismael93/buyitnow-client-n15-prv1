@@ -1,5 +1,6 @@
 import { LRUCache } from 'lru-cache';
 import { createHash } from 'crypto';
+import { captureException, captureMessage } from '../monitoring/sentry';
 
 // Configuration par défaut
 const DEFAULT_CONFIG = {
@@ -25,12 +26,29 @@ export const rateLimit = (options = {}) => {
   // Fusion des options par défaut avec les options fournies
   const config = { ...DEFAULT_CONFIG, ...options };
 
-  // Validation des options
-  if (config.interval <= 0) throw new Error("L'intervalle doit être positif");
-  if (config.uniqueTokenPerInterval <= 0)
-    throw new Error('uniqueTokenPerInterval doit être positif');
-  if (config.maxRequestsPerInterval <= 0)
-    throw new Error('maxRequestsPerInterval doit être positif');
+  // Validation des options avec capture des erreurs de configuration
+  try {
+    if (config.interval <= 0) throw new Error("L'intervalle doit être positif");
+    if (config.uniqueTokenPerInterval <= 0)
+      throw new Error('uniqueTokenPerInterval doit être positif');
+    if (config.maxRequestsPerInterval <= 0)
+      throw new Error('maxRequestsPerInterval doit être positif');
+  } catch (configError) {
+    // Capturer l'erreur de configuration dans Sentry
+    captureException(configError, {
+      tags: {
+        component: 'rate-limiter',
+        event: 'configuration-error',
+      },
+      extra: {
+        providedConfig: options,
+      },
+      level: 'error',
+    });
+
+    // Rethrow pour empêcher l'initialisation avec des paramètres invalides
+    throw configError;
+  }
 
   // Cache pour stocker les compteurs de requêtes
   const tokenCache = new LRUCache({
@@ -113,6 +131,25 @@ export const rateLimit = (options = {}) => {
 
   // Mettre à jour les métriques périodiquement
   const metricsInterval = setInterval(() => {
+    // Envoyer des métriques à Sentry avant la réinitialisation
+    if (metrics.limitExceeded > 0) {
+      captureMessage('Rate limiter métriques', {
+        tags: {
+          component: 'rate-limiter',
+          event: 'metrics-reset',
+        },
+        extra: {
+          ...metrics,
+          activeTokens: tokenCache.size,
+          resetTimestamp: Date.now(),
+        },
+        level:
+          metrics.limitExceeded > config.uniqueTokenPerInterval * 0.5
+            ? 'warning'
+            : 'info',
+      });
+    }
+
     metrics.totalRequests = 0;
     metrics.limitExceeded = 0;
     metrics.lastReset = Date.now();
@@ -194,9 +231,29 @@ export const rateLimit = (options = {}) => {
         headers,
       });
     } catch (error) {
-      // Loguer l'erreur mais ne pas planter le service
+      // Loguer l'erreur et la capturer dans Sentry, mais ne pas planter le service
       console.error('[RateLimit] Error:', error);
-      return Promise.resolve({ limited: false, error }); // Permettre le trafic en cas d'erreur interne
+
+      // Envoyer l'erreur à Sentry avec contexte
+      captureException(error, {
+        tags: {
+          component: 'rate-limiter',
+          function: 'check',
+        },
+        extra: {
+          req: {
+            url: req?.url,
+            method: req?.method,
+            ip: req?.connection?.remoteAddress || req?.socket?.remoteAddress,
+          },
+          limit,
+          customToken,
+        },
+        level: 'error',
+      });
+
+      // Permettre le trafic en cas d'erreur interne (fail-open)
+      return Promise.resolve({ limited: false, error });
     }
   };
 
@@ -232,6 +289,29 @@ export const rateLimit = (options = {}) => {
           // Utiliser le builder personnalisé
           config.errorResponseBuilder(req, res, next, error);
         } else {
+          // Capturer les événements de rate limiting excessifs dans Sentry
+          if (metrics.limitExceeded % 100 === 0) {
+            // Éviter de surcharger Sentry
+            captureMessage('Seuil important de rate limiting dépassé', {
+              tags: {
+                component: 'rate-limiter',
+                event: 'high-rate-limiting',
+              },
+              extra: {
+                path: req.url,
+                method: req.method,
+                ip:
+                  config.trustProxy && req.headers['x-forwarded-for']
+                    ? req.headers['x-forwarded-for'].split(',')[0].trim()
+                    : req.connection?.remoteAddress ||
+                      req.socket?.remoteAddress,
+                currentCount: metrics.limitExceeded,
+                limit: error.limit,
+              },
+              level: 'warning',
+            });
+          }
+
           // Utiliser la réponse d'erreur par défaut
           defaultErrorResponseBuilder(req, res, next, error);
         }
