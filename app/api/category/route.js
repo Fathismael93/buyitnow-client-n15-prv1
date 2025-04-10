@@ -5,15 +5,24 @@ import Category from '@/backend/models/category';
 import { createRateLimiter } from '@/utils/rateLimit';
 import logger from '@/utils/logger';
 import { captureException } from '@/monitoring/sentry';
-import { MemoryCache } from '@/utils/cache';
+import {
+  MemoryCache,
+  CACHE_CONFIGS,
+  getCacheHeaders,
+  getCacheKey,
+  cacheEvents,
+  appCache,
+} from '@/utils/cache';
 
-// Cache des catégories avec un TTL de 5 minutes
-// Les catégories ne changent pas souvent, donc la mise en cache est idéale
-const categoryCache = new MemoryCache({
-  ttl: 5 * 60 * 1000, // 5 minutes
-  maxSize: 100, // Limite raisonnable pour éviter l'explosion de la mémoire
-  name: 'categories-cache',
-});
+// Utiliser le cache prédéfini dans appCache si disponible, ou en créer un nouveau
+const categoryCache =
+  appCache.categories ||
+  new MemoryCache({
+    ttl: CACHE_CONFIGS.categories.maxAge * 1000, // Utiliser la configuration standard
+    maxSize: 100,
+    name: 'categories-cache',
+    compress: true, // Activer la compression pour les grands jeux de données
+  });
 
 // Configurez un rate limiter optimisé pour cette route spécifique
 const rateLimiter = createRateLimiter('PUBLIC_API', {
@@ -67,11 +76,59 @@ const rateLimitMiddleware = rateLimiter.middleware({
   },
 });
 
+// Enregistrer des événements pour monitorer le comportement du cache
+cacheEvents.on('hit', (data) => {
+  if (data.cache.name === 'categories-cache') {
+    logger.debug(`Cache hit for ${data.key}`, {
+      component: 'categoryAPI',
+      cacheKey: data.key,
+    });
+  }
+});
+
+cacheEvents.on('miss', (data) => {
+  if (data.cache.name === 'categories-cache') {
+    logger.debug(`Cache miss for ${data.key}`, {
+      component: 'categoryAPI',
+      cacheKey: data.key,
+    });
+  }
+});
+
+/**
+ * Génère une clé de cache en fonction des paramètres de requête
+ * @param {Request} req - Requête Next.js
+ * @returns {string} - Clé de cache unique
+ */
+function generateCacheKey(req) {
+  try {
+    const url = new URL(req.url);
+
+    // Utiliser l'utilitaire de génération de clé de cache avec les paramètres pertinents
+    return getCacheKey('categories', {
+      active: url.searchParams.get('active') || 'true',
+      sort: url.searchParams.get('sort') || 'name',
+      locale: url.headers.get('accept-language')?.split(',')[0] || 'default',
+      // Utiliser un hash de l'URL complète pour capturer tous les paramètres
+      fullUrl: url.toString(),
+    });
+  } catch (error) {
+    logger.warn(`Error generating cache key: ${error.message}`, {
+      component: 'categoryAPI',
+      error,
+    });
+
+    // Clé de fallback
+    return 'categories:default';
+  }
+}
+
 /**
  * Handler GET pour les catégories avec rate limiting et caching optimisés
  */
 export async function GET(req) {
-  const cacheKey = 'all-categories';
+  const cacheKey = generateCacheKey(req);
+  const startTime = performance.now();
 
   try {
     // 1. Vérifier le rate limiting via middleware
@@ -88,28 +145,41 @@ export async function GET(req) {
       return error;
     }
 
-    // 2. Vérifier si les données sont en cache
-    const cachedCategories = categoryCache.get(cacheKey);
-    if (cachedCategories) {
+    // 2. Vérifier si les données sont en cache en utilisant getWithLock pour gérer la concurrence
+    const cachedResult = await categoryCache.getWithLock(cacheKey);
+
+    if (cachedResult) {
+      const { categories, timestamp, version } = cachedResult;
+
       logger.debug('Categories served from cache', {
         component: 'categoryAPI',
         cached: true,
+        age: Date.now() - timestamp,
+        count: categories.length,
       });
+
+      // Préparer les headers optimisés pour le cache
+      const cacheHeaders = {
+        ...getCacheHeaders('categories'),
+        'X-Cache': 'HIT',
+        'X-Cache-Age': `${Math.floor((Date.now() - timestamp) / 1000)}s`,
+        'X-Response-Time': `${Math.floor(performance.now() - startTime)}ms`,
+      };
 
       return NextResponse.json(
         {
           success: true,
           data: {
-            categories: cachedCategories,
+            categories,
+            count: categories.length,
             cached: true,
+            timestamp,
+            version,
           },
         },
         {
           status: 200,
-          headers: {
-            'X-Cache': 'HIT',
-            'Cache-Control': 'public, max-age=300',
-          },
+          headers: cacheHeaders,
         },
       );
     }
@@ -137,22 +207,54 @@ export async function GET(req) {
           success: false,
           message: 'Database connection failed. Please try again later.',
         },
-        { status: 503 }, // Service Unavailable est plus approprié ici
+        {
+          status: 503, // Service Unavailable est plus approprié ici
+          headers: {
+            'Cache-Control':
+              'no-store, no-cache, must-revalidate, proxy-revalidate',
+            Pragma: 'no-cache',
+          },
+        },
       );
     }
 
-    // 4. Récupérer et mettre en cache les catégories
-    const categories = await Category.find({ isActive: true })
-      .select('categoryName slug image count') // Sélectionner seulement les champs nécessaires
-      .sort({ categoryName: 1 })
-      .lean(); // Convertir en objets JS simples pour meilleures performances
+    // Construire la requête de base
+    let query = Category.find({ isActive: true });
 
-    // 5. Mettre en cache les résultats
-    categoryCache.set(cacheKey, categories);
+    // 4. Récupérer et mettre en cache les catégories avec optimisations
+    const categories = await query
+      .select('categoryName') // Sélectionner seulement les champs nécessaires
+      .sort({ categoryName: 1 })
+      .lean() // Convertir en objets JS simples pour meilleures performances
+      .exec();
+
+    // 5. Mettre en cache les résultats avec des métadonnées utiles
+    const categoryData = {
+      categories,
+      timestamp: Date.now(),
+      version: process.env.APP_VERSION || '1.0.0',
+    };
+
+    // Utiliser une fonction de hachage pour vérifier si le contenu a changé
+    const contentHash = JSON.stringify(categories).length.toString(36);
+
+    // Mettre en cache avec des options avancées
+    categoryCache.set(cacheKey, categoryData, {
+      // Utiliser la configuration standard mais prolonger si peu de changements
+      ttl: CACHE_CONFIGS.categories.maxAge * 1000,
+      // Ajouter des métadonnées pour le monitoring
+      metadata: {
+        count: categories.length,
+        hash: contentHash,
+        generated: new Date().toISOString(),
+      },
+    });
 
     logger.info('Categories fetched successfully', {
       component: 'categoryAPI',
       count: categories.length,
+      cacheKey,
+      responseTime: Math.floor(performance.now() - startTime),
     });
 
     // 6. Répondre avec les headers optimisés
@@ -167,8 +269,9 @@ export async function GET(req) {
       {
         status: 200,
         headers: {
+          ...getCacheHeaders('categories'),
           'X-Cache': 'MISS',
-          'Cache-Control': 'public, max-age=300',
+          'X-Response-Time': `${Math.floor(performance.now() - startTime)}ms`,
           'Content-Type': 'application/json; charset=utf-8',
         },
       },
@@ -181,6 +284,8 @@ export async function GET(req) {
         path: '/api/category',
         method: 'GET',
         timestamp: new Date().toISOString(),
+        cacheKey,
+        responseTime: Math.floor(performance.now() - startTime),
       },
     });
 
@@ -211,5 +316,27 @@ export async function GET(req) {
         },
       },
     );
+  }
+}
+
+// Fonction utilitaire pour invalider le cache des catégories
+// Exposée pour être utilisée par d'autres parties de l'application
+export function invalidateCategoriesCache() {
+  try {
+    const invalidated = categoryCache.invalidatePattern(/^categories:/);
+
+    logger.info(`Categories cache invalidated`, {
+      component: 'categoryAPI',
+      entriesInvalidated: invalidated,
+    });
+
+    return invalidated;
+  } catch (error) {
+    logger.error(`Failed to invalidate categories cache: ${error.message}`, {
+      error,
+      component: 'categoryAPI',
+    });
+
+    return 0;
   }
 }
