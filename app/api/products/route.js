@@ -39,14 +39,14 @@ const productsRateLimiter = createRateLimiter('PUBLIC_API', {
 export async function GET(req) {
   try {
     // Rate limiting simple pour API publique
-    let rateLimitInfo;
+    let rateLimitInfo, rateLimitHeaders;
 
     try {
       // Appliquer la même limite pour tous les utilisateurs
       rateLimitInfo = await productsRateLimiter.check(req);
 
       // Ajouter les headers de rate limiting à toutes les réponses
-      const rateLimitHeaders = rateLimitInfo.headers || {};
+      rateLimitHeaders = rateLimitInfo.headers || {};
     } catch (error) {
       // Si on atteint la limite, retourner une réponse 429 avec headers explicatifs
       if (error.statusCode === 429) {
@@ -185,7 +185,7 @@ export async function GET(req) {
         status: 200,
         headers: {
           ...getCacheHeaders('products'),
-          ...rateLimitInfo?.headers, // Ajouter les headers de rate limiting
+          ...rateLimitHeaders, // Ajouter les headers de rate limiting
           'X-Cache': 'HIT',
           'Content-Security-Policy': "default-src 'self'",
           'X-Content-Type-Options': 'nosniff',
@@ -320,7 +320,7 @@ export async function GET(req) {
       status: 200,
       headers: {
         ...getCacheHeaders('products'),
-        ...rateLimitInfo?.headers, // Ajouter les headers de rate limiting
+        ...rateLimitHeaders, // Ajouter les headers de rate limiting
         'X-Cache': 'MISS',
         'Content-Security-Policy': "default-src 'self'",
         'X-Content-Type-Options': 'nosniff',
