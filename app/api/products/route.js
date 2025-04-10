@@ -177,6 +177,7 @@ export async function GET(req) {
 
     // Générer une clé de cache fiable basée sur les paramètres sanitisés
     const cacheKey = `products:${sanitizedSearchParams.toString()}`;
+    console.log('Cache Key:', cacheKey);
 
     // Vérifier le cache pour une réponse existante
     const cachedResponse = appCache.products.get(cacheKey);

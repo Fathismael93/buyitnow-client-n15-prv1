@@ -108,6 +108,7 @@ function generateCacheKey(req) {
     // Utiliser headers() de next/server pour obtenir les headers de manière fiable
     console.log('Getting headers from next/server');
     const headersList = headers();
+    console.log('Getting headers done', headersList);
     console.log('Getting accept-language from headersList');
     const acceptLanguage = headersList.get('accept-language') || 'default';
     console.log('Getting locale from accept-language done');
