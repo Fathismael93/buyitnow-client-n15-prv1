@@ -124,7 +124,6 @@ function generateCacheKey(req) {
  */
 export async function GET(req) {
   const cacheKey = generateCacheKey(req);
-  console.log('Cache Key:', cacheKey); // Debugging
   const startTime = performance.now();
 
   try {
