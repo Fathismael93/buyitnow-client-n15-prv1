@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { headers } from 'next/server'; // Importation correcte pour accéder aux headers
 
 import dbConnect from '@/backend/config/dbConnect';
 import Category from '@/backend/models/category';
