@@ -39,7 +39,7 @@ const rateLimiter = createRateLimiter('PUBLIC_API', {
 // Créer le middleware Next.js optimisé
 const rateLimitMiddleware = rateLimiter.middleware({
   // Handler personnalisé pour réponses adaptées au format de l'API
-  handler: (error, req, res, next) => {
+  handler: (error, req) => {
     const retryAfter = error.headers?.['Retry-After'] || 60;
 
     // Journalisation structurée de l'événement
