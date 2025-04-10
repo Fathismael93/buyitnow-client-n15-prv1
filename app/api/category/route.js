@@ -142,11 +142,10 @@ export async function GET(req) {
     }
 
     // 4. Récupérer et mettre en cache les catégories
-    const categories = await Category.find()
+    const categories = await Category.find({ isActive: true })
       .select('categoryName slug image count') // Sélectionner seulement les champs nécessaires
       .sort({ categoryName: 1 })
-      .lean() // Convertir en objets JS simples pour meilleures performances
-      .cache(60); // Utiliser le cache de la DB si disponible
+      .lean(); // Convertir en objets JS simples pour meilleures performances
 
     // 5. Mettre en cache les résultats
     categoryCache.set(cacheKey, categories);
