@@ -213,19 +213,8 @@ export async function GET(req) {
       );
     }
 
-    // Extraire les paramètres de l'URL pour le filtrage
-    const url = new URL(req.url);
-    const isActiveParam = url.searchParams.get('active');
-
     // Construire la requête de base
-    let query = Category.find();
-
-    // Appliquer le filtre isActive si spécifié, sinon par défaut à true
-    if (isActiveParam !== null) {
-      query = query.where('isActive').equals(isActiveParam === 'true');
-    } else {
-      query = query.where('isActive').equals(true);
-    }
+    let query = Category.find({ isActive: true });
 
     // 4. Récupérer et mettre en cache les catégories avec optimisations
     const categories = await query
