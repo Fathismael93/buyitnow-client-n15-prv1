@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import dbConnect from '@/backend/config/dbConnect';
 import Category from '@/backend/models/category';
-import { createRateLimiter, RATE_LIMIT_STRATEGIES } from '@/utils/rateLimit';
+import { createRateLimiter } from '@/utils/rateLimit';
 import logger from '@/utils/logger';
 import { captureException } from '@/monitoring/sentry';
 import { MemoryCache } from '@/utils/cache';
