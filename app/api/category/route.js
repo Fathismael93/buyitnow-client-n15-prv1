@@ -101,13 +101,13 @@ cacheEvents.on('miss', (data) => {
  * @param {Request} req - Requête Next.js
  * @returns {string} - Clé de cache unique
  */
-function generateCacheKey(req) {
+async function generateCacheKey(req) {
   try {
     console.log('Getting url from request');
     const url = new URL(req.url);
     // Utiliser headers() de next/server pour obtenir les headers de manière fiable
     console.log('Getting headers from next/server');
-    const headersList = headers();
+    const headersList = await headers();
     console.log('Getting headers done', headersList);
     console.log('Getting accept-language from headersList');
     const acceptLanguage = headersList.get('accept-language') || 'default';
@@ -139,7 +139,7 @@ function generateCacheKey(req) {
  * Handler GET pour les catégories avec rate limiting et caching optimisés
  */
 export async function GET(req) {
-  const cacheKey = generateCacheKey(req);
+  const cacheKey = await generateCacheKey(req);
   const startTime = performance.now();
 
   try {
