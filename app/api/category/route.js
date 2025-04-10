@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { headers } from 'next/server'; // Importation correcte pour accéder aux headers
 
 import dbConnect from '@/backend/config/dbConnect';
 import Category from '@/backend/models/category';
@@ -103,14 +104,18 @@ cacheEvents.on('miss', (data) => {
 function generateCacheKey(req) {
   try {
     const url = new URL(req.url);
+    // Utiliser headers() de next/server pour obtenir les headers de manière fiable
+    const headersList = headers();
+    const acceptLanguage = headersList.get('accept-language') || 'default';
+    const locale = acceptLanguage.split(',')[0];
 
     // Utiliser l'utilitaire de génération de clé de cache avec les paramètres pertinents
     return getCacheKey('categories', {
       active: url.searchParams.get('active') || 'true',
       sort: url.searchParams.get('sort') || 'name',
-      locale: url.headers.get('accept-language')?.split(',')[0] || 'default',
-      // Utiliser un hash de l'URL complète pour capturer tous les paramètres
-      fullUrl: url.toString(),
+      locale: locale,
+      // Hash partiel de l'URL pour les paramètres supplémentaires non traités
+      urlHash: url.pathname + url.search,
     });
   } catch (error) {
     logger.warn(`Error generating cache key: ${error.message}`, {
@@ -218,8 +223,19 @@ export async function GET(req) {
       );
     }
 
+    // Extraire les paramètres de l'URL pour le filtrage
+    const url = new URL(req.url);
+    const isActiveParam = url.searchParams.get('active');
+
     // Construire la requête de base
-    let query = Category.find({ isActive: true });
+    let query = Category.find();
+
+    // Appliquer le filtre isActive si spécifié, sinon par défaut à true
+    if (isActiveParam !== null) {
+      query = query.where('isActive').equals(isActiveParam === 'true');
+    } else {
+      query = query.where('isActive').equals(true);
+    }
 
     // 4. Récupérer et mettre en cache les catégories avec optimisations
     const categories = await query
