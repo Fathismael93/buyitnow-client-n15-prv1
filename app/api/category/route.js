@@ -103,13 +103,19 @@ cacheEvents.on('miss', (data) => {
  */
 function generateCacheKey(req) {
   try {
+    console.log('Getting url from request');
     const url = new URL(req.url);
     // Utiliser headers() de next/server pour obtenir les headers de manière fiable
+    console.log('Getting headers from next/server');
     const headersList = headers();
+    console.log('Getting accept-language from headersList');
     const acceptLanguage = headersList.get('accept-language') || 'default';
+    console.log('Getting locale from accept-language done');
     const locale = acceptLanguage.split(',')[0];
+    console.log('Got locale from accept-language done');
 
     // Utiliser l'utilitaire de génération de clé de cache avec les paramètres pertinents
+    console.log('Generating and returning cache key');
     return getCacheKey('categories', {
       active: url.searchParams.get('active') || 'true',
       sort: url.searchParams.get('sort') || 'name',

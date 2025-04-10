@@ -196,18 +196,31 @@ export async function GET(req) {
       });
     }
 
-    // Établir la connexion à la base de données
-    const connectionInstance = await dbConnect();
+    const connectionPromise = dbConnect();
+
+    // Ajouter un timeout pour éviter que la connexion DB ne bloque indéfiniment
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Database connection timeout')), 5000);
+    });
+
+    const connectionInstance = await Promise.race([
+      connectionPromise,
+      timeoutPromise,
+    ]);
+
     if (!connectionInstance.connection) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Database connection failed',
-          code: 'DB_CONNECTION_ERROR',
+          message: 'Database connection failed. Please try again later.',
         },
         {
-          status: 500,
-          headers: rateLimitInfo?.headers || {}, // Inclure les headers de rate limiting même en cas d'erreur
+          status: 503, // Service Unavailable est plus approprié ici
+          headers: {
+            'Cache-Control':
+              'no-store, no-cache, must-revalidate, proxy-revalidate',
+            Pragma: 'no-cache',
+          },
         },
       );
     }
