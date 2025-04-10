@@ -101,28 +101,13 @@ cacheEvents.on('miss', (data) => {
  * @param {Request} req - Requête Next.js
  * @returns {string} - Clé de cache unique
  */
-async function generateCacheKey(req) {
+function generateCacheKey(req) {
   try {
-    console.log('Getting url from request');
     const url = new URL(req.url);
-    // Utiliser headers() de next/server pour obtenir les headers de manière fiable
-    console.log('Getting headers from next/server');
-    const headersList = await headers();
-    console.log('Getting headers done', headersList);
-    console.log('Getting accept-language from headersList');
-    const acceptLanguage = headersList.get('accept-language') || 'default';
-    console.log('Getting locale from accept-language done');
-    const locale = acceptLanguage.split(',')[0];
-    console.log('Got locale from accept-language done');
 
-    // Utiliser l'utilitaire de génération de clé de cache avec les paramètres pertinents
-    console.log('Generating and returning cache key');
     return getCacheKey('categories', {
-      active: url.searchParams.get('active') || 'true',
-      sort: url.searchParams.get('sort') || 'name',
-      locale: locale,
       // Hash partiel de l'URL pour les paramètres supplémentaires non traités
-      urlHash: url.pathname + url.search,
+      urlHash: url.pathname,
     });
   } catch (error) {
     logger.warn(`Error generating cache key: ${error.message}`, {
@@ -139,7 +124,7 @@ async function generateCacheKey(req) {
  * Handler GET pour les catégories avec rate limiting et caching optimisés
  */
 export async function GET(req) {
-  const cacheKey = await generateCacheKey(req);
+  const cacheKey = generateCacheKey(req);
   const startTime = performance.now();
 
   try {
@@ -175,7 +160,6 @@ export async function GET(req) {
         ...getCacheHeaders('categories'),
         'X-Cache': 'HIT',
         'X-Cache-Age': `${Math.floor((Date.now() - timestamp) / 1000)}s`,
-        'X-Response-Time': `${Math.floor(performance.now() - startTime)}ms`,
       };
 
       return NextResponse.json(
