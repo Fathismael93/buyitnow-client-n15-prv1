@@ -295,16 +295,7 @@ export const getAllProducts = async (
 };
 
 export const getCategories = async () => {
-  logger.info('Starting getCategories request', {
-    action: 'get_categories',
-  });
-
   try {
-    // Avant l'appel API
-    logger.debug('Fetching categories from API', {
-      action: 'api_request_start',
-    });
-
     const cacheControl = getCacheHeaders('categories');
     const apiUrl = `${process.env.API_URL || ''}/api/category`;
 
@@ -318,41 +309,13 @@ export const getCategories = async () => {
       },
     });
 
-    // Après l'appel API
-    logger.debug('API response received', {
-      status: res.status,
-      action: 'api_request_complete',
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-
-      logger.error('API request failed', {
-        status: res.status,
-        error: errorText,
-        action: 'api_request_error',
-      });
-
-      return [];
-    }
-
     try {
       const data = await res.json();
 
       if (data?.success === false) {
-        logger.warn('API returned success: false', {
-          message: data?.message,
-          action: 'api_business_error',
-        });
-
         toast.info(data?.message);
         return [];
       }
-
-      logger.info('Successfully fetched categories', {
-        categoryCount: data?.data?.categories?.length || 0,
-        action: 'api_success',
-      });
 
       return data?.data?.categories || [];
     } catch (parseError) {
