@@ -193,8 +193,6 @@ export async function GET(req) {
           'X-Frame-Options': 'DENY',
           'Cache-Control': 'no-store, max-age=0',
           'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-          // Dans les headers
-          'Content-Encoding': 'gzip',
         },
       });
     }
@@ -346,8 +344,6 @@ export async function GET(req) {
         'X-Frame-Options': 'DENY',
         'Cache-Control': 'public, max-age=300, stale-while-revalidate=60',
         'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-        // Dans les headers
-        'Content-Encoding': 'gzip',
       },
     });
   } catch (error) {
