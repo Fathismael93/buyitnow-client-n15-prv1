@@ -295,15 +295,6 @@ export const getAllProducts = async (
 };
 
 export const getCategories = async () => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-    logger.warn('Request timeout in getCategories', {
-      timeoutMs: 10000,
-      action: 'request_timeout',
-    });
-  }, 10000); // 5 secondes pour les catégories (plus court que pour les produits)
-
   logger.info('Starting getCategories request', {
     action: 'get_categories',
   });
@@ -318,7 +309,6 @@ export const getCategories = async () => {
     const apiUrl = `${process.env.API_URL || ''}/api/category`;
 
     const res = await fetch(apiUrl, {
-      signal: controller.signal,
       next: {
         revalidate: CACHE_CONFIGS.categories?.staleWhileRevalidate || 3600, // 1 heure par défaut
         tags: ['categories'],
@@ -402,8 +392,6 @@ export const getCategories = async () => {
 
     toast.error('Something went wrong loading categories');
     return [];
-  } finally {
-    clearTimeout(timeoutId);
   }
 };
 
