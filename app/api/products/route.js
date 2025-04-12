@@ -37,7 +37,6 @@ const productsRateLimiter = createRateLimiter('PUBLIC_API', {
 });
 
 export async function GET(req) {
-  console.log('Received request for products:', req.nextUrl.search);
   try {
     // Rate limiting simple pour API publique
     let rateLimitInfo, rateLimitHeaders;
@@ -210,7 +209,6 @@ export async function GET(req) {
     ]);
 
     if (!connectionInstance.connection) {
-      console.log('Database connection failed');
       return NextResponse.json(
         {
           success: false,
@@ -226,8 +224,6 @@ export async function GET(req) {
         },
       );
     }
-
-    console.log('Database connection established');
 
     // Configuration de la pagination basée sur les valeurs sanitisées
     const resPerPage = Math.min(MAX_PER_PAGE, Math.max(1, DEFAULT_PER_PAGE));
