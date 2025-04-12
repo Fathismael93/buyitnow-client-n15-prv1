@@ -172,6 +172,7 @@ export const getAllProducts = async (
     });
 
     if (!res.ok) {
+      console.log('API request failed with status:', res.status); // Debugging line
       const errorText = await res.text();
 
       logger.error('API request failed', {
@@ -186,6 +187,7 @@ export const getAllProducts = async (
       const isRetryable = res.status >= 500 || [408, 429].includes(res.status);
 
       if (isRetryable && retryAttempt < maxRetries) {
+        console.log('Retrying request due to error:', res.status); // Debugging line
         // Calculer le délai de retry avec backoff exponentiel
         const retryDelay = Math.min(
           1000 * Math.pow(2, retryAttempt), // 1s, 2s, 4s, ...
@@ -202,6 +204,8 @@ export const getAllProducts = async (
         // Nettoyer le timeout actuel
         clearTimeout(timeoutId);
 
+        console.log('Waiting before retrying:', retryDelay); // Debugging line
+
         // Attendre avant de réessayer
         await new Promise((resolve) => setTimeout(resolve, retryDelay));
 
@@ -209,10 +213,13 @@ export const getAllProducts = async (
         return getAllProducts(searchParams, retryAttempt + 1, maxRetries);
       }
 
+      console.log('Max retries reached or non-retryable error'); // Debugging line
+
       return { products: [], totalPages: 0 };
     }
 
     try {
+      console.log('Parsing response JSON'); // Debugging line
       const data = await res.json();
 
       logger.info('Successfully fetched products', {
