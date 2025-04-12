@@ -29,7 +29,7 @@ export const getAllProducts = async (
       timeoutMs: 10000,
       action: 'request_timeout',
     });
-  }, 5000); // 5 secondes
+  }, 10000); // 10 secondes
 
   // Générer un ID de requête unique pour suivre les retries dans les logs
   const requestId = `products-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
