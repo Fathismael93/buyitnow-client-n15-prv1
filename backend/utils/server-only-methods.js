@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import 'server-only';
 
 import { cookies } from 'next/headers';
@@ -296,18 +297,9 @@ export const getAllProducts = async (
 
 export const getCategories = async () => {
   try {
-    const cacheControl = getCacheHeaders('categories');
     const apiUrl = `${process.env.API_URL || ''}/api/category`;
 
-    const res = await fetch(apiUrl, {
-      next: {
-        revalidate: CACHE_CONFIGS.categories?.staleWhileRevalidate || 3600, // 1 heure par défaut
-        tags: ['categories'],
-      },
-      headers: {
-        'Cache-Control': cacheControl,
-      },
-    });
+    const res = await fetch(apiUrl);
 
     try {
       const data = await res.json();
@@ -319,35 +311,10 @@ export const getCategories = async () => {
 
       return data?.data?.categories || [];
     } catch (parseError) {
-      logger.error('JSON parsing error in getCategories', {
-        error: parseError.message,
-        action: 'parse_error',
-      });
-
-      try {
-        const rawText = await res.clone().text();
-
-        logger.error('Raw response text', {
-          text: rawText.substring(0, 200) + '...',
-          action: 'raw_response',
-        });
-      } catch (textError) {
-        logger.error('Failed to get raw response text', {
-          error: textError.message,
-          action: 'raw_response_failed',
-        });
-      }
-
       toast.error('Something went wrong loading categories');
       return [];
     }
   } catch (error) {
-    logger.error('Exception in getCategories', {
-      error: error.message,
-      stack: error.stack,
-      action: 'get_categories_error',
-    });
-
     captureException(error, {
       tags: { action: 'get_categories' },
       extra: {},
