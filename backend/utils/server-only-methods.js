@@ -26,10 +26,10 @@ export const getAllProducts = async (
     controller.abort();
     logger.warn('Request timeout in getAllProducts', {
       requestId,
-      timeoutMs: 10000,
+      timeoutMs: 20000,
       action: 'request_timeout',
     });
-  }, 10000); // 10 secondes
+  }, 20000); // 20 secondes
 
   // Générer un ID de requête unique pour suivre les retries dans les logs
   const requestId = `products-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
