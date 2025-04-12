@@ -159,8 +159,6 @@ export async function GET(req) {
         ...getCacheHeaders('categories'),
         'X-Cache': 'HIT',
         'X-Cache-Age': `${Math.floor((Date.now() - timestamp) / 1000)}s`,
-        // Dans les headers
-        'Content-Encoding': 'gzip',
       };
 
       return NextResponse.json(
@@ -270,8 +268,6 @@ export async function GET(req) {
           'X-Cache': 'MISS',
           'X-Response-Time': `${Math.floor(performance.now() - startTime)}ms`,
           'Content-Type': 'application/json; charset=utf-8',
-          // Dans les headers
-          'Content-Encoding': 'gzip',
         },
       },
     );
