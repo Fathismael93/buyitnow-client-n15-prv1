@@ -147,6 +147,8 @@ export const getAllProducts = async (
       action: 'api_request_start',
     });
 
+    console.log('Starting fetch products with URL:', apiUrl); // Debugging line
+
     const res = await fetch(apiUrl, {
       signal: controller.signal,
       next: {
@@ -296,6 +298,7 @@ export const getAllProducts = async (
 
 export const getCategories = async () => {
   try {
+    console.log('Starting fetch categories with URL:', process.env.API_URL); // Debugging line
     const res = await fetch(`${process.env.API_URL}/api/category`);
 
     const data = await res.json();
