@@ -137,7 +137,7 @@ export const getAllProducts = async (
     const cacheControl = getCacheHeaders('products');
 
     // S'assurer que l'URL est correctement formatée
-    const apiUrl = `${process.env.API_URL || ''}/api/products${searchQuery ? `?${searchQuery}` : ''}`;
+    const apiUrl = `${process.env.API_URL || ''}api/products${searchQuery ? `?${searchQuery}` : ''}`;
 
     // Avant l'appel API
     logger.debug('Fetching products from API', {
