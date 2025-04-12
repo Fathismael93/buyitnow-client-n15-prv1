@@ -222,6 +222,9 @@ export const getAllProducts = async (
       console.log('Parsing response JSON'); // Debugging line
       const data = await res.json();
 
+      console.log('Response JSON parsed successfully'); // Debugging line
+      console.log('Response data:', data); // Debugging line
+
       logger.info('Successfully fetched products', {
         requestId,
         productCount: data.products?.length || 0,
