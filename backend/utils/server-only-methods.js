@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import 'server-only';
 
 import { cookies } from 'next/headers';
@@ -27,10 +26,10 @@ export const getAllProducts = async (
     controller.abort();
     logger.warn('Request timeout in getAllProducts', {
       requestId,
-      timeoutMs: 20000,
+      timeoutMs: 10000,
       action: 'request_timeout',
     });
-  }, 20000); // 20 secondes
+  }, 10000); // 10 secondes
 
   // Générer un ID de requête unique pour suivre les retries dans les logs
   const requestId = `products-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -297,30 +296,19 @@ export const getAllProducts = async (
 
 export const getCategories = async () => {
   try {
-    const apiUrl = `${process.env.API_URL || ''}/api/category`;
+    const res = await fetch(`${process.env.API_URL}/api/category`);
 
-    const res = await fetch(apiUrl);
+    const data = await res.json();
 
-    try {
-      const data = await res.json();
-
-      if (data?.success === false) {
-        toast.info(data?.message);
-        return [];
-      }
-
-      return data?.data?.categories || [];
-    } catch (parseError) {
-      toast.error('Something went wrong loading categories');
+    if (data?.success === false) {
+      toast.info(data?.message);
       return [];
     }
-  } catch (error) {
-    captureException(error, {
-      tags: { action: 'get_categories' },
-      extra: {},
-    });
 
-    toast.error('Something went wrong loading categories');
+    return data?.data?.categories;
+  } catch (error) {
+    console.error(error);
+    toast.error('Something went wrong!');
     return [];
   }
 };
