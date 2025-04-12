@@ -299,10 +299,10 @@ export const getCategories = async () => {
   const timeoutId = setTimeout(() => {
     controller.abort();
     logger.warn('Request timeout in getCategories', {
-      timeoutMs: 5000,
+      timeoutMs: 10000,
       action: 'request_timeout',
     });
-  }, 5000); // 5 secondes pour les catégories (plus court que pour les produits)
+  }, 10000); // 5 secondes pour les catégories (plus court que pour les produits)
 
   logger.info('Starting getCategories request', {
     action: 'get_categories',
