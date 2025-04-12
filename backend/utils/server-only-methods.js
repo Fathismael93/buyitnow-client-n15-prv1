@@ -29,7 +29,7 @@ export const getAllProducts = async (
       timeoutMs: 10000,
       action: 'request_timeout',
     });
-  }, 10000); // 10 secondes
+  }, 5000); // 5 secondes
 
   // Générer un ID de requête unique pour suivre les retries dans les logs
   const requestId = `products-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -294,22 +294,198 @@ export const getAllProducts = async (
   }
 };
 
-export const getCategories = async () => {
+export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+    logger.warn('Request timeout in getCategories', {
+      requestId,
+      timeoutMs: 5000,
+      action: 'request_timeout',
+    });
+  }, 5000); // 5 secondes pour les catégories (plus court que pour les produits)
+
+  // Générer un ID de requête unique pour suivre les retries dans les logs
+  const requestId = `categories-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+  logger.info('Starting getCategories request', {
+    requestId,
+    retryAttempt,
+    action: 'get_categories',
+  });
+
   try {
-    const res = await fetch(`${process.env.API_URL}/api/category`);
+    // Avant l'appel API
+    logger.debug('Fetching categories from API', {
+      requestId,
+      retryAttempt,
+      action: 'api_request_start',
+    });
 
-    const data = await res.json();
+    const cacheControl = getCacheHeaders('categories');
+    const apiUrl = `${process.env.API_URL || ''}/api/category`;
 
-    if (data?.success === false) {
-      toast.info(data?.message);
+    const res = await fetch(apiUrl, {
+      signal: controller.signal,
+      next: {
+        revalidate: CACHE_CONFIGS.categories?.staleWhileRevalidate || 3600, // 1 heure par défaut
+        tags: ['categories'],
+      },
+      headers: {
+        'Cache-Control': cacheControl,
+      },
+    });
+
+    // Après l'appel API
+    logger.debug('API response received', {
+      requestId,
+      status: res.status,
+      retryAttempt,
+      action: 'api_request_complete',
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+
+      logger.error('API request failed', {
+        requestId,
+        status: res.status,
+        error: errorText,
+        retryAttempt,
+        action: 'api_request_error',
+      });
+
+      // Déterminer si l'erreur est récupérable (5xx ou certaines 4xx)
+      const isRetryable = res.status >= 500 || [408, 429].includes(res.status);
+
+      if (isRetryable && retryAttempt < maxRetries) {
+        // Calculer le délai de retry avec backoff exponentiel
+        const retryDelay = Math.min(
+          1000 * Math.pow(2, retryAttempt), // 1s, 2s, 4s, ...
+          15000, // Maximum 15 secondes
+        );
+
+        logger.warn(`Retrying categories request after ${retryDelay}ms`, {
+          requestId,
+          retryAttempt: retryAttempt + 1,
+          maxRetries,
+          action: 'retry_scheduled',
+        });
+
+        // Nettoyer le timeout actuel
+        clearTimeout(timeoutId);
+
+        // Attendre avant de réessayer
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+
+        // Réessayer avec le compteur incrémenté
+        return getCategories(retryAttempt + 1, maxRetries);
+      }
+
       return [];
     }
 
-    return data?.data?.categories;
+    try {
+      const data = await res.json();
+
+      if (data?.success === false) {
+        logger.warn('API returned success: false', {
+          requestId,
+          message: data?.message,
+          action: 'api_business_error',
+        });
+
+        toast.info(data?.message);
+        return [];
+      }
+
+      logger.info('Successfully fetched categories', {
+        requestId,
+        categoryCount: data?.data?.categories?.length || 0,
+        action: 'api_success',
+      });
+
+      return data?.data?.categories || [];
+    } catch (parseError) {
+      logger.error('JSON parsing error in getCategories', {
+        requestId,
+        error: parseError.message,
+        retryAttempt,
+        action: 'parse_error',
+      });
+
+      // Si erreur de parsing et retries disponibles
+      if (retryAttempt < maxRetries) {
+        const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
+        logger.warn(`Retrying after parse error (${retryDelay}ms)`, {
+          requestId,
+          retryAttempt: retryAttempt + 1,
+          action: 'retry_scheduled',
+        });
+
+        clearTimeout(timeoutId);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        return getCategories(retryAttempt + 1, maxRetries);
+      }
+
+      try {
+        const rawText = await res.clone().text();
+
+        logger.error('Raw response text', {
+          requestId,
+          text: rawText.substring(0, 200) + '...',
+          action: 'raw_response',
+        });
+      } catch (textError) {
+        logger.error('Failed to get raw response text', {
+          requestId,
+          error: textError.message,
+          action: 'raw_response_failed',
+        });
+      }
+
+      toast.error('Something went wrong loading categories');
+      return [];
+    }
   } catch (error) {
-    console.error(error);
-    toast.error('Something went wrong!');
+    logger.error('Exception in getCategories', {
+      requestId,
+      error: error.message,
+      stack: error.stack,
+      retryAttempt,
+      action: 'get_categories_error',
+    });
+
+    // Déterminer si l'erreur est récupérable
+    const isRetryable =
+      error.name === 'AbortError' ||
+      error.name === 'TimeoutError' ||
+      error.message.includes('network') ||
+      error.message.includes('connection');
+
+    if (isRetryable && retryAttempt < maxRetries) {
+      const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
+      logger.warn(`Retrying after exception (${retryDelay}ms)`, {
+        requestId,
+        retryAttempt: retryAttempt + 1,
+        maxRetries,
+        action: 'retry_scheduled',
+      });
+
+      clearTimeout(timeoutId);
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      return getCategories(retryAttempt + 1, maxRetries);
+    }
+
+    captureException(error, {
+      tags: { action: 'get_categories' },
+      extra: { requestId, retryAttempt },
+    });
+
+    toast.error('Something went wrong loading categories');
     return [];
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 
