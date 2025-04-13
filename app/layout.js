@@ -1,10 +1,22 @@
+import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 
-import { GlobalProvider } from './GlobalProvider';
 import '@/app/globals.css';
+import Loading from './loading';
+
+import { GlobalProvider } from './GlobalProvider';
 const Head = dynamic(() => import('@/app/head'));
-const Header = dynamic(() => import('@/components/layouts/Header'));
+const Header = dynamic(() => import('@/components/layouts/Header'), {
+  loading: () => <Loading />,
+  ssr: true,
+});
 const Footer = dynamic(() => import('@/components/layouts/Footer'));
+
+// Import dynamique du gestionnaire de Service Worker
+const ServiceWorkerManager = dynamic(
+  () => import('@/components/utils/ServiceWorkerManager'),
+);
+
 import EnvInit from '@/components/utils/EnvInit';
 
 // Création d'une constante réutilisable
@@ -92,7 +104,10 @@ export default function RootLayout({ children }) {
         {/* Composant pour initialiser les variables d'environnement côté client */}
         <EnvInit />
         <GlobalProvider>
-          <Header />
+          <ServiceWorkerManager />
+          <Suspense fallback={<Loading />}>
+            <Header />
+          </Suspense>
           <main className="flex-grow">{children}</main>
           <Footer />
         </GlobalProvider>
