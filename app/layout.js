@@ -2,6 +2,7 @@ import dynamic from 'next/dynamic';
 
 import { GlobalProvider } from './GlobalProvider';
 import '@/app/globals.css';
+import Footer from '@/components/layouts/Footer';
 const Header = dynamic(() => import('@/components/layouts/Header'));
 const Head = dynamic(() => import('@/app/head'));
 
@@ -85,13 +86,14 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>
+      <Head />
+      <body className="flex flex-col min-h-screen bg-gray-50">
         <GlobalProvider>
           <Header />
-          {children}
+          <main className="flex-grow">{children}</main>
+          <Footer />
         </GlobalProvider>
       </body>
-      <Head />
     </html>
   );
 }
