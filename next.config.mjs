@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url';
 
 import { withSentryConfig } from '@sentry/nextjs';
 import withBundleAnalyzer from '@next/bundle-analyzer';
+// Import de la configuration centralisée des variables d'environnement
+import { getPublicRuntimeConfig } from './utils/env-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -159,15 +161,8 @@ const nextConfig = {
     PROJECT_ROOT: __dirname,
   },
   // Configuration des variables d'environnement côté client
-  publicRuntimeConfig: {
-    // Uniquement les variables publiques
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
-    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME:
-      process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-    NEXT_PUBLIC_CLOUDINARY_API_KEY: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
-    NEXT_PUBLIC_ENABLE_SW: process.env.NEXT_PUBLIC_ENABLE_SW,
-  },
+  // Utilisation de la fonction centralisée pour publicRuntimeConfig
+  publicRuntimeConfig: getPublicRuntimeConfig(),
   webpack: (config, { dev, isServer }) => {
     // Optimisations webpack supplémentaires
     config.optimization.moduleIds = 'deterministic';

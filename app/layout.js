@@ -5,13 +5,16 @@ import '@/app/globals.css';
 const Head = dynamic(() => import('@/app/head'));
 const Header = dynamic(() => import('@/components/layouts/Header'));
 const Footer = dynamic(() => import('@/components/layouts/Footer'));
+import EnvInit from '@/components/utils/EnvInit';
+
+// Création d'une constante réutilisable
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  'https://buyitnow-client-n15-prv1.vercel.app';
 
 // Métadonnées globales pour le site
 export const metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ||
-      'https://buyitnow-client-n15-prv1.vercel.app',
-  ),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: 'Buy It Now',
     template: '%s | Buy It Now',
@@ -54,9 +57,7 @@ export const metadata = {
   openGraph: {
     type: 'website',
     locale: 'fr_FR',
-    url:
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      'https://buyitnow-client-n15-prv1.vercel.app',
+    url: SITE_URL,
     title: 'Buy It Now',
     description:
       'Boutique en ligne simplifiée (BS), Buy It Now est la solution pour acheter et vendre facilement sur Internet.',
@@ -88,6 +89,8 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <Head />
       <body className="flex flex-col min-h-screen bg-gray-50">
+        {/* Composant pour initialiser les variables d'environnement côté client */}
+        <EnvInit />
         <GlobalProvider>
           <Header />
           <main className="flex-grow">{children}</main>
