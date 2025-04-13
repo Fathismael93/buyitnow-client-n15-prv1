@@ -57,17 +57,6 @@ const nextConfig = {
   },
   experimental: {
     optimizePackageImports: ['react-toastify', 'yup', 'mongoose', 'lodash'],
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
-      },
-      resolveAlias: {
-        underscore: 'lodash',
-      },
-    },
   },
   compiler: {
     removeConsole:
