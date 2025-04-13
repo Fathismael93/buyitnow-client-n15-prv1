@@ -2,9 +2,9 @@ import dynamic from 'next/dynamic';
 
 import { GlobalProvider } from './GlobalProvider';
 import '@/app/globals.css';
-import Footer from '@/components/layouts/Footer';
-const Header = dynamic(() => import('@/components/layouts/Header'));
 const Head = dynamic(() => import('@/app/head'));
+const Header = dynamic(() => import('@/components/layouts/Header'));
+const Footer = dynamic(() => import('@/components/layouts/Footer'));
 
 // Métadonnées globales pour le site
 export const metadata = {
