@@ -8,7 +8,9 @@
         "start": "next start",
         "lint": "next lint",
         "format": "prettier --write .",
-        "lint:fix": "next lint --fix"
+        "lint:fix": "next lint --fix",
+    "analyze": "cross-env ANALYZE=true next build",
+    "postbuild": "next-sitemap"
     },
     "dependencies": {
         "@next/bundle-analyzer": "^15.2.4",
