@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { withSentryConfig } from '@sentry/nextjs';
 import withBundleAnalyzer from '@next/bundle-analyzer';
 // Import de la configuration centralisée des variables d'environnement
-import { getPublicRuntimeConfig } from '@/utils/env-config.mjs';
+import { getPublicRuntimeConfig } from './utils/env-config.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
