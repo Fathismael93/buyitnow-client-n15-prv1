@@ -1,0 +1,28 @@
+{
+  "name": "Buy It Now - Votre boutique en ligne",
+  "short_name": "Buy It Now",
+  "description": "Boutique en ligne simplifiée (BS), Buy It Now est la solution pour acheter et vendre facilement sur Internet.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait",
+  "shortcuts": [
+    {
+      "name": "Mon panier",
+      "short_name": "Panier",
+      "description": "Voir les articles dans mon panier",
+      "url": "/cart"
+    },
+    {
+      "name": "Mon compte",
+      "short_name": "Compte",
+      "description": "Gérer mon compte",
+      "url": "/me"
+    }
+  ],
+  "categories": ["shopping", "e-commerce"],
+  "dir": "ltr",
+  "lang": "fr-FR",
+  "prefer_related_applications": false
+}
