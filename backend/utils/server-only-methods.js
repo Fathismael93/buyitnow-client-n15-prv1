@@ -48,6 +48,7 @@ export const getAllProducts = async (
 
     // Vérifier si searchParams est défini avant d'y accéder
     if (searchParams) {
+      console.log('searchParams', searchParams);
       // Validation et stockage du paramètre keyword
       if (searchParams.keyword) {
         try {
@@ -97,25 +98,17 @@ export const getAllProducts = async (
       }
 
       // Validation et stockage des paramètres de prix
-      if (searchParams.min !== '' || searchParams.max !== '') {
+      if (searchParams.min || searchParams.max) {
         try {
-          const result = await priceRangeSchema.validate(
+          await priceRangeSchema.validate(
             {
-              minPrice: searchParams.min !== '' ? searchParams.min : null,
-              maxPrice: searchParams.max !== '' ? searchParams.max : null,
+              minPrice: searchParams.min,
+              maxPrice: searchParams.max,
             },
             { abortEarly: false },
           );
-
-          console.log(
-            'result from priceRangeSchema in getAllProducts server-only method',
-            result,
-          );
-
-          if (searchParams.min !== '')
-            urlParams['price[gte]'] = searchParams.min;
-          if (searchParams.max !== '')
-            urlParams['price[lte]'] = searchParams.max;
+          if (searchParams.min) urlParams['price[gte]'] = searchParams.min;
+          if (searchParams.max) urlParams['price[lte]'] = searchParams.max;
         } catch (err) {
           validationErrors.push({
             field: 'price',
