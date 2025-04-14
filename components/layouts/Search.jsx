@@ -18,7 +18,7 @@ const Search = ({ setLoading }) => {
     setLoading(true);
 
     if (keyword === '') {
-      toast.error('Please enter a keyword');
+      toast.error('Entrer un mot a chercher');
       setLoading(false);
       return;
     }

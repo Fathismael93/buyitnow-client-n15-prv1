@@ -114,6 +114,8 @@ export const priceRangeSchema = yup
       .number()
       .nullable()
       .transform((value, originalValue) => {
+        console.log('value minPrice', value);
+        console.log('originalValue minPrice', originalValue);
         // Transforme les chaînes vides en null
         return originalValue === '' ? null : value;
       })
@@ -139,6 +141,8 @@ export const priceRangeSchema = yup
       .number()
       .nullable()
       .transform((value, originalValue) => {
+        console.log('value maxPrice', value);
+        console.log('originalValue maxPrice', originalValue);
         // Transforme les chaînes vides en null
         return originalValue === '' ? null : value;
       })

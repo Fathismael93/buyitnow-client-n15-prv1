@@ -56,8 +56,8 @@ const Filters = ({ categories, setLoading }) => {
 
         const result = await priceRangeSchema.validate(
           {
-            minPrice: min !== '' ? min : null,
-            maxPrice: max !== '' ? max : null,
+            minPrice: min,
+            maxPrice: max,
           },
           { abortEarly: false },
         );
