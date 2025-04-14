@@ -54,6 +54,11 @@ const Filters = ({ categories, setLoading }) => {
       if (typeof window !== 'undefined') {
         queryParams = new URLSearchParams(window.location.search);
 
+        if (min !== '' || max !== '') {
+          console.log('min', min);
+          console.log('max', max);
+        }
+
         const result = await priceRangeSchema.validate(
           { minPrice: min, maxPrice: max },
           { abortEarly: false },
