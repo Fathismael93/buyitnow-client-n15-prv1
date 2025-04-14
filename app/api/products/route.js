@@ -7,6 +7,8 @@ import Category from '@/backend/models/category';
 import APIFilters from '@/backend/utils/APIFilters';
 import {
   categorySchema,
+  maxPriceSchema,
+  minPriceSchema,
   pageSchema,
   priceRangeSchema,
   searchSchema,
@@ -38,7 +40,6 @@ const productsRateLimiter = createRateLimiter('PUBLIC_API', {
 
 export async function GET(req) {
   try {
-    console.log('GET /api/products', req.nextUrl.search);
     // Rate limiting simple pour API publique
     let rateLimitInfo, rateLimitHeaders;
 
@@ -76,8 +77,6 @@ export async function GET(req) {
     const validationPromises = [];
     const validationErrors = [];
 
-    console.log('req?.nextUrl?.searchParams', req?.nextUrl?.searchParams);
-
     // Validation du mot-clé de recherche
     if (req?.nextUrl?.searchParams?.get('keyword')) {
       validationPromises.push(
@@ -112,29 +111,42 @@ export async function GET(req) {
       );
     }
 
-    // Validation de la plage de prix
-    if (
-      req?.nextUrl?.searchParams?.get('price[gte]') ||
-      req?.nextUrl?.searchParams?.get('price[lte]')
-    ) {
-      console.log('price[gte]', req?.nextUrl?.searchParams?.get('price[gte]'));
-      console.log('price[lte]', req?.nextUrl?.searchParams?.get('price[lte]')),
-        validationPromises.push(
-          priceRangeSchema
-            .validate(
-              {
-                minPrice: req?.nextUrl?.searchParams?.get('price[gte]'),
-                maxPrice: req?.nextUrl?.searchParams?.get('price[lte]'),
-              },
-              { abortEarly: false },
-            )
-            .catch((err) => {
-              validationErrors.push({
-                field: 'price',
-                message: err.errors[0],
-              });
-            }),
-        );
+    // Validation du prix minimum
+    if (req?.nextUrl?.searchParams?.get('price[gte]')) {
+      validationPromises.push(
+        minPriceSchema
+          .validate(
+            {
+              minPrice: req?.nextUrl?.searchParams?.get('price[gte]'),
+            },
+            { abortEarly: false },
+          )
+          .catch((err) => {
+            validationErrors.push({
+              field: 'minPrice',
+              message: err.errors[0],
+            });
+          }),
+      );
+    }
+
+    // Validation du prix minimum
+    if (req?.nextUrl?.searchParams?.get('price[lte]')) {
+      validationPromises.push(
+        maxPriceSchema
+          .validate(
+            {
+              maxPrice: req?.nextUrl?.searchParams?.get('price[lte]'),
+            },
+            { abortEarly: false },
+          )
+          .catch((err) => {
+            validationErrors.push({
+              field: 'maxPrice',
+              message: err.errors[0],
+            });
+          }),
+      );
     }
 
     // Validation de la page

@@ -76,7 +76,7 @@ const Filters = ({ categories, setLoading }) => {
             { abortEarly: false },
           );
 
-          console.log('minResult', minResult);
+          queryParams = getPriceQueryParams(queryParams, 'min', min);
         }
 
         if (max !== '') {
@@ -87,32 +87,16 @@ const Filters = ({ categories, setLoading }) => {
             { abortEarly: false },
           );
 
-          console.log('maxResult', maxResult);
+          queryParams = getPriceQueryParams(queryParams, 'max', max);
         }
 
-        // const result = await priceRangeSchema.validate(
-        //   {
-        //     minPrice: min,
-        //     maxPrice: max,
-        //   },
-        //   { abortEarly: false },
-        // );
+        const path = window.location.pathname + '?' + queryParams.toString();
 
-        // if (result?.minPrice || result?.maxPrice) {
-        //   console.log('result', result);
+        setOpen(false);
 
-        //   queryParams = getPriceQueryParams(queryParams, 'min', min);
-        //   queryParams = getPriceQueryParams(queryParams, 'max', max);
-
-        //   const path = window.location.pathname + '?' + queryParams.toString();
-
-        //   setOpen(false);
-
-        //   router.push(path);
-        // }
+        router.push(path);
       }
     } catch (error) {
-      console.log('error', error);
       toast.error(error.message);
       setLoading(false);
       return;

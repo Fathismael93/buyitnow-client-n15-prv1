@@ -9,8 +9,9 @@ import { toast } from 'react-toastify';
 import { CACHE_CONFIGS, getCacheHeaders } from '@/utils/cache';
 import {
   categorySchema,
+  maxPriceSchema,
+  minPriceSchema,
   pageSchema,
-  priceRangeSchema,
   searchSchema,
 } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
@@ -48,7 +49,6 @@ export const getAllProducts = async (
 
     // Vérifier si searchParams est défini avant d'y accéder
     if (searchParams) {
-      console.log('searchParams', searchParams);
       // Validation et stockage du paramètre keyword
       if (searchParams.keyword) {
         try {
@@ -97,21 +97,37 @@ export const getAllProducts = async (
         }
       }
 
-      // Validation et stockage des paramètres de prix
-      if (searchParams.min || searchParams.max) {
+      // Validation et stockage du prix minimum
+      if (searchParams.min) {
         try {
-          await priceRangeSchema.validate(
+          const minResult = await minPriceSchema.validate(
             {
               minPrice: searchParams.min,
+            },
+            { abortEarly: false },
+          );
+          if (minResult.minPrice) urlParams['price[gte]'] = minResult.minPrice;
+        } catch (err) {
+          validationErrors.push({
+            field: 'minPrice',
+            message: err.errors[0],
+          });
+        }
+      }
+
+      // Validation et stockage du prix maximum
+      if (searchParams.max) {
+        try {
+          const maxResult = await maxPriceSchema.validate(
+            {
               maxPrice: searchParams.max,
             },
             { abortEarly: false },
           );
-          if (searchParams.min) urlParams['price[gte]'] = searchParams.min;
-          if (searchParams.max) urlParams['price[lte]'] = searchParams.max;
+          if (maxResult.maxPrice) urlParams['price[lte]'] = maxResult.maxPrice;
         } catch (err) {
           validationErrors.push({
-            field: 'price',
+            field: 'maxPrice',
             message: err.errors[0],
           });
         }
