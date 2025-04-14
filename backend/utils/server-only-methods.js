@@ -50,13 +50,13 @@ export const getAllProducts = async (
     // Vérifier si searchParams est défini avant d'y accéder
     if (searchParams) {
       // Validation et stockage du paramètre keyword
-      if (searchParams.keyword) {
+      if (searchParams.keyword && searchParams.keyword.trim() !== '') {
         try {
-          await searchSchema.validate(
+          const result = await searchSchema.validate(
             { keyword: searchParams.keyword },
             { abortEarly: false },
           );
-          urlParams.keyword = searchParams.keyword;
+          if (result.keyword) urlParams.keyword = result.keyword;
         } catch (err) {
           validationErrors.push({
             field: 'keyword',
@@ -68,11 +68,12 @@ export const getAllProducts = async (
       // Validation et stockage du paramètre page
       if (searchParams.page) {
         try {
-          await pageSchema.validate(
+          const result = await pageSchema.validate(
             { page: searchParams.page },
             { abortEarly: false },
           );
-          urlParams.page = searchParams.page;
+
+          if (result.page) urlParams.page = result.page;
         } catch (err) {
           validationErrors.push({
             field: 'page',
@@ -84,17 +85,29 @@ export const getAllProducts = async (
       // Validation et stockage du paramètre category
       if (searchParams.category) {
         try {
-          await categorySchema.validate(
+          const result = await categorySchema.validate(
             { value: searchParams.category },
             { abortEarly: false },
           );
-          urlParams.category = searchParams.category;
+
+          if (result.value) urlParams.category = result.value;
         } catch (err) {
           validationErrors.push({
             field: 'category',
             message: err.errors[0],
           });
         }
+      }
+
+      if (
+        searchParams.min &&
+        searchParams.max &&
+        parseInt(searchParams.min) > parseInt(searchParams.max)
+      ) {
+        validationErrors.push({
+          field: 'price',
+          message: 'Le prix minimum doit être inférieur au prix maximum',
+        });
       }
 
       // Validation et stockage du prix minimum
