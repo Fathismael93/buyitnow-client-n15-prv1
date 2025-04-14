@@ -107,89 +107,62 @@ export const categorySchema = yup.object().shape({
     .transform((value) => (value ? value.toLowerCase() : value)),
 });
 
-export const priceRangeSchema = yup
-  .object()
-  .shape({
-    minPrice: yup
-      .number()
-      .nullable()
-      .transform((value, originalValue) => {
-        console.log('value minPrice', value);
-        console.log('originalValue minPrice', originalValue);
-        // Transforme les chaînes vides en null
-        return originalValue === '' ? null : value;
-      })
-      .typeError('Le prix minimum doit être un nombre valide')
-      .test(
-        'is-positive-or-zero',
-        'Le prix minimum doit être supérieur ou égal à 0',
-        (value) => value >= 0,
-      )
-      .test(
-        'is-finite-number',
-        'Le prix minimum doit être un nombre fini',
-        (value) => Number.isFinite(value) && value <= 999999999,
-      )
-      .test(
-        'is-valid-price-format',
-        'Le prix minimum doit avoir au maximum 2 décimales',
-        (value) => /^\d+(\.\d{1,2})?$/.test(String(value)),
-      ),
+export const minPriceSchema = yup.object().shape({
+  minPrice: yup
+    .number()
+    .nullable()
+    .transform((value, originalValue) => {
+      console.log('value minPrice', value);
+      console.log('originalValue minPrice', originalValue);
+      // Transforme les chaînes vides en null
+      return originalValue === '' ? null : value;
+    })
+    .typeError('Le prix minimum doit être un nombre valide')
+    .test(
+      'is-positive-or-zero',
+      'Le prix minimum doit être supérieur ou égal à 0',
+      (value) => value >= 0,
+    )
+    .test(
+      'is-finite-number',
+      'Le prix minimum doit être un nombre fini',
+      (value) => Number.isFinite(value) && value <= 999999999,
+    )
+    .test(
+      'is-valid-price-format',
+      'Le prix minimum doit avoir au maximum 2 décimales',
+      (value) => /^\d+(\.\d{1,2})?$/.test(String(value)),
+    ),
+});
 
-    maxPrice: yup
-      .number()
-      .nullable()
-      .transform((value, originalValue) => {
-        console.log('value maxPrice', value);
-        console.log('originalValue maxPrice', originalValue);
-        // Transforme les chaînes vides en null
-        return originalValue === '' ? null : value;
-      })
-      .typeError('Le prix maximum doit être un nombre valide')
-      .test(
-        'is-positive-or-zero',
-        'Le prix maximum doit être supérieur ou égal à 0',
-        (value) => value >= 0,
-      )
-      .test(
-        'is-finite-number',
-        'Le prix maximum doit être un nombre fini',
-        (value) => Number.isFinite(value) && value <= 999999999,
-      )
-      .test(
-        'is-valid-price-format',
-        'Le prix maximum doit avoir au maximum 2 décimales',
-        (value) => /^\d+(\.\d{1,2})?$/.test(String(value)),
-      ),
-  })
-  .test(
-    'min-max-constraint',
-    'Le prix minimum doit être inférieur ou égal au prix maximum',
-    function (values) {
-      const { minPrice, maxPrice } = values;
-
-      // Si l'un des deux est null, la validation réussit
-      if (minPrice === null || maxPrice === null) {
-        return true;
-      }
-
-      return minPrice <= maxPrice;
-    },
-  )
-  .test(
-    'at-least-one-price',
-    'Au moins un des prix doit être spécifié pour effectuer une recherche par prix',
-    function (values) {
-      // Cette validation est optionnelle - à décommenter si vous voulez imposer
-      // qu'au moins un des deux champs soit renseigné
-
-      // const { minPrice, maxPrice } = values;
-      // return minPrice !== null || maxPrice !== null;
-
-      // Par défaut, on accepte les deux champs vides
-      return true;
-    },
-  );
+export const maxPriceSchema = yup.object().shape({
+  maxPrice: yup
+    .number()
+    .nullable()
+    .transform((value, originalValue) => {
+      console.log('value maxPrice', value);
+      console.log('originalValue maxPrice', originalValue);
+      // Transforme les chaînes vides en null
+      return originalValue === '' ? null : value;
+    })
+    .typeError('Le prix maximum doit être un nombre valide')
+    .test(
+      'is-positive-or-zero',
+      'Le prix maximum doit être supérieur ou égal à 0',
+      (value) => value === null || value >= 0,
+    )
+    .test(
+      'is-finite-number',
+      'Le prix maximum doit être un nombre fini',
+      (value) =>
+        value === null || (Number.isFinite(value) && value <= 999999999),
+    )
+    .test(
+      'is-valid-price-format',
+      'Le prix maximum doit avoir au maximum 2 décimales',
+      (value) => value === null || /^\d+(\.\d{1,2})?$/.test(String(value)),
+    ),
+});
 
 // Ajoutez ces schémas à votre fichier existant
 export const pageSchema = yup.object().shape({

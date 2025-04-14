@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 'use client';
 
 import { useState } from 'react';
@@ -5,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 
 import { arrayHasData, getPriceQueryParams } from '@/helpers/helpers';
-import { priceRangeSchema } from '@/helpers/schemas';
+import { maxPriceSchema, minPriceSchema } from '@/helpers/schemas';
 
 const Filters = ({ categories, setLoading }) => {
   const [min, setMin] = useState('');
@@ -49,31 +50,60 @@ const Filters = ({ categories, setLoading }) => {
 
   async function handleButtonClick() {
     setLoading(true);
+    let minResult, maxResult;
 
     try {
       if (typeof window !== 'undefined') {
         queryParams = new URLSearchParams(window.location.search);
 
-        const result = await priceRangeSchema.validate(
-          {
-            minPrice: min,
-            maxPrice: max,
-          },
-          { abortEarly: false },
-        );
-
-        if (result?.minPrice || result?.maxPrice) {
-          console.log('result', result);
-
-          queryParams = getPriceQueryParams(queryParams, 'min', min);
-          queryParams = getPriceQueryParams(queryParams, 'max', max);
-
-          const path = window.location.pathname + '?' + queryParams.toString();
-
-          setOpen(false);
-
-          router.push(path);
+        if (min === '' && max === '') {
+          toast.error('Renseigner un des 2 champs du prix');
+          setLoading(false);
+          return;
         }
+
+        if (min !== '') {
+          minResult = await minPriceSchema.validate(
+            {
+              minPrice: min,
+            },
+            { abortEarly: false },
+          );
+
+          console.log('minResult', minResult);
+        }
+
+        if (max !== '') {
+          maxResult = await maxPriceSchema.validate(
+            {
+              maxPrice: max,
+            },
+            { abortEarly: false },
+          );
+
+          console.log('maxResult', maxResult);
+        }
+
+        // const result = await priceRangeSchema.validate(
+        //   {
+        //     minPrice: min,
+        //     maxPrice: max,
+        //   },
+        //   { abortEarly: false },
+        // );
+
+        // if (result?.minPrice || result?.maxPrice) {
+        //   console.log('result', result);
+
+        //   queryParams = getPriceQueryParams(queryParams, 'min', min);
+        //   queryParams = getPriceQueryParams(queryParams, 'max', max);
+
+        //   const path = window.location.pathname + '?' + queryParams.toString();
+
+        //   setOpen(false);
+
+        //   router.push(path);
+        // }
       }
     } catch (error) {
       console.log('error', error);
