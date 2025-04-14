@@ -17,6 +17,12 @@ const Search = ({ setLoading }) => {
     e.preventDefault();
     setLoading(true);
 
+    if (keyword === '') {
+      toast.error('Please enter a keyword');
+      setLoading(false);
+      return;
+    }
+
     try {
       const result = await searchSchema.validate(
         { keyword },
