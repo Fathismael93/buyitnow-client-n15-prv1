@@ -76,6 +76,7 @@ const Filters = ({ categories, setLoading }) => {
         }
       }
     } catch (error) {
+      console.log('error', error);
       toast.error(error.message);
       setLoading(false);
       return;
