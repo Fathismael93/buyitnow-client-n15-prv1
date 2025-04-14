@@ -38,6 +38,7 @@ const productsRateLimiter = createRateLimiter('PUBLIC_API', {
 
 export async function GET(req) {
   try {
+    console.log('GET /api/products', req.nextUrl.search);
     // Rate limiting simple pour API publique
     let rateLimitInfo, rateLimitHeaders;
 
@@ -74,6 +75,8 @@ export async function GET(req) {
     // Validation avec les schémas Yup après sanitisation
     const validationPromises = [];
     const validationErrors = [];
+
+    console.log('req?.nextUrl?.searchParams', req?.nextUrl?.searchParams);
 
     // Validation du mot-clé de recherche
     if (req?.nextUrl?.searchParams?.get('keyword')) {
