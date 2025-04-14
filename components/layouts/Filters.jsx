@@ -62,6 +62,12 @@ const Filters = ({ categories, setLoading }) => {
           return;
         }
 
+        if (min !== '' && max !== '' && parseInt(min) > parseInt(max)) {
+          toast.error('Le prix minimum doit être inférieur au prix maximum');
+          setLoading(false);
+          return;
+        }
+
         if (min !== '') {
           minResult = await minPriceSchema.validate(
             {
