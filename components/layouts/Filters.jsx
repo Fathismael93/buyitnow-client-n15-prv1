@@ -54,17 +54,17 @@ const Filters = ({ categories, setLoading }) => {
       if (typeof window !== 'undefined') {
         queryParams = new URLSearchParams(window.location.search);
 
-        if (min !== '' || max !== '') {
-          console.log('min', min);
-          console.log('max', max);
-        }
-
         const result = await priceRangeSchema.validate(
-          { minPrice: min, maxPrice: max },
+          {
+            minPrice: min !== '' ? min : null,
+            maxPrice: max !== '' ? max : null,
+          },
           { abortEarly: false },
         );
 
         if (result?.minPrice || result?.maxPrice) {
+          console.log('result', result);
+
           queryParams = getPriceQueryParams(queryParams, 'min', min);
           queryParams = getPriceQueryParams(queryParams, 'max', max);
 
