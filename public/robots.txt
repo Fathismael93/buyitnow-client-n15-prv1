@@ -1,55 +1,27 @@
-# https://www.robotstxt.org/robotstxt.html
-
-# Règles générales pour tous les robots
+# *
 User-agent: *
 Allow: /
-# Limitation du taux d'exploration - attendre 3 secondes entre chaque requête
-Crawl-delay: 3
+Disallow: /address
+Disallow: /api
+Disallow: /cart
+Disallow: /me
+Disallow: /shipping
+Disallow: /shipping-choice
+Disallow: /payment
+Disallow: /confirmation
+Disallow: /error
+Disallow: /404
+Disallow: /500
+Disallow: /search
+Disallow: /*?*
 
-# Pages privées - interdites à tous les robots
-Disallow: /me/
-Disallow: /cart/
-Disallow: /address/
-Disallow: /shipping/
-Disallow: /api/
+# GPTBot
+User-agent: GPTBot
+Disallow: /
 
-# Règles spécifiques pour Google (qui ignore Crawl-delay mais utilise sa propre gestion)
-User-agent: Googlebot
-Allow: /
-Disallow: /me/
-Disallow: /cart/
-Disallow: /address/
-Disallow: /shipping/
-Disallow: /api/
-# Note: Google utilise Search Console pour la gestion du taux de crawl, pas Crawl-delay
+# Host
+Host: http://localhost:3000/
 
-# Règles spécifiques pour Bing
-User-agent: Bingbot
-Allow: /
-Disallow: /me/
-Disallow: /cart/
-Disallow: /address/
-Disallow: /shipping/
-Disallow: /api/
-Crawl-delay: 2
-
-# Règles pour les robots spécialisés qui pourraient être plus intensifs
-User-agent: AhrefsBot
-User-agent: SemrushBot
-User-agent: MJ12bot
-Crawl-delay: 10
-Disallow: /me/
-Disallow: /cart/
-Disallow: /address/
-Disallow: /shipping/
-Disallow: /api/
-
-# Allow product and category pages (explicitement, pour plus de clarté)
-Allow: /product/
-Allow: /?keyword=
-Allow: /?category=
-
-# Sitemaps avec URLs relatives
-# Avantage: fonctionne indépendamment du domaine ou environnement (dev, staging, prod)
-Sitemap: /sitemap.xml
-Sitemap: /server-sitemap.xml
+# Sitemaps
+Sitemap: http://localhost:3000/sitemap.xml
+Sitemap: http://localhost:3000//server-sitemap.xml

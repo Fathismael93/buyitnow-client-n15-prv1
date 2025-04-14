@@ -114,22 +114,24 @@ export async function GET(req) {
       req?.nextUrl?.searchParams?.get('price[gte]') ||
       req?.nextUrl?.searchParams?.get('price[lte]')
     ) {
-      validationPromises.push(
-        priceRangeSchema
-          .validate(
-            {
-              minPrice: req?.nextUrl?.searchParams?.get('price[gte]'),
-              maxPrice: req?.nextUrl?.searchParams?.get('price[lte]'),
-            },
-            { abortEarly: false },
-          )
-          .catch((err) => {
-            validationErrors.push({
-              field: 'price',
-              message: err.errors[0],
-            });
-          }),
-      );
+      console.log('price[gte]', req?.nextUrl?.searchParams?.get('price[gte]'));
+      console.log('price[lte]', req?.nextUrl?.searchParams?.get('price[lte]')),
+        validationPromises.push(
+          priceRangeSchema
+            .validate(
+              {
+                minPrice: req?.nextUrl?.searchParams?.get('price[gte]'),
+                maxPrice: req?.nextUrl?.searchParams?.get('price[lte]'),
+              },
+              { abortEarly: false },
+            )
+            .catch((err) => {
+              validationErrors.push({
+                field: 'price',
+                message: err.errors[0],
+              });
+            }),
+        );
     }
 
     // Validation de la page
