@@ -123,18 +123,17 @@ export const priceRangeSchema = yup
       .test(
         'is-positive-or-zero',
         'Le prix minimum doit être supérieur ou égal à 0',
-        (value) => value === null || value >= 0,
+        (value) => value >= 0,
       )
       .test(
         'is-finite-number',
         'Le prix minimum doit être un nombre fini',
-        (value) =>
-          value === null || (Number.isFinite(value) && value <= 999999999),
+        (value) => Number.isFinite(value) && value <= 999999999,
       )
       .test(
         'is-valid-price-format',
         'Le prix minimum doit avoir au maximum 2 décimales',
-        (value) => value === null || /^\d+(\.\d{1,2})?$/.test(String(value)),
+        (value) => /^\d+(\.\d{1,2})?$/.test(String(value)),
       ),
 
     maxPrice: yup
@@ -150,18 +149,17 @@ export const priceRangeSchema = yup
       .test(
         'is-positive-or-zero',
         'Le prix maximum doit être supérieur ou égal à 0',
-        (value) => value === null || value >= 0,
+        (value) => value >= 0,
       )
       .test(
         'is-finite-number',
         'Le prix maximum doit être un nombre fini',
-        (value) =>
-          value === null || (Number.isFinite(value) && value <= 999999999),
+        (value) => Number.isFinite(value) && value <= 999999999,
       )
       .test(
         'is-valid-price-format',
         'Le prix maximum doit avoir au maximum 2 décimales',
-        (value) => value === null || /^\d+(\.\d{1,2})?$/.test(String(value)),
+        (value) => /^\d+(\.\d{1,2})?$/.test(String(value)),
       ),
   })
   .test(
