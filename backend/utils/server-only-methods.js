@@ -97,17 +97,25 @@ export const getAllProducts = async (
       }
 
       // Validation et stockage des paramètres de prix
-      if (searchParams.min || searchParams.max) {
+      if (searchParams.min !== '' || searchParams.max !== '') {
         try {
-          await priceRangeSchema.validate(
+          const result = await priceRangeSchema.validate(
             {
-              minPrice: searchParams.min,
-              maxPrice: searchParams.max,
+              minPrice: searchParams.min !== '' ? searchParams.min : null,
+              maxPrice: searchParams.max !== '' ? searchParams.max : null,
             },
             { abortEarly: false },
           );
-          if (searchParams.min) urlParams['price[gte]'] = searchParams.min;
-          if (searchParams.max) urlParams['price[lte]'] = searchParams.max;
+
+          console.log(
+            'result from priceRangeSchema in getAllProducts server-only method',
+            result,
+          );
+
+          if (searchParams.min !== '')
+            urlParams['price[gte]'] = searchParams.min;
+          if (searchParams.max !== '')
+            urlParams['price[lte]'] = searchParams.max;
         } catch (err) {
           validationErrors.push({
             field: 'price',
