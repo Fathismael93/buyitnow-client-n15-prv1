@@ -56,7 +56,7 @@ const ListProducts = ({ data, categories }) => {
   // Utiliser useMemo pour éviter les recalculs inutiles
   const filterSummary = useMemo(
     () => getFilterSummary(),
-    [keyword, category, minPrice, maxPrice, data?.categories],
+    [keyword, category, minPrice, maxPrice, categories],
   );
 
   useEffect(() => {
@@ -71,11 +71,11 @@ const ListProducts = ({ data, categories }) => {
   }, [data]);
 
   // Récupérer les paramètres de recherche pour les afficher
-  const keyword = searchParams.get('keyword');
-  const category = searchParams.get('category');
-  const minPrice = searchParams.get('min');
-  const maxPrice = searchParams.get('max');
-  const page = searchParams.get('page');
+  const keyword = searchParams?.get('keyword');
+  const category = searchParams?.get('category');
+  const minPrice = searchParams?.get('min');
+  const maxPrice = searchParams?.get('max');
+  const page = searchParams?.get('page');
 
   // Construire un message récapitulatif des filtres appliqués
   const getFilterSummary = () => {
@@ -100,7 +100,7 @@ const ListProducts = ({ data, categories }) => {
     <section className="py-8">
       <div className="container max-w-[1440px] mx-auto px-4">
         <div className="flex flex-col md:flex-row -mx-4">
-          <Filters categories={categories} />
+          <Filters categories={categories} setLocalLoading={setLocalLoading} />
 
           <main className="md:w-2/3 lg:w-3/4 px-3">
             {/* Affichage du récapitulatif des filtres et du nombre de résultats */}
@@ -157,10 +157,7 @@ const ListProducts = ({ data, categories }) => {
 
                 {data?.totalPages > 1 && (
                   <div className="mt-8">
-                    <CustomPagination
-                      // @ts-ignore
-                      totalPages={data?.totalPages}
-                    />
+                    <CustomPagination totalPages={data?.totalPages} />
                   </div>
                 )}
               </>
