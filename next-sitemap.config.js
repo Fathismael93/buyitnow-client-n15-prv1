@@ -1,7 +1,39 @@
+// next-sitemap.config.js
+const { captureException } = require('./monitoring/sentry');
+
+/**
+ * Configuration pour next-sitemap
+ *
+ * Ce fichier configure la génération automatique du sitemap.xml et robots.txt
+ * pour le site Buy It Now. Il définit:
+ * - Les URLs à inclure/exclure
+ * - Les priorités et fréquences de changement par type de page
+ * - La configuration robots.txt avec des règles spécifiques
+ * - Les optimisations de performance pour la génération
+ *
+ * @see https://github.com/iamvishnusankar/next-sitemap pour la documentation complète
+ */
+
+// Définir la constante en haut du fichier
+const DEFAULT_SITE_URL = 'https://buyitnow-client-n15-prv1.vercel.app/';
+let SITE_URL = process.env.NEXT_PUBLIC_SITE_URL;
+
+try {
+  // Vérifier si l'URL est valide
+  if (SITE_URL) {
+    new URL(SITE_URL);
+  } else {
+    console.warn('NEXT_PUBLIC_SITE_URL not defined, using default URL');
+    SITE_URL = DEFAULT_SITE_URL;
+  }
+} catch (e) {
+  console.error(`Invalid NEXT_PUBLIC_SITE_URL: ${SITE_URL}`, e);
+  console.warn('Falling back to default URL');
+  SITE_URL = DEFAULT_SITE_URL;
+}
+
 module.exports = {
-  siteUrl:
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    'https://buyitnow-client-n15-prv1.vercel.app/',
+  siteUrl: SITE_URL,
   generateRobotsTxt: true,
 
   // Configuration plus complète pour robots.txt
@@ -32,9 +64,7 @@ module.exports = {
         disallow: ['/'], // Bloquer ChatGPT si souhaité
       },
     ],
-    additionalSitemaps: [
-      `${process.env.NEXT_PUBLIC_SITE_URL || 'https://buyitnow-client-n15-prv1.vercel.app/'}/server-sitemap.xml`,
-    ],
+    additionalSitemaps: [`${SITE_URL}/server-sitemap.xml`],
   },
 
   exclude: [
@@ -71,6 +101,14 @@ module.exports = {
   transform: async (config) => {
     try {
       const url = config.loc || '';
+      if (!url) {
+        console.warn('Empty URL encountered in sitemap transform');
+        return {
+          loc: '',
+          changefreq: 'weekly',
+          priority: 0.1,
+        };
+      }
 
       // Pages de produit
       if (url.includes('/products/')) {
@@ -122,6 +160,20 @@ module.exports = {
       };
     } catch (error) {
       console.error(`Error transforming URL: ${config?.loc}`, error);
+
+      // Utiliser Sentry pour capturer l'exception avec contexte
+      if (process.env.NODE_ENV === 'production') {
+        captureException(error, {
+          tags: {
+            component: 'sitemap-generator',
+            url: config?.loc || 'unknown',
+          },
+          extra: {
+            config: JSON.stringify(config),
+          },
+          level: 'error',
+        });
+      }
 
       // Fournir une configuration par défaut en cas d'erreur
       return {
