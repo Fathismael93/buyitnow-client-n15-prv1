@@ -28,7 +28,7 @@ export const metadata = {
 // eslint-disable-next-line react/prop-types
 const HomePage = async ({ searchParams }) => {
   // Récupération des données avec un fallback en cas d'erreur
-  const productsData = await getAllProducts(await searchParams).catch(() => ({
+  const productsData = await getAllProducts(searchParams).catch(() => ({
     products: [],
     totalPages: 0,
   }));
