@@ -1,12 +1,12 @@
 /* eslint-disable react/prop-types */
 'use client';
 
-import { useContext, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Loading from '@/app/loading';
 import { arrayHasData } from '@/helpers/helpers';
-import AuthContext from '@/context/AuthContext';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { captureException } from '@/monitoring/sentry';
 
 // Import dynamique des composants
 const CustomPagination = dynamic(
@@ -49,23 +49,44 @@ const ProductItemSkeleton = () => (
 );
 
 const ListProducts = ({ data, categories }) => {
-  const { loading, setLoading } = useContext(AuthContext);
+  // Remplacer par un état local quand possible
+  const [localLoading, setLocalLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Utiliser useMemo pour éviter les recalculs inutiles
+  const filterSummary = useMemo(
+    () => getFilterSummary(),
+    [keyword, category, minPrice, maxPrice, data?.categories],
+  );
+
+  useEffect(() => {
+    // Seulement pour l'initial render, pas pour les changements de filtres
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+    }
+
+    if (localLoading) {
+      setLocalLoading(false);
+    }
+  }, [data]);
 
   // Récupérer les paramètres de recherche pour les afficher
   const keyword = searchParams.get('keyword');
   const category = searchParams.get('category');
   const minPrice = searchParams.get('min');
   const maxPrice = searchParams.get('max');
+  const page = searchParams.get('page');
 
   // Construire un message récapitulatif des filtres appliqués
   const getFilterSummary = () => {
     let summary = [];
 
     if (keyword) summary.push(`Recherche: "${keyword}"`);
+    if (page) summary.push(`Page: ${page}`);
     if (category) {
-      const categoryName = data?.categories?.find(
+      const categoryName = categories?.find(
         (c) => c._id === category,
       )?.categoryName;
       if (categoryName) summary.push(`Catégorie: ${categoryName}`);
@@ -77,24 +98,11 @@ const ListProducts = ({ data, categories }) => {
     return summary.length > 0 ? summary.join(' | ') : null;
   };
 
-  const filterSummary = getFilterSummary();
-
-  useEffect(() => {
-    // Seulement pour l'initial render, pas pour les changements de filtres
-    if (isInitialLoad) {
-      setIsInitialLoad(false);
-    }
-
-    if (loading) {
-      setLoading(false);
-    }
-  }, [data]);
-
   return (
     <section className="py-8">
       <div className="container max-w-[1440px] mx-auto px-4">
         <div className="flex flex-col md:flex-row -mx-4">
-          <Filters categories={categories} setLoading={setLoading} />
+          <Filters categories={categories} />
 
           <main className="md:w-2/3 lg:w-3/4 px-3">
             {/* Affichage du récapitulatif des filtres et du nombre de résultats */}
@@ -112,7 +120,7 @@ const ListProducts = ({ data, categories }) => {
               </h1>
             </div>
 
-            {loading ? (
+            {localLoading ? (
               <div className="space-y-4">
                 {[...Array(3)].map((_, index) => (
                   <ProductItemSkeleton key={index} />
@@ -133,8 +141,8 @@ const ListProducts = ({ data, categories }) => {
                 </p>
                 <button
                   onClick={() => {
-                    setLoading(true);
-                    window.location.href = '/';
+                    setLocalLoading(true);
+                    router.push('/');
                   }}
                   className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >

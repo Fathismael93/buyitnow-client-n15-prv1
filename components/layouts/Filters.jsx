@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 'use client';
 
 import { useState } from 'react';
@@ -8,7 +7,7 @@ import { toast } from 'react-toastify';
 import { arrayHasData, getPriceQueryParams } from '@/helpers/helpers';
 import { maxPriceSchema, minPriceSchema } from '@/helpers/schemas';
 
-const Filters = ({ categories, setLoading }) => {
+const Filters = ({ categories, setLocalLoading }) => {
   const [min, setMin] = useState('');
   const [max, setMax] = useState('');
   const [open, setOpen] = useState(false);
@@ -18,7 +17,7 @@ const Filters = ({ categories, setLoading }) => {
   let queryParams;
 
   function handleClick(checkbox) {
-    setLoading(true);
+    setLocalLoading(true);
 
     if (typeof window !== 'undefined') {
       queryParams = new URLSearchParams(window.location.search);
@@ -49,8 +48,7 @@ const Filters = ({ categories, setLoading }) => {
   }
 
   async function handleButtonClick() {
-    setLoading(true);
-    let minResult, maxResult;
+    setLocalLoading(true);
 
     try {
       if (typeof window !== 'undefined') {
@@ -58,18 +56,18 @@ const Filters = ({ categories, setLoading }) => {
 
         if (min === '' && max === '') {
           toast.error('Renseigner un des 2 champs du prix');
-          setLoading(false);
+          setLocalLoading(false);
           return;
         }
 
         if (min !== '' && max !== '' && parseInt(min) > parseInt(max)) {
           toast.error('Le prix minimum doit être inférieur au prix maximum');
-          setLoading(false);
+          setLocalLoading(false);
           return;
         }
 
         if (min !== '') {
-          minResult = await minPriceSchema.validate(
+          await minPriceSchema.validate(
             {
               minPrice: min,
             },
@@ -80,7 +78,7 @@ const Filters = ({ categories, setLoading }) => {
         }
 
         if (max !== '') {
-          maxResult = await maxPriceSchema.validate(
+          await maxPriceSchema.validate(
             {
               maxPrice: max,
             },
@@ -98,7 +96,7 @@ const Filters = ({ categories, setLoading }) => {
       }
     } catch (error) {
       toast.error(error.message);
-      setLoading(false);
+      setLocalLoading(false);
       return;
     }
   }
