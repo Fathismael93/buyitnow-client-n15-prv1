@@ -1,4 +1,3 @@
-/* eslint-disable react/prop-types */
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -6,7 +5,6 @@ import dynamic from 'next/dynamic';
 import Loading from '@/app/loading';
 import { arrayHasData } from '@/helpers/helpers';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { captureException } from '@/monitoring/sentry';
 
 // Import dynamique des composants
 const CustomPagination = dynamic(
