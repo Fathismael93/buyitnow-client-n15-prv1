@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 // Version du cache - à incrémenter à chaque déploiement majeur
 const CACHE_VERSION = 'v1';
 const CACHE_NAME = `buyitnow-cache-${CACHE_VERSION}`;
@@ -277,24 +276,4 @@ function shouldNotCache(url) {
       urlObj.pathname === resource || urlObj.pathname.startsWith(resourcePath)
     );
   });
-}
-
-// Fonction pour gérer les requêtes avec une logique de retry
-// (par exemple, pour les requêtes critiques)
-async function fetchWithRetry(request, maxRetries = 3) {
-  let retries = 0;
-  while (retries < maxRetries) {
-    try {
-      return await fetch(request);
-    } catch (err) {
-      retries++;
-      log(
-        'warn',
-        `Tentative ${retries}/${maxRetries} échouée pour: ${request.url}`,
-        err,
-      );
-      await new Promise((r) => setTimeout(r, 1000 * retries)); // Attente exponentielle
-    }
-  }
-  throw new Error(`Échec après ${maxRetries} tentatives pour: ${request.url}`);
 }
