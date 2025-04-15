@@ -2,6 +2,18 @@
 
 // Ne s'exécute que dans un navigateur compatible et en production
 if ('serviceWorker' in navigator) {
+  // Effectuer une vérification plus complète de compatibilité
+  const isSWSupported = 'serviceWorker' in navigator;
+  const isLocalStorageSupported = (function () {
+    try {
+      localStorage.setItem('test', 'test');
+      localStorage.removeItem('test');
+      return true;
+    } catch (e) {
+      return false;
+    }
+  })();
+
   // Utiliser la variable exposée par EnvInit ou détecter l'environnement
   const isProduction =
     typeof window !== 'undefined' &&
@@ -27,7 +39,7 @@ if ('serviceWorker' in navigator) {
     }
   };
 
-  if (isProduction) {
+  if (isProduction && isSWSupported && isLocalStorageSupported) {
     window.addEventListener('load', function () {
       // Utiliser requestIdleCallback si disponible, sinon setTimeout
       const registerWhenIdle = window.requestIdleCallback || setTimeout;
