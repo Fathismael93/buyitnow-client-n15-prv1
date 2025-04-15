@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Loading from '@/app/loading';
 import { arrayHasData } from '@/helpers/helpers';
-import { useRouter, useSearchParams } from 'next/navigation';
 
 // Import dynamique des composants
 const CustomPagination = dynamic(
@@ -53,23 +53,6 @@ const ListProducts = ({ data, categories }) => {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Utiliser useMemo pour éviter les recalculs inutiles
-  const filterSummary = useMemo(
-    () => getFilterSummary(),
-    [keyword, category, minPrice, maxPrice, categories],
-  );
-
-  useEffect(() => {
-    // Seulement pour l'initial render, pas pour les changements de filtres
-    if (isInitialLoad) {
-      setIsInitialLoad(false);
-    }
-
-    if (localLoading) {
-      setLocalLoading(false);
-    }
-  }, [data]);
-
   // Récupérer les paramètres de recherche pour les afficher
   const keyword = searchParams?.get('keyword');
   const category = searchParams?.get('category');
@@ -95,6 +78,23 @@ const ListProducts = ({ data, categories }) => {
 
     return summary.length > 0 ? summary.join(' | ') : null;
   };
+
+  // Utiliser useMemo pour éviter les recalculs inutiles
+  const filterSummary = useMemo(
+    () => getFilterSummary(),
+    [keyword, category, minPrice, maxPrice, categories],
+  );
+
+  useEffect(() => {
+    // Seulement pour l'initial render, pas pour les changements de filtres
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+    }
+
+    if (localLoading) {
+      setLocalLoading(false);
+    }
+  }, [data]);
 
   return (
     <section className="py-8">
