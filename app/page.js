@@ -1,9 +1,4 @@
-// app/page.js
-// Définir explicitement le mode dynamique pour cette page
-export const dynamicParams = true;
-
-import { Suspense } from 'react';
-import { lazy } from 'react';
+import { Suspense, lazy } from 'react';
 import {
   getAllProducts,
   getCategories,
@@ -28,7 +23,7 @@ export const metadata = {
 // eslint-disable-next-line react/prop-types
 const HomePage = async ({ searchParams }) => {
   // Récupération des données avec un fallback en cas d'erreur
-  const productsData = await getAllProducts(searchParams).catch(() => ({
+  const productsData = await getAllProducts(await searchParams).catch(() => ({
     products: [],
     totalPages: 0,
   }));
