@@ -1,8 +1,3 @@
-// app/page.js
-// Définir explicitement le mode dynamique pour cette page
-export const dynamicParams = true;
-export const dynamic = 'force-dynamic';
-
 import { Suspense, lazy } from 'react';
 import {
   getAllProducts,
@@ -36,9 +31,6 @@ const HomePage = async ({ searchParams }) => {
   const categories = await getCategories().catch(() => ({
     categories: [],
   }));
-
-  console.log('productsData', productsData);
-  console.log('categories', categories);
 
   return (
     <Suspense fallback={<Loading />}>
