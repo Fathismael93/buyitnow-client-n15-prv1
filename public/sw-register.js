@@ -13,9 +13,19 @@ if ('serviceWorker' in navigator) {
         !window.location.hostname.includes('dev.') &&
         !window.location.hostname.includes('staging.')));
 
-  // Fonction de log qui ne fait rien en production
+  // Créer une fonction de log qui enregistre les erreurs critiques même en production
   const logInfo = isProduction ? () => {} : console.log;
-  const logError = isProduction ? () => {} : console.error;
+  const logError = (message, error) => {
+    if (!isProduction) {
+      console.error(message, error);
+    } else if (
+      error &&
+      (error instanceof TypeError || error.name === 'SecurityError')
+    ) {
+      // Enregistrer uniquement les erreurs critiques en production
+      console.error('[SW] Erreur critique:', message);
+    }
+  };
 
   if (isProduction) {
     window.addEventListener('load', function () {
