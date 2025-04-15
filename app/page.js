@@ -20,6 +20,8 @@ export const metadata = {
   },
 };
 
+export const revalidate = 3600; // Revalidation toutes les 60 secondes
+
 // eslint-disable-next-line react/prop-types
 const HomePage = async ({ searchParams }) => {
   // Récupération des données avec un fallback en cas d'erreur
