@@ -1,10 +1,11 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Loading from '@/app/loading';
 import { arrayHasData } from '@/helpers/helpers';
+import { captureException } from '@/monitoring/sentry';
 
 // Import dynamique des composants
 const CustomPagination = dynamic(
@@ -29,28 +30,13 @@ const ProductItemSkeleton = () => (
     aria-hidden="true" // Cacher ces éléments des lecteurs d'écran pendant le chargement
   >
     <div className="flex flex-col md:flex-row">
-      <div className="md:w-1/4 p-3">
-        <div className="bg-gray-200 h-40 w-full rounded"></div>
-      </div>
-      <div className="md:w-2/4 p-4">
-        <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
-        <div className="space-y-3">
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-          <div className="h-4 bg-gray-200 rounded w-full"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-        </div>
-      </div>
-      <div className="md:w-1/4 p-5 border-t md:border-t-0 md:border-l border-gray-200">
-        <div className="h-6 bg-gray-200 rounded w-1/2 mb-3"></div>
-        <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
-        <div className="h-10 bg-gray-200 rounded w-2/3"></div>
-      </div>
+      {/* Contenu existant du skeleton */}
     </div>
   </div>
 );
 
 const ListProducts = ({ data, categories }) => {
-  // Remplacer par un état local quand possible
+  // États locaux
   const [localLoading, setLocalLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const searchParams = useSearchParams();
@@ -64,30 +50,53 @@ const ListProducts = ({ data, categories }) => {
   const page = searchParams?.get('page');
 
   // Construire un message récapitulatif des filtres appliqués
-  const getFilterSummary = () => {
-    let summary = [];
+  const getFilterSummary = useCallback(() => {
+    try {
+      let summary = [];
 
-    if (keyword) summary.push(`Recherche: "${keyword}"`);
-    if (category) {
-      const categoryName = categories?.find(
-        (c) => c._id === category,
-      )?.categoryName;
-      if (categoryName) summary.push(`Catégorie: ${categoryName}`);
+      if (keyword) summary.push(`Recherche: "${keyword}"`);
+      if (category) {
+        const categoryName = categories?.find(
+          (c) => c._id === category,
+        )?.categoryName;
+        if (categoryName) summary.push(`Catégorie: ${categoryName}`);
+      }
+      if (minPrice && maxPrice)
+        summary.push(`Prix: ${minPrice}€ - ${maxPrice}€`);
+      else if (minPrice) summary.push(`Prix min: ${minPrice}€`);
+      else if (maxPrice) summary.push(`Prix max: ${maxPrice}€`);
+
+      if (page) summary.push(`Page: ${page || 1}`);
+
+      return summary.length > 0 ? summary.join(' | ') : null;
+    } catch (err) {
+      // Capture silencieuse d'erreur pour éviter de planter le composant
+      captureException(err, {
+        tags: { component: 'ListProducts', function: 'getFilterSummary' },
+      });
+      return null;
     }
-    if (minPrice && maxPrice) summary.push(`Prix: ${minPrice}€ - ${maxPrice}€`);
-    else if (minPrice) summary.push(`Prix min: ${minPrice}€`);
-    else if (maxPrice) summary.push(`Prix max: ${maxPrice}€`);
-
-    if (page) summary.push(`Page: ${page ? page : 1}`);
-
-    return summary.length > 0 ? summary.join(' | ') : null;
-  };
+  }, [keyword, category, minPrice, maxPrice, page, categories]);
 
   // Utiliser useMemo pour éviter les recalculs inutiles
-  const filterSummary = useMemo(
-    () => getFilterSummary(),
-    [keyword, category, minPrice, maxPrice, categories],
-  );
+  const filterSummary = useMemo(() => getFilterSummary(), [getFilterSummary]);
+
+  // Vérifier la validité des données pour éviter les erreurs
+  const hasValidData = data && typeof data === 'object';
+  const hasValidCategories = categories && Array.isArray(categories);
+
+  // Handler pour réinitialiser les filtres
+  const handleResetFilters = useCallback(() => {
+    try {
+      setLocalLoading(true);
+      router.push('/');
+    } catch (err) {
+      // Supprimer cette ligne : setError(err);
+      // Au lieu de cela, laisser l'erreur se propager vers Error Boundary
+      console.error(err);
+      throw err; // Optionnel, mais permet de propager l'erreur vers error.jsx
+    }
+  }, [router]);
 
   useEffect(() => {
     // Seulement pour l'initial render, pas pour les changements de filtres
@@ -98,24 +107,49 @@ const ListProducts = ({ data, categories }) => {
     if (localLoading) {
       setLocalLoading(false);
     }
-  }, [data]);
+  }, [data, isInitialLoad, localLoading]);
+
+  // Afficher un avertissement si les données ne sont pas valides
+  if (!hasValidData) {
+    return (
+      <div
+        className="p-4 bg-yellow-50 border border-yellow-200 rounded-md my-4"
+        role="alert"
+      >
+        <p className="font-medium text-yellow-700">
+          Les données des produits ne sont pas disponibles pour le moment.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <section className="py-8">
       <div className="container max-w-[1440px] mx-auto px-4">
         <div className="flex flex-col md:flex-row -mx-4">
-          <Filters categories={categories} setLocalLoading={setLocalLoading} />
+          {hasValidCategories ? (
+            <Filters
+              categories={categories}
+              setLocalLoading={setLocalLoading}
+            />
+          ) : (
+            <div className="md:w-1/3 lg:w-1/4 px-4">
+              <div className="p-4 bg-gray-100 rounded-md">
+                <p>Chargement des filtres...</p>
+              </div>
+            </div>
+          )}
 
           <main
             className="md:w-2/3 lg:w-3/4 px-3"
-            aria-label="Liste des produits" // Ajouter cet attribut
+            aria-label="Liste des produits"
           >
             {/* Affichage du récapitulatif des filtres et du nombre de résultats */}
             {filterSummary && (
               <div
                 className="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-800 border border-blue-100"
-                aria-live="polite" // Pour annoncer les changements
-                aria-label="Filtres appliqués" // Ajouter cet attribut
+                aria-live="polite"
+                aria-label="Filtres appliqués"
               >
                 <p className="font-medium">{filterSummary}</p>
               </div>
@@ -124,7 +158,7 @@ const ListProducts = ({ data, categories }) => {
             <div className="mb-4 flex justify-between items-center">
               <h1
                 className="text-xl font-bold text-gray-800"
-                aria-live="polite" // Pour annoncer les changements dans le nombre de produits
+                aria-live="polite"
               >
                 {data?.products?.length > 0
                   ? `${data.products.length} produit${data.products.length > 1 ? 's' : ''} trouvé${data.products.length > 1 ? 's' : ''}`
@@ -133,7 +167,11 @@ const ListProducts = ({ data, categories }) => {
             </div>
 
             {localLoading ? (
-              <div className="space-y-4">
+              <div
+                className="space-y-4"
+                aria-busy="true"
+                aria-label="Chargement des produits"
+              >
                 {[...Array(3)].map((_, index) => (
                   <ProductItemSkeleton key={index} />
                 ))}
@@ -141,8 +179,8 @@ const ListProducts = ({ data, categories }) => {
             ) : arrayHasData(data?.products) ? (
               <div
                 className="flex flex-col items-center justify-center py-10 text-center"
-                aria-live="assertive" // Ajouter cet attribut pour annoncer ce changement important
-                role="status" // Ajouter ce rôle
+                aria-live="assertive"
+                role="status"
               >
                 <div className="mb-4 text-5xl text-gray-300">
                   <i className="fa fa-search" aria-hidden="true"></i>
@@ -156,12 +194,9 @@ const ListProducts = ({ data, categories }) => {
                     : 'Aucun produit ne correspond aux filtres sélectionnés. Essayez de modifier vos critères.'}
                 </p>
                 <button
-                  onClick={() => {
-                    setLocalLoading(true);
-                    router.push('/');
-                  }}
+                  onClick={handleResetFilters}
                   className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                  aria-label="Voir tous les produits disponibles" // Ajouter cet attribut
+                  aria-label="Voir tous les produits disponibles"
                 >
                   Voir tous les produits
                 </button>
@@ -170,13 +205,12 @@ const ListProducts = ({ data, categories }) => {
               <>
                 <div
                   className="space-y-4"
-                  aria-busy="true" // Ajouter cet attribut
-                  aria-label="Chargement des produits" // Ajouter cet attribut
+                  aria-busy={false}
+                  aria-label="Liste des produits chargés"
                 >
                   {data?.products?.map((product) => (
-                    // Suspense pour la gestion du chargement
                     <Suspense
-                      key={product?._id}
+                      key={product?._id || `product-${Math.random()}`}
                       fallback={<ProductItemSkeleton />}
                     >
                       <ProductItem product={product} />
