@@ -24,7 +24,10 @@ const ProductItem = dynamic(() => import('./ProductItem'), {
 
 // Composant squelette pour le chargement des produits
 const ProductItemSkeleton = () => (
-  <div className="border border-gray-200 overflow-hidden bg-white rounded-md mb-5 animate-pulse">
+  <div
+    className="border border-gray-200 overflow-hidden bg-white rounded-md mb-5 animate-pulse"
+    aria-hidden="true" // Cacher ces éléments des lecteurs d'écran pendant le chargement
+  >
     <div className="flex flex-col md:flex-row">
       <div className="md:w-1/4 p-3">
         <div className="bg-gray-200 h-40 w-full rounded"></div>
@@ -103,16 +106,26 @@ const ListProducts = ({ data, categories }) => {
         <div className="flex flex-col md:flex-row -mx-4">
           <Filters categories={categories} setLocalLoading={setLocalLoading} />
 
-          <main className="md:w-2/3 lg:w-3/4 px-3">
+          <main
+            className="md:w-2/3 lg:w-3/4 px-3"
+            aria-label="Liste des produits" // Ajouter cet attribut
+          >
             {/* Affichage du récapitulatif des filtres et du nombre de résultats */}
             {filterSummary && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-800 border border-blue-100">
+              <div
+                className="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-800 border border-blue-100"
+                aria-live="polite" // Pour annoncer les changements
+                aria-label="Filtres appliqués" // Ajouter cet attribut
+              >
                 <p className="font-medium">{filterSummary}</p>
               </div>
             )}
 
             <div className="mb-4 flex justify-between items-center">
-              <h1 className="text-xl font-bold text-gray-800">
+              <h1
+                className="text-xl font-bold text-gray-800"
+                aria-live="polite" // Pour annoncer les changements dans le nombre de produits
+              >
                 {data?.products?.length > 0
                   ? `${data.products.length} produit${data.products.length > 1 ? 's' : ''} trouvé${data.products.length > 1 ? 's' : ''}`
                   : 'Produits'}
@@ -126,9 +139,13 @@ const ListProducts = ({ data, categories }) => {
                 ))}
               </div>
             ) : arrayHasData(data?.products) ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div
+                className="flex flex-col items-center justify-center py-10 text-center"
+                aria-live="assertive" // Ajouter cet attribut pour annoncer ce changement important
+                role="status" // Ajouter ce rôle
+              >
                 <div className="mb-4 text-5xl text-gray-300">
-                  <i className="fa fa-search"></i>
+                  <i className="fa fa-search" aria-hidden="true"></i>
                 </div>
                 <h2 className="text-xl font-semibold text-gray-800 mb-2">
                   Aucun produit trouvé
@@ -144,13 +161,18 @@ const ListProducts = ({ data, categories }) => {
                     router.push('/');
                   }}
                   className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  aria-label="Voir tous les produits disponibles" // Ajouter cet attribut
                 >
                   Voir tous les produits
                 </button>
               </div>
             ) : (
               <>
-                <div className="space-y-4">
+                <div
+                  className="space-y-4"
+                  aria-busy="true" // Ajouter cet attribut
+                  aria-label="Chargement des produits" // Ajouter cet attribut
+                >
                   {data?.products?.map((product) => (
                     // Suspense pour la gestion du chargement
                     <Suspense
