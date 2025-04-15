@@ -65,7 +65,6 @@ const ListProducts = ({ data, categories }) => {
     let summary = [];
 
     if (keyword) summary.push(`Recherche: "${keyword}"`);
-    if (page) summary.push(`Page: ${page}`);
     if (category) {
       const categoryName = categories?.find(
         (c) => c._id === category,
@@ -75,6 +74,8 @@ const ListProducts = ({ data, categories }) => {
     if (minPrice && maxPrice) summary.push(`Prix: ${minPrice}€ - ${maxPrice}€`);
     else if (minPrice) summary.push(`Prix min: ${minPrice}€`);
     else if (maxPrice) summary.push(`Prix max: ${maxPrice}€`);
+
+    summary.push(`Page: ${page ? page : 1}`);
 
     return summary.length > 0 ? summary.join(' | ') : null;
   };
