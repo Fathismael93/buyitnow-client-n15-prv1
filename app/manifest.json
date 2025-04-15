@@ -3,9 +3,11 @@
   "short_name": "Buy It Now",
   "description": "Boutique en ligne simplifiée (BS), Buy It Now est la solution pour acheter et vendre facilement sur Internet.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3b82f6",
+  "dark_theme_color": "#1f2937",
   "orientation": "portrait",
   "shortcuts": [
     {
@@ -24,5 +26,6 @@
   "categories": ["shopping", "e-commerce"],
   "dir": "ltr",
   "lang": "fr-FR",
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "update_via_cache": "none"
 }

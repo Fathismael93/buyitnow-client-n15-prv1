@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 // Version du cache - à incrémenter à chaque déploiement majeur
 const CACHE_VERSION = 'v1';
 const CACHE_NAME = `buyitnow-cache-${CACHE_VERSION}`;
@@ -74,7 +75,22 @@ self.addEventListener('activate', (event) => {
         log('error', "Erreur lors de l'activation du service worker", err);
       }),
   );
+
+  // Code existant...
+  setInterval(trimCache, 1000 * 60 * 60); // Toutes les heures
 });
+
+// Ajouter après l'activation
+function trimCache() {
+  caches.open(CACHE_NAME).then((cache) => {
+    cache.keys().then((keys) => {
+      if (keys.length > 100) {
+        // Limiter à 100 ressources par exemple
+        cache.delete(keys[0]); // Supprimer la plus ancienne
+      }
+    });
+  });
+}
 
 // Gestion des requêtes
 self.addEventListener('fetch', (event) => {
@@ -89,6 +105,40 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request).catch(() => {
         // En cas d'échec (offline), afficher la page hors ligne
         return caches.match('/offline.html');
+      }),
+    );
+    return;
+  }
+
+  // Pour les requêtes d'images
+  if (event.request.destination === 'image') {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        // Retourner d'abord depuis le cache si disponible
+        const fetchPromise = fetch(event.request)
+          .then((networkResponse) => {
+            // Mettre à jour le cache avec la nouvelle version
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, networkResponse.clone());
+            });
+            return networkResponse;
+          })
+          .catch((error) => {
+            log(
+              'error',
+              `Échec de récupération d'image: ${event.request.url}`,
+              error,
+            );
+            // Fallback sur une image par défaut si nécessaire
+            if (!cachedResponse) {
+              return caches.match('/images/default.png');
+            }
+            throw error;
+          });
+
+        // Si nous avons une réponse en cache, la retourner immédiatement
+        // tout en mettant à jour le cache en arrière-plan
+        return cachedResponse || fetchPromise;
       }),
     );
     return;
@@ -157,9 +207,48 @@ self.addEventListener('message', (event) => {
   }
 });
 
+// Ajouter un événement de synchronisation en arrière-plan
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'refresh-cached-content') {
+    event.waitUntil(
+      caches.open(CACHE_NAME).then((cache) => {
+        return cache.keys().then((requests) => {
+          return Promise.all(
+            requests.map((request) => {
+              return fetch(request)
+                .then((response) => {
+                  return cache.put(request, response);
+                })
+                .catch((err) => {
+                  log(
+                    'error',
+                    `Échec de rafraîchissement: ${request.url}`,
+                    err,
+                  );
+                });
+            }),
+          );
+        });
+      }),
+    );
+  }
+});
+
 // Fonction pour vérifier si une URL est une ressource statique
 function isStaticAsset(url) {
-  const fileExtension = url.split('.').pop().toLowerCase();
+  const urlObj = new URL(url);
+
+  // Vérifier les dossiers statiques courants
+  if (
+    urlObj.pathname.includes('/_next/static/') ||
+    urlObj.pathname.includes('/images/') ||
+    urlObj.pathname.includes('/assets/')
+  ) {
+    return true;
+  }
+
+  // Garder aussi la vérification par extension
+  const fileExtension = urlObj.pathname.split('.').pop().toLowerCase();
   const staticExtensions = [
     'js',
     'css',
@@ -172,6 +261,7 @@ function isStaticAsset(url) {
     'woff2',
     'ttf',
     'eot',
+    'ico',
   ];
 
   return staticExtensions.includes(fileExtension);
@@ -187,4 +277,24 @@ function shouldNotCache(url) {
       urlObj.pathname === resource || urlObj.pathname.startsWith(resourcePath)
     );
   });
+}
+
+// Fonction pour gérer les requêtes avec une logique de retry
+// (par exemple, pour les requêtes critiques)
+async function fetchWithRetry(request, maxRetries = 3) {
+  let retries = 0;
+  while (retries < maxRetries) {
+    try {
+      return await fetch(request);
+    } catch (err) {
+      retries++;
+      log(
+        'warn',
+        `Tentative ${retries}/${maxRetries} échouée pour: ${request.url}`,
+        err,
+      );
+      await new Promise((r) => setTimeout(r, 1000 * retries)); // Attente exponentielle
+    }
+  }
+  throw new Error(`Échec après ${maxRetries} tentatives pour: ${request.url}`);
 }
