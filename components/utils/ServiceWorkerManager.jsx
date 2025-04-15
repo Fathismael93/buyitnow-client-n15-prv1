@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -9,8 +8,6 @@ import Script from 'next/script';
  * Ce composant est conçu pour être inclus dans le layout principal
  */
 const ServiceWorkerManager = () => {
-  const [isProduction, setIsProduction] = useState(false);
-
   const [swStatus, setSwStatus] = useState({
     isProduction: false,
     isRegistered: false,
@@ -21,11 +18,19 @@ const ServiceWorkerManager = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const isProductionEnv = window.NEXT_PUBLIC_NODE_ENV === 'production';
+    // Déterminer si nous sommes en production
+    const isProductionEnv =
+      window.NEXT_PUBLIC_NODE_ENV === 'production' ||
+      (window.location.hostname !== 'localhost' &&
+        !window.location.hostname.includes('127.0.0.1') &&
+        !window.location.hostname.includes('.local') &&
+        !window.location.hostname.includes('dev.') &&
+        !window.location.hostname.includes('staging.'));
+
     setSwStatus((prev) => ({ ...prev, isProduction: isProductionEnv }));
 
     // Désactiver la mise en cache en développement
-    if (!isProduction && 'serviceWorker' in navigator) {
+    if (!isProductionEnv && 'serviceWorker' in navigator) {
       // Désinscrire tout Service Worker existant en mode développement
       navigator.serviceWorker
         .getRegistrations()
@@ -38,17 +43,14 @@ const ServiceWorkerManager = () => {
           }
         })
         .catch((error) => {
-          console.error(
-            'Erreur lors de la désinscription du Service Worker:',
-            error,
-          );
+          handleServiceWorkerError(error);
         });
     }
   }, []);
 
   useEffect(() => {
     if (
-      !isProduction ||
+      !swStatus.isProduction ||
       typeof navigator === 'undefined' ||
       !('serviceWorker' in navigator)
     )
@@ -57,7 +59,11 @@ const ServiceWorkerManager = () => {
     // Écouter les messages du Service Worker
     const messageHandler = (event) => {
       // Vérifier l'origine du message
-      if (event.source.scriptURL && event.source.scriptURL.includes('/sw.js')) {
+      if (
+        event.source &&
+        event.source.scriptURL &&
+        event.source.scriptURL.includes('/sw.js')
+      ) {
         // Traiter les messages du Service Worker
         if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
           setSwStatus((prev) => ({ ...prev, updateAvailable: true }));
@@ -67,12 +73,22 @@ const ServiceWorkerManager = () => {
 
     navigator.serviceWorker.addEventListener('message', messageHandler);
 
+    // Vérifier si un Service Worker est déjà enregistré
+    navigator.serviceWorker
+      .getRegistration()
+      .then((registration) => {
+        if (registration) {
+          setSwStatus((prev) => ({ ...prev, isRegistered: true }));
+        }
+      })
+      .catch(handleServiceWorkerError);
+
     return () => {
       navigator.serviceWorker.removeEventListener('message', messageHandler);
     };
-  }, [isProduction]);
+  }, [swStatus.isProduction]);
 
-  // Utiliser cette fonction dans les blocs catch
+  // Fonction pour gérer les erreurs du Service Worker
   const handleServiceWorkerError = (error) => {
     console.error('Service Worker error:', error);
     setSwStatus((prev) => ({ ...prev, error: error.message }));
@@ -85,21 +101,17 @@ const ServiceWorkerManager = () => {
 
   // N'intégrer le script que dans l'environnement de production
   if (
-    !isProduction ||
+    !swStatus.isProduction ||
     typeof navigator === 'undefined' ||
     !('serviceWorker' in navigator)
   ) {
-    return null;
+    return process.env.NODE_ENV === 'development' ? (
+      <DevModeNotification />
+    ) : null;
   }
 
   return (
-    <>
-      {isProduction ? (
-        <Script id="sw-register" src="/sw-register.js" strategy="lazyOnload" />
-      ) : (
-        <DevModeNotification />
-      )}
-    </>
+    <Script id="sw-register" src="/sw-register.js" strategy="lazyOnload" />
   );
 };
 
@@ -107,8 +119,6 @@ export default ServiceWorkerManager;
 
 // Composant pour une notification discrète en mode développeur
 const DevModeNotification = () => {
-  if (process.env.NODE_ENV !== 'development') return null;
-
   return (
     <div className="fixed bottom-2 left-2 bg-yellow-100 text-yellow-800 text-xs p-2 rounded-md z-50 opacity-70 hover:opacity-100">
       Service Worker désactivé en mode développement
