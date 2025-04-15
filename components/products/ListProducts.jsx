@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Loading from '@/app/loading';
@@ -75,7 +75,7 @@ const ListProducts = ({ data, categories }) => {
     else if (minPrice) summary.push(`Prix min: ${minPrice}€`);
     else if (maxPrice) summary.push(`Prix max: ${maxPrice}€`);
 
-    summary.push(`Page: ${page ? page : 1}`);
+    if (page) summary.push(`Page: ${page ? page : 1}`);
 
     return summary.length > 0 ? summary.join(' | ') : null;
   };
@@ -152,7 +152,13 @@ const ListProducts = ({ data, categories }) => {
               <>
                 <div className="space-y-4">
                   {data?.products?.map((product) => (
-                    <ProductItem key={product?._id} product={product} />
+                    // Suspense pour la gestion du chargement
+                    <Suspense
+                      key={product?._id}
+                      fallback={<ProductItemSkeleton />}
+                    >
+                      <ProductItem product={product} />
+                    </Suspense>
                   ))}
                 </div>
 
