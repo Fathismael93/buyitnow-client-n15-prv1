@@ -43,7 +43,7 @@ const HomePage = async ({ searchParams }) => {
   return (
     <Suspense fallback={<Loading />}>
       <main>
-        <ListProducts data={productsData} categories={categories} />
+        <ListProducts data={productsData?.data} categories={categories} />
       </main>
     </Suspense>
   );
