@@ -7,8 +7,21 @@ import withBundleAnalyzer from '@next/bundle-analyzer';
 // Import de la configuration centralisée des variables d'environnement
 import { getPublicRuntimeConfig } from './utils/env-config.mjs';
 
+// Au début du fichier
+const validateEnv = () => {
+  const requiredVars = ['NEXT_PUBLIC_SITE_URL', 'NEXT_PUBLIC_API_URL'];
+  const missingVars = requiredVars.filter((varName) => !process.env[varName]);
+
+  if (missingVars.length > 0) {
+    console.warn(`⚠️ Missing environment variables: ${missingVars.join(', ')}`);
+  }
+};
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Appeler cette fonction au début
+validateEnv();
 
 const bundleAnalyzer = withBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
@@ -43,7 +56,6 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
-  reactStrictMode: false,
   poweredByHeader: false,
   images: {
     remotePatterns: [
@@ -70,8 +82,6 @@ const nextConfig = {
   },
   // Configuration du cache des pages statiques
   staticPageGenerationTimeout: 180,
-  // Configuration de la sortie en standalone
-  // output: 'standalone',
   // Configuration des headers de sécurité
   async headers() {
     return [
@@ -212,11 +222,13 @@ const nextConfig = {
 
     return config;
   },
-  eslint: {
-    ignoreDuringBuilds: false, // Ignorer les erreurs ESLint pendant le build
-  },
+  // En développement, ne pas ignorer les erreurs
   typescript: {
-    ignoreBuildErrors: true, // Ignorer les erreurs TypeScript pendant le build
+    ignoreBuildErrors: process.env.NODE_ENV === 'production', // Ignorer uniquement en production si nécessaire
+  },
+  eslint: {
+    // Même approche pour ESLint
+    ignoreDuringBuilds: process.env.NODE_ENV === 'production',
   },
 };
 
