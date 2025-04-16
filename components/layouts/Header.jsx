@@ -250,7 +250,7 @@ const Header = () => {
               </Link>
             )}
             <button
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="px-3 py-2 border border-gray-200 rounded-md text-gray-700"
               aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
               aria-expanded={mobileMenuOpen}
@@ -287,74 +287,64 @@ const Header = () => {
         </div>
 
         {/* Mobile menu */}
-        {mobileMenuOpen ? (
-          <div
-            id="mobile-menu"
-            className="md:hidden mt-4 border-t pt-4"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Menu principal"
-          >
-            <div className="mb-4">
-              <Search setLoading={setAuthLoading} />
-            </div>
-            {user ? (
-              <div className="space-y-3">
-                <Link
-                  href="/me"
-                  className="flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-blue-50"
-                >
-                  <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
-                    <Image
-                      alt={`Photo de profil de ${user?.name || 'utilisateur'}`}
-                      src={
-                        user?.avatar ? user?.avatar?.url : '/images/default.png'
-                      }
-                      fill
-                      sizes="32px"
-                      className="object-cover"
-                    />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">
-                      {user?.name}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate max-w-[200px]">
-                      {user?.email}
-                    </p>
-                  </div>
-                </Link>
-                <Link
-                  href="/me/orders"
-                  className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
-                >
-                  Mes commandes
-                </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="block cursor-pointer w-full text-left px-2 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
-                >
-                  Déconnexion
-                </button>
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Connexion
-              </Link>
-            )}
+        <div
+          id="mobile-menu"
+          className="md:hidden mt-4 border-t pt-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu principal"
+        >
+          <div className="mb-4">
+            <Search setLoading={setAuthLoading} />
           </div>
-        ) : (
-          <div
-            id="mobile-menu"
-            className="hidden"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Menu principal"
-          ></div>
-        )}
+          {user ? (
+            <div className="space-y-3">
+              <Link
+                href="/me"
+                className="flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-blue-50"
+              >
+                <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
+                  <Image
+                    alt={`Photo de profil de ${user?.name || 'utilisateur'}`}
+                    src={
+                      user?.avatar ? user?.avatar?.url : '/images/default.png'
+                    }
+                    fill
+                    sizes="32px"
+                    className="object-cover"
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">
+                    {user?.name}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate max-w-[200px]">
+                    {user?.email}
+                  </p>
+                </div>
+              </Link>
+              <Link
+                href="/me/orders"
+                className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
+              >
+                Mes commandes
+              </Link>
+              <button
+                onClick={handleSignOut}
+                className="block cursor-pointer w-full text-left px-2 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
+              >
+                Déconnexion
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Connexion
+            </Link>
+          )}
+        </div>
       </div>
     </header>
   );
