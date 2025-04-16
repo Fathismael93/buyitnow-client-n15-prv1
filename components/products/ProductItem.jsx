@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { memo, useCallback, useContext } from 'react';
 import { toast } from 'react-toastify';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -7,78 +7,109 @@ import CartContext from '@/context/CartContext';
 import { INCREASE } from '@/helpers/constants';
 import AuthContext from '@/context/AuthContext';
 
-const ProductItem = ({ product }) => {
+const ProductItem = memo(({ product }) => {
   const { addItemToCart, updateCart, cart } = useContext(CartContext);
   const { user } = useContext(AuthContext);
 
-  const inStock = product?.stock >= 1;
+  // Vérification de sécurité pour s'assurer que product est un objet valide
+  if (!product || typeof product !== 'object') {
+    return null;
+  }
 
-  const addToCartHandler = (e) => {
-    e.preventDefault();
+  const inStock = product.stock > 0;
+  const productId = product._id || '';
+  const productName = product.name || 'Produit sans nom';
+  const productDescription = product.description || '';
+  const productPrice = product.price || 0;
+  const productCategory = product.category?.categoryName || 'Non catégorisé';
 
-    if (!user) {
-      return toast.error('Sign in to add items in your cart !');
-    }
-    const isProductInCart = cart.find((i) => i?.product?._id === product?._id);
+  // URL de l'image avec fallback
+  const imageUrl = product.images?.[0]?.url || '/images/default_product.png';
 
-    if (isProductInCart) {
-      updateCart(isProductInCart, INCREASE);
-    } else {
-      addItemToCart({
-        product: product?._id,
-      });
-    }
-  };
+  // Optimisation avec useCallback pour éviter les recréations à chaque rendu
+  const addToCartHandler = useCallback(
+    (e) => {
+      e.preventDefault();
+
+      try {
+        if (!user) {
+          return toast.error(
+            'Connectez-vous pour ajouter des articles à votre panier !',
+          );
+        }
+
+        const isProductInCart = cart.find((i) => i?.product?._id === productId);
+
+        if (isProductInCart) {
+          updateCart(isProductInCart, INCREASE);
+        } else {
+          addItemToCart({
+            product: productId,
+          });
+        }
+      } catch (error) {
+        toast.error("Impossible d'ajouter au panier. Veuillez réessayer.");
+        console.error("Erreur d'ajout au panier:", error);
+      }
+    },
+    [user, cart, productId, addItemToCart, updateCart],
+  );
 
   return (
     <article className="border border-gray-200 overflow-hidden bg-white shadow-xs rounded-sm mb-5">
       <Link
-        href={`/product/${product?._id}`}
-        className="flex flex-col md:flex-row hover:bg-blue-100"
+        href={`/product/${productId}`}
+        className="flex flex-col md:flex-row hover:bg-blue-50"
+        aria-label={`Voir les détails du produit: ${productName}`}
       >
         <div className="md:w-1/4 flex p-3">
-          <div
-            style={{
-              width: '80%',
-              height: '70%',
-              position: 'relative',
-            }}
-          >
+          <div className="relative w-full aspect-square">
             <Image
-              src={
-                product?.images !== undefined && product?.images[0]
-                  ? product?.images[0]?.url
-                  : '/images/default_product.png'
-              }
-              alt={product?.name}
-              title={product?.name}
-              width="240"
-              height="240"
-              onError={() => ''}
-              style={{ objectFit: 'cover' }}
+              src={imageUrl}
+              alt={productName}
+              title={productName}
+              width={240}
+              height={240}
+              onError={(e) => {
+                e.currentTarget.src = '/images/default_product.png';
+                e.currentTarget.onerror = null;
+              }}
+              style={{ objectFit: 'contain' }}
+              priority={false}
+              loading="lazy"
+              sizes="(max-width: 768px) 80vw, 240px"
             />
           </div>
         </div>
         <div className="md:w-2/4">
           <div className="p-4">
-            <p className="font-semibold text-xl" title={product?.name}>
-              {product?.name}
-            </p>
-            <div className="mt-4 md:text-xs lg:text-sm text-gray-500">
-              <p className="mb-1" title={product?.category?.categoryName}>
-                <span className="font-semibold mr-3">Category: </span>
-                <span>{product?.category?.categoryName}</span>
+            <h3
+              className="font-semibold text-xl text-gray-800 line-clamp-2"
+              title={productName}
+            >
+              {productName}
+            </h3>
+            <div className="mt-4 md:text-xs lg:text-sm text-gray-700">
+              <p className="mb-1" title={productCategory}>
+                <span className="font-semibold mr-3">Catégorie: </span>
+                <span>{productCategory}</span>
               </p>
               <p className="mb-1" title="Description">
                 <span className="font-semibold mr-3">Description: </span>
-                <span>{product?.description?.substring(0, 45)}...</span>
+                <span className="line-clamp-2">
+                  {productDescription
+                    ? productDescription.substring(0, 45) + '...'
+                    : 'Aucune description disponible'}
+                </span>
               </p>
               <p className="mb-1" title="Stock">
                 <span className="font-semibold mr-3">Stock: </span>
                 {inStock ? (
-                  <span className="text-green-700">In Stock</span>
+                  <span className="text-green-700 font-medium">En stock</span>
                 ) : (
-                  <span className="text-red-700">Out of Stock</span>
+                  <span className="text-red-700 font-medium">
+                    Rupture de stock
+                  </span>
                 )}
               </p>
             </div>
@@ -87,25 +118,33 @@ const ProductItem = ({ product }) => {
         <div className="md:w-1/4 border-t lg:border-t-0 lg:border-l border-gray-200">
           <div className="p-5">
             <span
-              className="text-xl font-semibold text-black"
+              className="text-xl font-semibold text-black flex items-center justify-center md:justify-start"
               data-testid="Price"
             >
-              $ {product?.price}
+              {new Intl.NumberFormat('fr-FR', {
+                style: 'currency',
+                currency: 'EUR',
+              }).format(productPrice)}
             </span>
 
             <p
-              className="text-green-700 md:text-xs lg:text-md"
-              title="Shipping text"
+              className="text-green-700 md:text-xs lg:text-sm text-center md:text-left"
+              title="Livraison gratuite"
             >
-              Free Shipping
+              Livraison gratuite
             </p>
-            <div className="my-3">
+            <div className="my-3 flex justify-center md:justify-start">
               <button
-                className="px-2 lg:px-4 py-2 inline-block md:text-xs lg:text-lg text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 cursor-pointer"
-                onClick={(e) => addToCartHandler(e)}
+                disabled={!inStock}
+                className={`px-2 lg:px-4 py-2 inline-block md:text-xs lg:text-sm text-white rounded-md hover:bg-blue-700 transition
+                  ${inStock ? 'bg-blue-600' : 'bg-gray-400 cursor-not-allowed'}`}
+                onClick={(e) => inStock && addToCartHandler(e)}
+                aria-label={
+                  inStock ? 'Ajouter au panier' : 'Produit indisponible'
+                }
+                aria-disabled={!inStock}
               >
-                {' '}
-                Add to Cart{' '}
+                {inStock ? 'Ajouter au panier' : 'Indisponible'}
               </button>
             </div>
           </div>
@@ -113,6 +152,9 @@ const ProductItem = ({ product }) => {
       </Link>
     </article>
   );
-};
+});
+
+// Ajouter displayName pour faciliter le débogage
+ProductItem.displayName = 'ProductItem';
 
 export default ProductItem;
