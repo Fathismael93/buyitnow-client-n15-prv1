@@ -250,7 +250,8 @@ const Header = () => {
               </Link>
             )}
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              type="button"
               className="px-3 py-2 border border-gray-200 rounded-md text-gray-700"
               aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
               aria-expanded={mobileMenuOpen}
