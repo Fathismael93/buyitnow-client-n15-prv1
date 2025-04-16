@@ -89,6 +89,8 @@ const auth = {
           console.log('Sanitizing finished');
           console.log('Validation started');
 
+          console.log('Sanitized credentials:', sanitizedCredentials);
+
           // Validation avec le schéma Yup
           await loginSchema.validate(sanitizedCredentials);
 
