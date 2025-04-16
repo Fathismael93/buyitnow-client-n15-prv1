@@ -104,20 +104,11 @@ const Filters = ({ categories, setLocalLoading }) => {
       await validatePrices();
 
       // Création des paramètres d'URL
-      const params = new URLSearchParams(searchParams?.toString() || '');
+      let params = new URLSearchParams(searchParams?.toString() || '');
 
-      // Mise à jour des paramètres de prix
-      if (min) {
-        params.set('min', min);
-      } else {
-        params.delete('min');
-      }
-
-      if (max) {
-        params.set('max', max);
-      } else {
-        params.delete('max');
-      }
+      // Par celles-ci:
+      params = getPriceQueryParams(params, 'min', min);
+      params = getPriceQueryParams(params, 'max', max);
 
       // Navigation
       const path = `/?${params.toString()}`;
