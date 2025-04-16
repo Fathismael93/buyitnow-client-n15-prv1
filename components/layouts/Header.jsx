@@ -289,7 +289,7 @@ const Header = () => {
         {/* Mobile menu */}
         <div
           id="mobile-menu"
-          className="md:hidden mt-4 border-t pt-4"
+          className={`md:hidden ${mobileMenuOpen ? 'mt-4 border-t pt-4' : 'hidden'}`}
           role="dialog"
           aria-modal="true"
           aria-label="Menu principal"
