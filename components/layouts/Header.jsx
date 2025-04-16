@@ -16,6 +16,7 @@ import CartContext from '@/context/CartContext';
 import { signOut, useSession } from 'next-auth/react';
 import AuthContext from '@/context/AuthContext';
 import { throwEnrichedError, handleAsyncError } from '@/monitoring/errorUtils';
+import { useRouter } from 'next/navigation';
 
 // Chargement dynamique optimisé du composant Search
 const Search = dynamic(() => import('./Search'), {
@@ -45,7 +46,9 @@ const CartButton = memo(({ cartCount }) => (
 
 CartButton.displayName = 'CartButton';
 
-const UserDropdown = memo(({ user }) => {
+const UserDropdown = memo(({ user, isMobile = false }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
   const menuItems = useMemo(
     () => [
       { href: '/me', label: 'Mon profil' },
@@ -53,6 +56,66 @@ const UserDropdown = memo(({ user }) => {
     ],
     [],
   );
+
+  const toggleDropdown = (e) => {
+    e.preventDefault();
+    setIsOpen(!isOpen);
+  };
+
+  // Si mobile, utiliser un système basé sur clic plutôt que hover
+  if (isMobile) {
+    return (
+      <div className="relative">
+        <Link
+          href="#"
+          onClick={toggleDropdown}
+          className="flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-blue-50"
+        >
+          {/* Contenu identique */}
+          <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
+            <Image
+              alt={`Photo de profil de ${user?.name || 'utilisateur'}`}
+              src={user?.avatar ? user?.avatar?.url : '/images/default.png'}
+              fill
+              sizes="32px"
+              className="object-cover"
+            />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-700">{user?.name}</p>
+            <p className="text-xs text-gray-500 truncate max-w-[200px]">
+              {user?.email}
+            </p>
+          </div>
+          {/* Ajouter un indicateur d'état ouvert/fermé */}
+          <i className={`ml-2 fa fa-chevron-${isOpen ? 'up' : 'down'}`}></i>
+        </Link>
+
+        {/* Menu dropdown qui s'affiche en fonction de isOpen */}
+        {isOpen && (
+          <div className="mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 z-50">
+            <div className="py-1">
+              {menuItems.map((item, index) => (
+                <Link
+                  key={`mobile-menu-item-${index}`}
+                  href={item.href}
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <button
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                className="block cursor-pointer w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                Déconnexion
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="relative group">
@@ -125,7 +188,9 @@ const Header = () => {
     useContext(CartContext);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoadingCart, setIsLoadingCart] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { data } = useSession();
+  const router = useRouter();
 
   // Nous utilisons maintenant les utilitaires centralisés pour gérer les erreurs
 
@@ -197,7 +262,7 @@ const Header = () => {
 
       // Force une navigation hard après une courte pause
       setTimeout(() => {
-        window.location.href = '/login';
+        router.push('/login');
       }, 100);
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
@@ -209,7 +274,7 @@ const Header = () => {
         );
       });
       // Fallback de sécurité
-      window.location.href = '/login';
+      router.push('/login');
     }
   };
 
@@ -298,7 +363,12 @@ const Header = () => {
             </div>
             {user ? (
               <div className="space-y-3">
-                <Link
+                {/* Utiliser le UserDropdown avec le paramètre isMobile=true */}
+                <UserDropdown user={user} isMobile={true} />
+
+                {/* Ou si vous préférez garder la structure existante, 
+              ajouter un état et un gestionnaire pour le dropdown */}
+                {/* <Link
                   href="/me"
                   className="flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-blue-50"
                 >
@@ -333,7 +403,7 @@ const Header = () => {
                   className="block cursor-pointer w-full text-left px-2 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
                 >
                   Déconnexion
-                </button>
+                </button> */}
               </div>
             ) : (
               <Link
