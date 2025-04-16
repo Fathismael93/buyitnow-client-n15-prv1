@@ -1,202 +1,300 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-toastify';
 
 import { arrayHasData, getPriceQueryParams } from '@/helpers/helpers';
 import { maxPriceSchema, minPriceSchema } from '@/helpers/schemas';
 
 const Filters = ({ categories, setLocalLoading }) => {
-  const [min, setMin] = useState('');
-  const [max, setMax] = useState('');
-  const [open, setOpen] = useState(false);
-
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  let queryParams;
+  // État local synchronisé avec les paramètres d'URL
+  const [min, setMin] = useState(() => searchParams?.get('min') || '');
+  const [max, setMax] = useState(() => searchParams?.get('max') || '');
+  const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleClick(checkbox) {
-    setLocalLoading(true);
+  // Mémoiser la valeur de catégorie actuelle
+  const currentCategory = useMemo(
+    () => searchParams?.get('category') || '',
+    [searchParams],
+  );
 
-    if (typeof window !== 'undefined') {
-      queryParams = new URLSearchParams(window.location.search);
+  // Synchroniser les états avec les paramètres d'URL
+  useEffect(() => {
+    setMin(searchParams?.get('min') || '');
+    setMax(searchParams?.get('max') || '');
+  }, [searchParams]);
+
+  // Validation des prix mémorisée
+  const validatePrices = useCallback(async () => {
+    if (min === '' && max === '') {
+      throw new Error(
+        'Veuillez renseigner au moins un des deux champs de prix',
+      );
     }
 
-    const checkboxes = document.getElementsByName(checkbox.name);
+    if (min !== '' && max !== '') {
+      // Conversion sécurisée en nombres
+      const minNum = Number(min);
+      const maxNum = Number(max);
 
-    checkboxes.forEach((item) => {
-      if (item !== checkbox) item.checked = false;
-    });
+      if (isNaN(minNum) || isNaN(maxNum)) {
+        throw new Error('Les valeurs de prix doivent être des nombres valides');
+      }
 
-    if (checkbox.checked === false) {
-      // Delete the filter from query
-      queryParams.delete(checkbox.name);
-    } else {
-      // Set filter in the query
-      if (queryParams.has(checkbox.name)) {
-        queryParams.set(checkbox.name, checkbox.value);
-      } else {
-        queryParams.append(checkbox.name, checkbox.value);
+      if (minNum > maxNum) {
+        throw new Error('Le prix minimum doit être inférieur au prix maximum');
       }
     }
-    const path = window.location.pathname + '?' + queryParams.toString();
 
-    setOpen(false);
+    // Validation avec les schémas Yup
+    if (min !== '') {
+      await minPriceSchema.validate({ minPrice: min }, { abortEarly: false });
+    }
 
-    router.push(path);
-  }
+    if (max !== '') {
+      await maxPriceSchema.validate({ maxPrice: max }, { abortEarly: false });
+    }
+  }, [min, max]);
 
-  async function handleButtonClick() {
+  // Gestionnaire de clic sur catégorie
+  const handleCategoryClick = useCallback(
+    (categoryId) => {
+      if (isSubmitting) return;
+      setIsSubmitting(true);
+      setLocalLoading(true);
+
+      try {
+        // Création d'une nouvelle instance de URLSearchParams
+        const params = new URLSearchParams(searchParams?.toString() || '');
+
+        // Logique de basculement: si la catégorie est déjà sélectionnée, la désélectionner
+        if (params.get('category') === categoryId) {
+          params.delete('category');
+        } else {
+          params.set('category', categoryId);
+        }
+
+        // Navigation vers la nouvelle URL
+        const path = `/?${params.toString()}`;
+        setOpen(false);
+        router.push(path);
+      } catch (error) {
+        console.error('Erreur lors de la sélection de catégorie:', error);
+        toast.error('Une erreur est survenue lors du filtrage par catégorie');
+        setLocalLoading(false);
+        setIsSubmitting(false);
+      }
+    },
+    [router, searchParams, isSubmitting, setLocalLoading],
+  );
+
+  // Gestionnaire pour appliquer les filtres de prix
+  const handlePriceFilter = useCallback(async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setLocalLoading(true);
 
     try {
-      if (typeof window !== 'undefined') {
-        queryParams = new URLSearchParams(window.location.search);
+      // Validation des prix
+      await validatePrices();
 
-        if (min === '' && max === '') {
-          toast.error('Renseigner un des 2 champs du prix');
-          setLocalLoading(false);
-          return;
-        }
+      // Création des paramètres d'URL
+      const params = new URLSearchParams(searchParams?.toString() || '');
 
-        if (min !== '' && max !== '' && parseInt(min) > parseInt(max)) {
-          toast.error('Le prix minimum doit être inférieur au prix maximum');
-          setLocalLoading(false);
-          return;
-        }
-
-        if (min !== '') {
-          await minPriceSchema.validate(
-            {
-              minPrice: min,
-            },
-            { abortEarly: false },
-          );
-
-          queryParams = getPriceQueryParams(queryParams, 'min', min);
-        }
-
-        if (max !== '') {
-          await maxPriceSchema.validate(
-            {
-              maxPrice: max,
-            },
-            { abortEarly: false },
-          );
-
-          queryParams = getPriceQueryParams(queryParams, 'max', max);
-        }
-
-        const path = window.location.pathname + '?' + queryParams.toString();
-
-        setOpen(false);
-
-        router.push(path);
+      // Mise à jour des paramètres de prix
+      if (min) {
+        params.set('min', min);
+      } else {
+        params.delete('min');
       }
+
+      if (max) {
+        params.set('max', max);
+      } else {
+        params.delete('max');
+      }
+
+      // Navigation
+      const path = `/?${params.toString()}`;
+      setOpen(false);
+      router.push(path);
     } catch (error) {
-      toast.error(error.message);
+      toast.error(
+        error.message || 'Une erreur est survenue avec les filtres de prix',
+      );
       setLocalLoading(false);
-      return;
+      setIsSubmitting(false);
     }
-  }
+  }, [
+    min,
+    max,
+    validatePrices,
+    router,
+    searchParams,
+    isSubmitting,
+    setLocalLoading,
+  ]);
 
-  function checkHandler(checkBoxType, checkBoxValue) {
-    if (typeof window !== 'undefined') {
-      queryParams = new URLSearchParams(window.location.search);
+  // Réinitialiser les filtres
+  const resetFilters = useCallback(() => {
+    setIsSubmitting(true);
+    setLocalLoading(true);
+    setMin('');
+    setMax('');
+    router.push('/');
+    setOpen(false);
+  }, [router, setLocalLoading]);
 
-      const value = queryParams.get(checkBoxType);
-      if (checkBoxValue === value) return true;
-      return false;
-    }
-  }
+  // Vérifier si des filtres sont actifs
+  const hasActiveFilters = useMemo(() => {
+    return min || max || currentCategory;
+  }, [min, max, currentCategory]);
 
   return (
     <aside className="md:w-1/3 lg:w-1/4 px-4">
-      <button
-        className="md:hidden mb-5 cursor-pointer w-full text-center px-4 py-2 inline-block text-lg text-gray-700 bg-white shadow-xs border border-gray-200 rounded-md hover:bg-gray-100 hover:text-blue-600"
-        onClick={() => setOpen((prev) => !prev)}
-      >
-        Filter by
-      </button>
-      <div
-        className={`${
-          open ? 'block' : 'hidden'
-        } md:block px-6 py-4 border border-gray-200 bg-white rounded shadow-sm`}
-      >
-        <h3 className="font-semibold mb-2">Price ($)</h3>
-        <div className="grid md:grid-cols-3 gap-x-2">
-          <div className="mb-4">
-            <input
-              name="min"
-              className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
-              type="number"
-              min="0"
-              placeholder="Min"
-              value={min}
-              onChange={(e) => setMin(e.target.value)}
-            />
-          </div>
+      <div className="sticky top-20">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-800 hidden md:block">
+            Filtres
+          </h2>
 
-          <div className="mb-4">
-            <input
-              name="max"
-              className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
-              type="number"
-              min="0"
-              placeholder="Max"
-              value={max}
-              onChange={(e) => setMax(e.target.value)}
-            />
-          </div>
+          <button
+            className="md:hidden w-full mb-4 py-2 px-4 bg-white border border-gray-200 rounded-md shadow-sm flex justify-between items-center"
+            onClick={() => setOpen((prev) => !prev)}
+            aria-expanded={open}
+            aria-controls="filter-panel"
+          >
+            <span className="font-medium text-gray-700">Filtres</span>
+            <i
+              className={`fa fa-${open ? 'chevron-up' : 'chevron-down'} text-gray-500`}
+              aria-hidden="true"
+            ></i>
+          </button>
 
-          <div className="mb-4">
+          {hasActiveFilters && (
             <button
-              className="px-1 py-2 text-center w-full inline-block text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
-              onClick={handleButtonClick}
+              onClick={resetFilters}
+              className="text-sm text-blue-600 cursor-pointer hover:text-blue-800 hidden md:block"
+              aria-label="Réinitialiser tous les filtres"
             >
-              Go
+              Réinitialiser
+            </button>
+          )}
+        </div>
+
+        <div
+          id="filter-panel"
+          className={`${open ? 'block' : 'hidden'} md:block space-y-4`}
+        >
+          {/* Prix */}
+          <div className="p-4 border border-gray-200 bg-white rounded-lg shadow-sm">
+            <h3 className="font-semibold mb-3 text-gray-700">Prix (€)</h3>
+            <div className="grid grid-cols-2 gap-x-2 mb-3">
+              <div>
+                <label
+                  htmlFor="min-price"
+                  className="text-xs text-gray-500 mb-1 block"
+                >
+                  Min
+                </label>
+                <input
+                  id="min-price"
+                  name="min"
+                  className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-blue-500 w-full"
+                  type="number"
+                  min="0"
+                  placeholder="Min"
+                  value={min}
+                  onChange={(e) => setMin(e.target.value)}
+                  aria-label="Prix minimum"
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="max-price"
+                  className="text-xs text-gray-500 mb-1 block"
+                >
+                  Max
+                </label>
+                <input
+                  id="max-price"
+                  name="max"
+                  className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-blue-500 w-full"
+                  type="number"
+                  min="0"
+                  placeholder="Max"
+                  value={max}
+                  onChange={(e) => setMax(e.target.value)}
+                  aria-label="Prix maximum"
+                  disabled={isSubmitting}
+                />
+              </div>
+            </div>
+
+            <button
+              className={`w-full py-2 px-4 ${
+                isSubmitting
+                  ? 'bg-blue-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              } text-white cursor-pointer rounded-md transition-colors`}
+              onClick={handlePriceFilter}
+              aria-label="Appliquer les filtres de prix"
+              disabled={isSubmitting}
+            >
+              Appliquer
             </button>
           </div>
-        </div>
-      </div>
-      <div
-        className={`${
-          open ? 'block' : 'hidden'
-        } md:block px-6 py-4 border border-gray-200 bg-white rounded shadow-sm`}
-      >
-        <h3 className="font-semibold mb-2">Category</h3>
 
-        {arrayHasData(categories) ? (
-          <div className="w-full">
-            <p className="font-bold text-xl text-center">
-              No categories found!
-            </p>
+          {/* Catégories */}
+          <div className="p-4 border border-gray-200 bg-white rounded-lg shadow-sm">
+            <h3 className="font-semibold mb-3 text-gray-700">Catégories</h3>
+
+            {arrayHasData(categories) ? (
+              <div className="w-full text-center py-2">
+                <p className="text-gray-500">Aucune catégorie disponible</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                {categories?.map((category) => (
+                  <button
+                    key={category?._id}
+                    className={`flex items-center w-full p-2 rounded-md transition-colors cursor-pointer ${
+                      currentCategory === category?._id
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'hover:bg-gray-100 text-gray-700'
+                    }`}
+                    onClick={() => handleCategoryClick(category?._id)}
+                    aria-pressed={currentCategory === category?._id}
+                    disabled={isSubmitting}
+                  >
+                    <span className="ml-2">{category?.categoryName}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <ul className="space-y-1">
-            {categories?.map((category) => {
-              return (
-                <li key={category?._id}>
-                  <label className="flex items-center">
-                    <input
-                      name="category"
-                      type="checkbox"
-                      value={category?._id}
-                      className="h-4 w-4"
-                      defaultChecked={checkHandler('category', category?._id)}
-                      onClick={(e) => handleClick(e.target)}
-                    />
-                    <span className="ml-2 text-gray-500">
-                      {' '}
-                      {category?.categoryName}{' '}
-                    </span>
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+
+          {/* Bouton réinitialiser mobile */}
+          {hasActiveFilters && (
+            <div className="md:hidden">
+              <button
+                onClick={resetFilters}
+                className="w-full py-2 text-center text-sm text-red-600 hover:text-red-800 border border-red-200 cursor-pointer rounded-md hover:bg-red-50"
+                aria-label="Réinitialiser tous les filtres"
+                disabled={isSubmitting}
+              >
+                Réinitialiser les filtres
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );
