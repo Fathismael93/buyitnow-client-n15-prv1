@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 'use client';
 
-import {
+import React, {
   useContext,
   useEffect,
   useState,
@@ -12,10 +12,10 @@ import {
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Image from 'next/image';
-import * as Sentry from '@sentry/nextjs';
 import CartContext from '@/context/CartContext';
 import { signOut, useSession } from 'next-auth/react';
 import AuthContext from '@/context/AuthContext';
+import { throwEnrichedError, handleAsyncError } from '@/monitoring/errorUtils';
 
 // Chargement dynamique optimisé du composant Search
 const Search = dynamic(() => import('./Search'), {
@@ -127,6 +127,8 @@ const Header = () => {
   const [isLoadingCart, setIsLoadingCart] = useState(false);
   const { data } = useSession();
 
+  // Nous utilisons maintenant les utilitaires centralisés pour gérer les erreurs
+
   // Fonction sécurisée pour charger le panier
   const loadCart = useCallback(async () => {
     try {
@@ -134,13 +136,11 @@ const Header = () => {
       await setCartToState();
     } catch (error) {
       console.error('Error loading cart:', error);
-      Sentry.captureException(error, {
-        tags: {
-          component: 'Header',
-          action: 'loadCart',
-        },
+      // Utilisation de l'utilitaire pour enrichir et propager l'erreur
+      throwEnrichedError(error, 'Header', {
+        action: 'loadCart',
+        userId: user?.id,
       });
-    } finally {
       setIsLoadingCart(false);
     }
   }, [setCartToState]);
@@ -152,11 +152,10 @@ const Header = () => {
         setUser(data?.user);
         loadCart();
       } catch (error) {
-        Sentry.captureException(error, {
-          tags: {
-            component: 'Header',
-            action: 'initUserData',
-          },
+        // Utiliser l'utilitaire pour gérer l'erreur de manière asynchrone
+        handleAsyncError(error, 'Header', {
+          action: 'initUserData',
+          userEmail: data?.user?.email,
         });
       }
     }
@@ -202,6 +201,14 @@ const Header = () => {
       }, 100);
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
+      // Utiliser l'utilitaire avec une fonction de fallback
+      handleAsyncError(error, 'Header', { action: 'handleSignOut' }, () => {
+        // Fonction de fallback qui sera exécutée en cas d'erreur
+        console.warn(
+          'Fallback après erreur de déconnexion - redirection sécurisée',
+        );
+      });
+      // Fallback de sécurité
       window.location.href = '/login';
     }
   };

@@ -6,10 +6,13 @@ import Loading from './loading';
 
 import { GlobalProvider } from './GlobalProvider';
 const Head = dynamic(() => import('@/app/head'));
-const Header = dynamic(() => import('@/components/layouts/Header'), {
-  loading: () => <Loading />,
-  ssr: true,
-});
+const HeaderWithErrorBoundary = dynamic(
+  () => import('@/components/layouts/HeaderWithErrorBoundary'),
+  {
+    loading: () => <Loading />,
+    ssr: true,
+  },
+);
 const Footer = dynamic(() => import('@/components/layouts/Footer'));
 
 // Import dynamique du gestionnaire de Service Worker
@@ -106,7 +109,7 @@ export default function RootLayout({ children }) {
         <GlobalProvider>
           <ServiceWorkerManager />
           <Suspense fallback={<Loading />}>
-            <Header />
+            <HeaderWithErrorBoundary />
           </Suspense>
           <main className="flex-grow">{children}</main>
           <Footer />
