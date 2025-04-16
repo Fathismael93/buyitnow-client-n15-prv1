@@ -55,6 +55,11 @@ const UserDropdown = memo(({ user }) => {
     [],
   );
 
+  const logoutHandler = (e) => {
+    e.preventDefault();
+    signOut({ callbackUrl: '/login' });
+  };
+
   return (
     <div className="relative group">
       <Link
@@ -101,7 +106,8 @@ const UserDropdown = memo(({ user }) => {
             </Link>
           ))}
           <button
-            onClick={() => signOut({ callbackUrl: '/login' })}
+            type="button"
+            onClick={logoutHandler}
             className="block cursor-pointer w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
             role="menuitem"
           >
@@ -170,7 +176,7 @@ const Header = () => {
       clearCartOnLogout();
 
       // Déconnexion Next-Auth
-      await signOut({ callbackUrl: '/login' });
+      signOut({ callbackUrl: '/login' });
 
       // Force une navigation hard après une courte pause
       setTimeout(() => {
