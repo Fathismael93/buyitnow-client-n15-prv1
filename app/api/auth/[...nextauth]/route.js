@@ -78,14 +78,21 @@ const auth = {
             throw new Error('Too many login attempts. Please try again later.');
           }
 
+          console.log('Sanitizing started');
+
           // Validation sanitaire des entrées
           const sanitizedCredentials = {
             email: sanitizeString(credentials.email || ''),
             password: credentials.password || '',
           };
 
+          console.log('Sanitizing finished');
+          console.log('Validation started');
+
           // Validation avec le schéma Yup
           await loginSchema.validate(sanitizedCredentials);
+
+          console.log('Validation finished');
 
           // Vérification de l'état de la base de données
           const dbStatus = await checkDbHealth();
