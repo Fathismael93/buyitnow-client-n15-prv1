@@ -82,9 +82,9 @@ const Filters = ({ categories, setLocalLoading }) => {
         // Navigation vers la nouvelle URL
         const path = `/?${params.toString()}`;
         setOpen(false);
-        router.push(path);
-        setIsSubmitting;
+        setIsSubmitting(false);
         setLocalLoading(false);
+        router.push(path);
       } catch (error) {
         console.error('Erreur lors de la sélection de catégorie:', error);
         toast.error('Une erreur est survenue lors du filtrage par catégorie');
@@ -115,9 +115,9 @@ const Filters = ({ categories, setLocalLoading }) => {
       // Navigation
       const path = `/?${params.toString()}`;
       setOpen(false);
-      router.push(path);
       setIsSubmitting(false);
       setLocalLoading(false);
+      router.push(path);
     } catch (error) {
       toast.error(
         error.message || 'Une erreur est survenue avec les filtres de prix',
