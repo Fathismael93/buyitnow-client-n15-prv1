@@ -134,3 +134,5 @@ const CustomPagination = memo(({ totalPages = 1 }) => {
 CustomPagination.displayName = 'CustomPagination';
 
 export default CustomPagination;
+
+// <div className="flex mt-20 justify-center"></div>
