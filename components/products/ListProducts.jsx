@@ -3,7 +3,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import Loading from '@/app/loading';
 import { arrayHasData } from '@/helpers/helpers';
 import { captureException } from '@/monitoring/sentry';
 
@@ -14,7 +13,6 @@ const CustomPagination = dynamic(
 );
 
 const Filters = dynamic(() => import('../layouts/Filters'), {
-  loading: () => <Loading />,
   ssr: true,
 });
 
