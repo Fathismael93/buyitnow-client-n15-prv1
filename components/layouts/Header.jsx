@@ -177,11 +177,6 @@ const Header = () => {
 
       // Déconnexion Next-Auth
       signOut({ callbackUrl: '/login' });
-
-      // Force une navigation hard après une courte pause
-      setTimeout(() => {
-        router.push('/login');
-      }, 100);
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
       // Utiliser l'utilitaire avec une fonction de fallback
