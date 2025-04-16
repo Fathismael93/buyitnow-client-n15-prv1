@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 'use client';
 
-import React, {
+import {
   useContext,
   useEffect,
   useState,
@@ -161,7 +161,7 @@ const Header = () => {
         });
       }
     }
-  }, [data, setUser, loadCart]);
+  }, []);
 
   // Fermer le menu mobile si on clique en dehors
   // useEffect(() => {
