@@ -259,6 +259,7 @@ const Header = () => {
               <i
                 className={`fa ${mobileMenuOpen ? 'fa-times' : 'fa-bars'}`}
               ></i>
+              {console.log('Is mobile menu open ? :', mobileMenuOpen)}
             </button>
           </div>
 
