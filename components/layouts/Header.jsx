@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 'use client';
 
-import React, {
+import {
   useContext,
   useEffect,
   useState,
@@ -16,7 +16,6 @@ import * as Sentry from '@sentry/nextjs';
 import CartContext from '@/context/CartContext';
 import { signOut, useSession } from 'next-auth/react';
 import AuthContext from '@/context/AuthContext';
-import { startTimer } from '@/monitoring/sentry';
 
 // Chargement dynamique optimisé du composant Search
 const Search = dynamic(() => import('./Search'), {
@@ -130,8 +129,6 @@ const Header = () => {
 
   // Fonction sécurisée pour charger le panier
   const loadCart = useCallback(async () => {
-    const endTimer = startTimer('header.load_cart');
-
     try {
       setIsLoadingCart(true);
       await setCartToState();
@@ -145,7 +142,6 @@ const Header = () => {
       });
     } finally {
       setIsLoadingCart(false);
-      endTimer();
     }
   }, [setCartToState]);
 
