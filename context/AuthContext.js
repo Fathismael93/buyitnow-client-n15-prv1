@@ -218,6 +218,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Ajoutez cette méthode
+  const clearUser = () => {
+    setUser(null);
+    setError(null);
+    setUpdated(false);
+  };
+
   const clearErrors = () => {
     setError(null);
   };
@@ -239,7 +246,7 @@ export const AuthProvider = ({ children }) => {
         updateAddress,
         deleteAddress,
         sendEmail,
-
+        clearUser,
         clearErrors,
       }}
     >

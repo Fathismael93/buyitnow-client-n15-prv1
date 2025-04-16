@@ -127,6 +127,14 @@ export const CartProvider = ({ children }) => {
     });
   };
 
+  // Ajoutez cette méthode
+  const clearCartOnLogout = () => {
+    setCart([]);
+    setCartCount(0);
+    setCheckoutInfo(null);
+    setOrderInfo(null);
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -142,6 +150,7 @@ export const CartProvider = ({ children }) => {
         updateCart,
         saveOnCheckout,
         deleteItemFromCart,
+        clearCartOnLogout,
       }}
     >
       {children}
