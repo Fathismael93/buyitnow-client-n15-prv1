@@ -164,29 +164,29 @@ const Header = () => {
   }, [data, setUser, loadCart]);
 
   // Fermer le menu mobile si on clique en dehors
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      const mobileMenu = document.getElementById('mobile-menu');
-      if (mobileMenu && !mobileMenu.contains(event.target) && mobileMenuOpen) {
-        setMobileMenuOpen(false);
-      }
-    };
+  // useEffect(() => {
+  //   const handleClickOutside = (event) => {
+  //     const mobileMenu = document.getElementById('mobile-menu');
+  //     if (mobileMenu && !mobileMenu.contains(event.target) && mobileMenuOpen) {
+  //       setMobileMenuOpen(false);
+  //     }
+  //   };
 
-    // Ajouter la gestion des touches clavier pour l'accessibilité
-    const handleEscape = (event) => {
-      if (event.key === 'Escape' && mobileMenuOpen) {
-        setMobileMenuOpen(false);
-      }
-    };
+  //   // Ajouter la gestion des touches clavier pour l'accessibilité
+  //   const handleEscape = (event) => {
+  //     if (event.key === 'Escape' && mobileMenuOpen) {
+  //       setMobileMenuOpen(false);
+  //     }
+  //   };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
+  //   document.addEventListener('mousedown', handleClickOutside);
+  //   document.addEventListener('keydown', handleEscape);
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [mobileMenuOpen]);
+  //   return () => {
+  //     document.removeEventListener('mousedown', handleClickOutside);
+  //     document.removeEventListener('keydown', handleEscape);
+  //   };
+  // }, [mobileMenuOpen]);
 
   const handleSignOut = async () => {
     try {
