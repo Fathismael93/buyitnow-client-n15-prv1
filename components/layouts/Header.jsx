@@ -161,7 +161,7 @@ const Header = () => {
         });
       }
     }
-  }, [data, setUser, loadCart]);
+  }, [data]);
 
   // Fermer le menu mobile si on clique en dehors
   // useEffect(() => {
