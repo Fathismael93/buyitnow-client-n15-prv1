@@ -347,7 +347,13 @@ const Header = () => {
             )}
           </div>
         ) : (
-          ''
+          <div
+            id="mobile-menu"
+            className="hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu principal"
+          ></div>
         )}
       </div>
     </header>
