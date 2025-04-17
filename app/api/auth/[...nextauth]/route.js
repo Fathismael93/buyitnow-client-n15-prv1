@@ -5,7 +5,10 @@ import bcrypt from 'bcryptjs';
 
 import dbConnect, { checkDbHealth } from '@/backend/config/dbConnect';
 import User from '@/backend/models/user';
-import { sanitizeString } from '@/utils/inputSanitizer';
+import {
+  sanitizeCredentials,
+  areCredentialsValid,
+} from '@/utils/authSanitizers';
 import { loginSchema } from '@/helpers/schemas';
 import {
   captureException,
@@ -69,7 +72,7 @@ const auth = {
 
           try {
             await authLimiter.check(req, null, token);
-          } catch (rateLimitError) {
+          } catch (error) {
             logger.warn('Authentication rate limit exceeded', {
               ip: clientIp.replace(/\d+$/, 'xxx'), // Anonymisation partielle
               attempt: new Date().toISOString(),
@@ -78,23 +81,20 @@ const auth = {
             throw new Error('Too many login attempts. Please try again later.');
           }
 
-          console.log('Sanitizing started');
+          // Sanitisation des identifiants
+          const sanitizedCredentials = sanitizeCredentials({
+            email: credentials.email,
+            password: credentials.password,
+          });
 
-          // Validation sanitaire des entrées
-          const sanitizedCredentials = {
-            email: sanitizeString(credentials.email || ''),
-            password: credentials.password || '',
-          };
-
-          console.log('Sanitizing finished');
-          console.log('Validation started');
-
-          console.log('Sanitized credentials:', sanitizedCredentials);
+          // Vérification que la sanitisation n'a pas invalidé les identifiants
+          if (!areCredentialsValid(sanitizedCredentials)) {
+            logger.warn('Invalid credentials format detected');
+            throw new Error('Invalid email or password format');
+          }
 
           // Validation avec le schéma Yup
           await loginSchema.validate(sanitizedCredentials);
-
-          console.log('Validation finished');
 
           // Vérification de l'état de la base de données
           const dbStatus = await checkDbHealth();
@@ -186,7 +186,7 @@ const auth = {
   ],
   callbacks: {
     // Callback appelé à la création du JWT
-    jwt: async ({ token, user, account, trigger }) => {
+    jwt: async ({ token, user, trigger }) => {
       try {
         // Si un utilisateur est fourni (lors de la connexion), on l'ajoute au token
         if (user) {
