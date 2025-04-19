@@ -1,7 +1,6 @@
 /* eslint-disable no-useless-escape */
 import * as yup from 'yup';
 import { captureException } from '@/monitoring/sentry';
-import logger from '@/utils/logger';
 
 /**
  * Regex communs pour la validation
@@ -271,7 +270,7 @@ export const validateWithLogging = async (schema, data, options = {}) => {
     });
   } catch (error) {
     if (error.name === 'ValidationError') {
-      logger.warn('Validation error', {
+      console.warn('Validation error', {
         errors: error.errors,
         fields: Object.keys(data).filter((key) => !key.includes('password')),
       });
