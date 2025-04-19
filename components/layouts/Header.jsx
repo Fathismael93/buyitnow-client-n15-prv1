@@ -157,6 +157,7 @@ const Header = () => {
   useEffect(() => {
     if (data) {
       try {
+        console.log('Données utilisateur:', data);
         setUser(data?.user);
         loadCart();
       } catch (error) {

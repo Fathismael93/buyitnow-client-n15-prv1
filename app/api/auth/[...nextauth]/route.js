@@ -29,8 +29,8 @@ const userCache = new MemoryCache({
 // Mise en cache des utilisateurs (optimisation de performance)
 const getUserByEmail = memoizeWithTTL(async (email) => {
   try {
-    const user = await User.findOne({ email }).select('+password');
-    return user;
+    // Utiliser la méthode statique optimisée du modèle User
+    return await User.findByEmail(email);
   } catch (error) {
     logger.error('Error fetching user by email', {
       error: error.message,
