@@ -21,6 +21,7 @@ const registerLimiter = rateLimit({
 });
 
 export async function POST(req) {
+  console.log('POST /api/auth/register');
   // Récupération de l'IP pour rate limiting
   const headersList = headers();
   const ip =
@@ -69,6 +70,8 @@ export async function POST(req) {
     //   );
     // }
 
+    console.log('Connecting to database...');
+
     // Connexion à la base de données
     const connectionInstance = await dbConnect();
     if (!connectionInstance.connection) {
@@ -83,9 +86,12 @@ export async function POST(req) {
       );
     }
 
+    console.log('Connected to database');
+
     // Extraction et validation des données
     let userData;
     try {
+      console.log('Parsing JSON from request body...');
       userData = await req.json();
     } catch (error) {
       logger.warn('Invalid JSON in registration request', {
@@ -102,6 +108,8 @@ export async function POST(req) {
       );
     }
 
+    console.log('Sanitizing user data...');
+
     // Sanitisation des entrées
     const sanitizedData = {
       name: userData.name || '',
@@ -109,6 +117,8 @@ export async function POST(req) {
       phone: userData.phone || '',
       password: userData.password, // Ne pas sanitizer le mot de passe brut pour éviter d'altérer sa valeur
     };
+
+    console.log('Validating user data for registration...');
 
     // Validation avec le schéma Yup
     try {
@@ -129,6 +139,8 @@ export async function POST(req) {
       );
     }
 
+    console.log('Checking if email already exists...');
+
     // Vérification si l'email existe déjà
     const existingUser = await User.findByEmail(sanitizedData.email);
     if (existingUser) {
@@ -145,6 +157,8 @@ export async function POST(req) {
         { status: 400 },
       );
     }
+
+    console.log('Creating new user...');
 
     // Création de l'utilisateur
     const user = await User.create({
@@ -175,6 +189,8 @@ export async function POST(req) {
       userId: user._id.toString(),
       email: sanitizedData.email.substring(0, 3) + '***',
     });
+
+    console.log('User registered successfully');
 
     // Préparation de la réponse (sans données sensibles)
     const userResponse = {
