@@ -141,6 +141,7 @@ const auth = {
           }
 
           console.log('Sanitized credentials:', sanitizedCredentials.password);
+          console.log('User password:', user.password);
 
           // Vérification du mot de passe avec la méthode du modèle
           const isPasswordMatched = await user.comparePassword(
