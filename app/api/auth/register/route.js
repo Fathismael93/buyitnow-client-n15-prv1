@@ -4,12 +4,12 @@ import { headers } from 'next/headers';
 
 import dbConnect, { checkDbHealth } from '@/backend/config/dbConnect';
 import User from '@/backend/models/user';
-import { sanitizeCredentials, sanitizeString } from '@/utils/authSanitizers';
+import { sanitizeCredentials } from '@/utils/authSanitizers';
 import { registerSchema } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
 import { rateLimit, RATE_LIMIT_PRESETS } from '@/utils/rateLimit';
-import { inputSanitizer } from '@/utils/inputSanitizer';
+// import { sanitizeNumber, sanitizeString } from '@/utils/inputSanitizer';
 
 // Limiter les tentatives d'inscription pour éviter les attaques par spam
 const registerLimiter = rateLimit({
@@ -104,9 +104,9 @@ export async function POST(req) {
 
     // Sanitisation des entrées
     const sanitizedData = {
-      name: sanitizeString(userData.name || ''),
+      name: userData.name || '',
       email: sanitizeCredentials({ email: userData.email || '' }).email,
-      phone: inputSanitizer.sanitizeNumber(userData.phone || ''),
+      phone: userData.phone || '',
       password: userData.password, // Ne pas sanitizer le mot de passe brut pour éviter d'altérer sa valeur
     };
 
