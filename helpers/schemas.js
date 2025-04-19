@@ -1,19 +1,292 @@
-/* eslint-disable no-unused-vars */
 /* eslint-disable no-useless-escape */
 import * as yup from 'yup';
+import { captureException } from '@/monitoring/sentry';
+import logger from '@/utils/logger';
 
-export const loginSchema = yup.object().shape({
-  email: yup.string().email().required(),
-  password: yup.string().required().min(6),
-});
+/**
+ * Regex communs pour la validation
+ */
+const REGEX = {
+  // Détecte les caractères spéciaux potentiellement dangereux dans le nom
+  SAFE_NAME: /^[a-zA-Z0-9\u00C0-\u017F\s._'-]+$/,
 
-export const registerSchema = yup.object().shape({
-  name: yup.string().required().min(3),
-  phone: yup.number().positive().integer().required().min(6),
-  email: yup.string().email().required(),
-  password: yup.string().required().min(6),
-});
+  // Valide un email selon les normes RFC (plus strict que la validation par défaut)
+  EMAIL:
+    /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/,
 
+  // Au moins une majuscule, une minuscule, un chiffre et un caractère spécial
+  STRONG_PASSWORD:
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/,
+
+  // Vérifie que le mot de passe ne contient pas de séquences courantes
+  COMMON_SEQUENCES: /(123456|password|qwerty|abc123)/i,
+
+  // Valide les numéros de téléphone internationaux
+  PHONE: /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/,
+
+  // Détection d'injection SQL
+  SQL_INJECTION: [
+    /(\s|^)(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|EXEC|UNION)(\s|$)/i,
+    /(\s|^)(JOIN|FROM|INTO|WHERE)(\s|$)/i,
+    /(\s|^)(--)/,
+    /(;)/,
+    /('|").*\1.*=/,
+    /\/\*/,
+    /\*\//,
+    /xp_/,
+  ],
+
+  // Détection d'injection NoSQL
+  NOSQL_INJECTION: [
+    /\$/,
+    /\{.*:.*\}/,
+    /\[.*\]/,
+    /\.\.|^\.|\.$/,
+    /new\s+Date/,
+    /\bfunction\s*\(/,
+    /\bObjectId\s*\(/,
+    /\bISODate\s*\(/,
+  ],
+};
+
+/**
+ * Fonctions utilitaires pour la validation
+ */
+const utils = {
+  /**
+   * Vérifie si le mot de passe contient des informations personnelles
+   * @param {string} password - Le mot de passe à vérifier
+   * @param {Object} context - Le contexte Yup avec les autres valeurs
+   * @returns {boolean} - True si le mot de passe est sécurisé
+   */
+  passwordContainsPersonalInfo: (password, context) => {
+    if (!password || !context || !context.parent) return true;
+
+    // Récupérer les informations personnelles
+    const { name, email } = context.parent;
+
+    // Extraction du nom d'utilisateur de l'email
+    const emailUsername = email ? email.split('@')[0] : '';
+
+    // Vérifier si le mot de passe contient des infos personnelles
+    const lowercasePassword = password.toLowerCase();
+
+    // Vérifier le nom
+    if (
+      name &&
+      name.length > 3 &&
+      lowercasePassword.includes(name.toLowerCase())
+    ) {
+      return false;
+    }
+
+    // Vérifier l'email et le nom d'utilisateur
+    if (
+      emailUsername &&
+      emailUsername.length > 3 &&
+      lowercasePassword.includes(emailUsername.toLowerCase())
+    ) {
+      return false;
+    }
+
+    return true;
+  },
+
+  /**
+   * Vérifie si le mot de passe est dans une liste de mots de passe courants
+   * @param {string} password - Le mot de passe à vérifier
+   * @returns {boolean} - True si le mot de passe n'est pas courant
+   */
+  isNotCommonPassword: (password) => {
+    if (!password) return true;
+
+    // Liste très courte, à remplacer par une vraie vérification dans une liste complète
+    const commonPasswords = [
+      'password',
+      'password123',
+      '123456',
+      'qwerty',
+      'abc123',
+      'welcome',
+      'admin',
+      'letmein',
+      'welcome1',
+      'monkey',
+    ];
+
+    return !commonPasswords.includes(password.toLowerCase());
+  },
+
+  /**
+   * Test de détection d'injection SQL
+   */
+  noSqlInjection: (value) => {
+    if (!value) return true;
+    return !REGEX.SQL_INJECTION.some((pattern) => pattern.test(value));
+  },
+
+  /**
+   * Test de détection d'injection NoSQL
+   */
+  noNoSqlInjection: (value) => {
+    if (!value) return true;
+    return !REGEX.NOSQL_INJECTION.some((pattern) => pattern.test(value));
+  },
+};
+
+/**
+ * Options de validation des champs partagés
+ */
+const fieldsConfig = {
+  email: yup
+    .string()
+    .trim()
+    .lowercase()
+    .required('Email is required')
+    .max(100, 'Email must be at most 100 characters')
+    .email('Please enter a valid email address')
+    .matches(REGEX.EMAIL, 'Invalid email format')
+    .test('no-sql-injection', 'Invalid email format', utils.noSqlInjection)
+    .test('no-nosql-injection', 'Invalid email format', utils.noNoSqlInjection),
+
+  password: yup
+    .string()
+    .trim()
+    .required('Password is required')
+    .min(8, 'Password must be at least 8 characters')
+    .max(100, 'Password must be at most 100 characters')
+    .test(
+      'no-whitespace',
+      'Password should not contain spaces',
+      (value) => !/\s/.test(value),
+    )
+    .test(
+      'no-common-sequences',
+      'Password contains common sequences',
+      (value) => !REGEX.COMMON_SEQUENCES.test(value),
+    )
+    .test(
+      'not-common-password',
+      'Password is too common',
+      utils.isNotCommonPassword,
+    ),
+
+  name: yup
+    .string()
+    .trim()
+    .required('Name is required')
+    .min(2, 'Name must be at least 2 characters')
+    .max(50, 'Name must be at most 50 characters')
+    .matches(REGEX.SAFE_NAME, 'Name contains invalid characters')
+    .test(
+      'no-sql-injection',
+      'Name contains invalid characters',
+      utils.noSqlInjection,
+    )
+    .test(
+      'no-nosql-injection',
+      'Name contains invalid characters',
+      utils.noNoSqlInjection,
+    ),
+
+  phone: yup
+    .string()
+    .trim()
+    .required('Phone number is required')
+    .matches(REGEX.PHONE, 'Invalid phone number format')
+    .test(
+      'is-valid-phone',
+      'Phone number must be valid',
+      (value) =>
+        value &&
+        value.replace(/\D/g, '').length >= 6 &&
+        value.replace(/\D/g, '').length <= 15,
+    ),
+};
+
+/**
+ * Schéma de connexion optimisé avec gestion d'erreurs
+ */
+export const loginSchema = yup
+  .object()
+  .shape({
+    email: fieldsConfig.email,
+    password: fieldsConfig.password,
+  })
+  .noUnknown(true, 'Unknown fields are not allowed')
+  .strict();
+
+/**
+ * Schéma d'inscription optimisé avec validation croisée et sécurité renforcée
+ */
+export const registerSchema = yup
+  .object()
+  .shape({
+    name: fieldsConfig.name,
+    email: fieldsConfig.email,
+    phone: fieldsConfig.phone,
+    password: fieldsConfig.password
+      .matches(
+        REGEX.STRONG_PASSWORD,
+        'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+      )
+      .test(
+        'password-not-contains-personal-info',
+        'Password should not contain your name or email',
+        utils.passwordContainsPersonalInfo,
+      ),
+  })
+  .noUnknown(true, 'Unknown fields are not allowed')
+  .strict();
+
+/**
+ * Version haute sécurité du schéma d'inscription (peut être utilisée pour les environnements nécessitant une sécurité accrue)
+ */
+export const secureRegisterSchema = registerSchema.concat(
+  yup.object().shape({
+    passwordConfirmation: yup
+      .string()
+      .required('Password confirmation is required')
+      .oneOf([yup.ref('password')], 'Passwords must match'),
+    acceptTerms: yup
+      .boolean()
+      .required('You must accept the terms and conditions')
+      .oneOf([true], 'You must accept the terms and conditions'),
+  }),
+);
+
+/**
+ * Wrapper pour capturer les erreurs de validation et les logger
+ * @param {Object} schema - Le schéma Yup
+ * @param {Object} data - Les données à valider
+ * @param {Object} options - Options supplémentaires
+ * @returns {Promise<Object>} - Résultat de la validation
+ */
+export const validateWithLogging = async (schema, data, options = {}) => {
+  try {
+    return await schema.validate(data, {
+      abortEarly: false,
+      stripUnknown: true,
+      ...options,
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      logger.warn('Validation error', {
+        errors: error.errors,
+        fields: Object.keys(data).filter((key) => !key.includes('password')),
+      });
+    } else {
+      captureException(error, {
+        tags: { component: 'validation' },
+        extra: { schemaName: schema.describe().meta?.name || 'unknown' },
+      });
+    }
+    throw error;
+  }
+};
+
+// Reste du code inchangé
+// searchSchema, categorySchema, etc.
 export const searchSchema = yup.object().shape({
   keyword: yup
     .string()
@@ -160,7 +433,6 @@ export const maxPriceSchema = yup.object().shape({
     ),
 });
 
-// Ajoutez ces schémas à votre fichier existant
 export const pageSchema = yup.object().shape({
   page: yup
     .number()
