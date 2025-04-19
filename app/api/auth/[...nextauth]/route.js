@@ -29,8 +29,8 @@ const userCache = new MemoryCache({
 // Mise en cache des utilisateurs (optimisation de performance)
 const getUserByEmail = memoizeWithTTL(async (email) => {
   try {
-    const user = await User.findOne({ email }).select('+password');
-    return user;
+    // Utiliser la méthode statique optimisée du modèle User
+    return await User.findByEmail(email);
   } catch (error) {
     logger.error('Error fetching user by email', {
       error: error.message,
@@ -96,6 +96,18 @@ const auth = {
           // Validation avec le schéma Yup
           await loginSchema.validate(sanitizedCredentials);
 
+          // Vérification de l'état de la base de données
+          const dbStatus = await checkDbHealth();
+          if (!dbStatus.healthy) {
+            logger.error(
+              'Database connection unhealthy during authentication',
+              dbStatus,
+            );
+            throw new Error(
+              'Database service unavailable. Please try again later.',
+            );
+          }
+
           // Connexion à la base de données
           const connectionInstance = await dbConnect();
           if (!connectionInstance.connection) {
@@ -105,8 +117,8 @@ const auth = {
             );
           }
 
-          // Récupération de l'utilisateur (avec cache)
-          const user = await getUserByEmail(sanitizedCredentials.email);
+          // Récupération de l'utilisateur (avec la méthode du modèle)
+          const user = await User.findByEmail(sanitizedCredentials.email);
 
           if (!user) {
             // On note la tentative de connexion échouée mais on maintient un message générique
@@ -116,23 +128,42 @@ const auth = {
             throw new Error('Invalid Email or Password');
           }
 
-          // Vérification du mot de passe
-          const isPasswordMatched = await bcrypt.compare(
+          // Vérifier si le compte est verrouillé
+          if (user.isLocked()) {
+            logger.warn('Login attempt on locked account', {
+              userId: user._id.toString(),
+              lockUntil: user.lockUntil,
+            });
+
+            throw new Error(
+              'Account is temporarily locked due to too many failed attempts. Please try again later.',
+            );
+          }
+
+          // Vérification du mot de passe avec la méthode du modèle
+          const isPasswordMatched = await user.comparePassword(
             sanitizedCredentials.password,
-            user.password,
           );
 
           if (!isPasswordMatched) {
+            // Incrémenter le compteur de tentatives échouées
+            await user.incrementLoginAttempts();
+
             // On note la tentative avec mot de passe erroné mais on maintient un message générique
             logger.info('Failed login attempt - password mismatch', {
               userId: user._id.toString(),
+              attempts: user.loginAttempts,
             });
+
+            // Message d'erreur générique pour ne pas révéler d'informations
             throw new Error('Invalid Email or Password');
           }
 
+          // Réinitialiser les tentatives de connexion et mettre à jour la date de dernière connexion
+          await user.resetLoginAttempts();
+
           // Mise en cache de l'utilisateur pour accélérer les appels futurs
-          const userWithoutPassword = { ...user.toObject() };
-          delete userWithoutPassword.password;
+          const userWithoutPassword = { ...user.toJSON() };
           userCache.set(`user:${user._id}`, userWithoutPassword);
 
           // Log de connexion réussie
@@ -157,7 +188,8 @@ const auth = {
           // Pour les autres erreurs, on les capture dans Sentry si ce ne sont pas des erreurs d'authentification simples
           if (
             !error.message.includes('Invalid Email or Password') &&
-            !error.message.includes('Too many login attempts')
+            !error.message.includes('Too many login attempts') &&
+            !error.message.includes('Account is temporarily locked')
           ) {
             captureException(error, {
               tags: { service: 'auth', action: 'authorize' },
@@ -184,9 +216,12 @@ const auth = {
             email: user.email,
             role: user.role,
             avatar: user.avatar,
+            isActive: user.isActive,
+            verified: user.verified,
           };
 
-          // Ajouter des informations supplémentaires pour le tracking et la sécurité
+          // Stocker le timestamp d'émission du JWT pour la vérification ultérieure
+          token.iat = Math.floor(Date.now() / 1000);
           token.authTime = Date.now();
         }
 
@@ -198,6 +233,26 @@ const auth = {
             const updatedUser = await User.findById(token.user._id);
 
             if (updatedUser) {
+              // Vérifier si le mot de passe a été changé après l'émission du token
+              if (updatedUser.changedPasswordAfter(token.iat)) {
+                logger.warn('Token invalidated due to password change', {
+                  userId: updatedUser._id.toString(),
+                });
+
+                // Forcer une déconnexion en vidant le token
+                return {};
+              }
+
+              // Vérifier si le compte est actif
+              if (!updatedUser.isActive) {
+                logger.warn('Access attempt with inactive account', {
+                  userId: updatedUser._id.toString(),
+                });
+
+                // Forcer une déconnexion en vidant le token
+                return {};
+              }
+
               // Mettre à jour les données utilisateur dans le token
               token.user = {
                 _id: updatedUser._id,
@@ -205,6 +260,8 @@ const auth = {
                 email: updatedUser.email,
                 role: updatedUser.role,
                 avatar: updatedUser.avatar,
+                isActive: updatedUser.isActive,
+                verified: updatedUser.verified,
               };
 
               // Mise à jour du cache

@@ -74,7 +74,7 @@ const UserDropdown = memo(({ user }) => {
             data-testid="profile image"
             alt={`Photo de profil de ${user?.name || 'utilisateur'}`}
             src={
-              user?.avatar?.user !== null
+              user?.avatar?.url !== null
                 ? user?.avatar?.url
                 : '/images/default.png'
             }
@@ -161,7 +161,6 @@ const Header = () => {
   useEffect(() => {
     if (data) {
       try {
-        console.log('Données utilisateur:', data);
         setUser(data?.user);
         loadCart();
       } catch (error) {
