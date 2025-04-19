@@ -140,6 +140,8 @@ const auth = {
             );
           }
 
+          console.log('Sanitized credentials:', sanitizedCredentials.password);
+
           // Vérification du mot de passe avec la méthode du modèle
           const isPasswordMatched = await user.comparePassword(
             sanitizedCredentials.password,
