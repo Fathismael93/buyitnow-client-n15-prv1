@@ -285,7 +285,9 @@ const Header = () => {
                   <Image
                     alt={`Photo de profil de ${user?.name || 'utilisateur'}`}
                     src={
-                      user?.avatar ? user?.avatar?.url : '/images/default.png'
+                      user?.avatar?.url !== null
+                        ? user?.avatar?.url
+                        : '/images/default.png'
                     }
                     fill
                     sizes="32px"
