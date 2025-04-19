@@ -25,7 +25,6 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: [true, 'Please enter your email'],
-      unique: true,
       trim: true,
       lowercase: true, // Stocke toujours en minuscules pour éviter les doublons
       maxLength: [100, 'Email cannot exceed 100 characters'],
