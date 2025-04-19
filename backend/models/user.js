@@ -207,12 +207,9 @@ userSchema.pre('findOneAndUpdate', function (next) {
 });
 
 // Méthode pour comparer le mot de passe
-userSchema.methods.comparePassword = async function (
-  enteredPassword,
-  passwordFromDB,
-) {
+userSchema.methods.comparePassword = async function (enteredPassword) {
   try {
-    return await bcrypt.compare(enteredPassword, passwordFromDB);
+    return await bcrypt.compare(enteredPassword, this.password);
   } catch (error) {
     logger.error('Error comparing password', {
       userId: this._id,
