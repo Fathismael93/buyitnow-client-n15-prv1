@@ -96,18 +96,6 @@ const auth = {
           // Validation avec le schéma Yup
           await loginSchema.validate(sanitizedCredentials);
 
-          // Vérification de l'état de la base de données
-          // const dbStatus = await checkDbHealth();
-          // if (!dbStatus.healthy) {
-          //   logger.error(
-          //     'Database connection unhealthy during authentication',
-          //     dbStatus,
-          //   );
-          //   throw new Error(
-          //     'Database service unavailable. Please try again later.',
-          //   );
-          // }
-
           // Connexion à la base de données
           const connectionInstance = await dbConnect();
           if (!connectionInstance.connection) {
