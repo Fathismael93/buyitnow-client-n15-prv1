@@ -53,21 +53,21 @@ export async function POST(req) {
     }
 
     // Vérification de l'état de la base de données
-    const dbStatus = await checkDbHealth();
-    if (!dbStatus.healthy) {
-      logger.error(
-        'Database connection unhealthy during registration',
-        dbStatus,
-      );
+    // const dbStatus = await checkDbHealth();
+    // if (!dbStatus.healthy) {
+    //   logger.error(
+    //     'Database connection unhealthy during registration',
+    //     dbStatus,
+    //   );
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Registration service unavailable. Please try again later.',
-        },
-        { status: 503 },
-      );
-    }
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       message: 'Registration service unavailable. Please try again later.',
+    //     },
+    //     { status: 503 },
+    //   );
+    // }
 
     // Connexion à la base de données
     const connectionInstance = await dbConnect();
