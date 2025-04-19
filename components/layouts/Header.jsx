@@ -73,7 +73,11 @@ const UserDropdown = memo(({ user }) => {
           <Image
             data-testid="profile image"
             alt={`Photo de profil de ${user?.name || 'utilisateur'}`}
-            src={user?.avatar ? user?.avatar?.url : '/images/default.png'}
+            src={
+              user?.avatar?.user !== null
+                ? user?.avatar?.url
+                : '/images/default.png'
+            }
             fill
             sizes="32px"
             className="object-cover"
