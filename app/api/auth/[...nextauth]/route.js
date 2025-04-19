@@ -145,6 +145,7 @@ const auth = {
           // Vérification du mot de passe avec la méthode du modèle
           const isPasswordMatched = await user.comparePassword(
             sanitizedCredentials.password,
+            user.password,
           );
 
           if (!isPasswordMatched) {
