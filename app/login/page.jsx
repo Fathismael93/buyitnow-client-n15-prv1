@@ -1,4 +1,4 @@
-import dynamic from 'next/dynamic';
+import { lazy } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth/next';
@@ -8,10 +8,12 @@ import { getCsrfToken } from 'next-auth/react';
 import Loading from '@/app/loading';
 
 // Chargement dynamique avec retries
-const Login = dynamic(() => import('@/components/auth/Login'), {
+const Login = lazy(() => import('@/components/auth/Login'), {
   loading: () => <Loading />,
   ssr: true, // Activer le SSR pour améliorer la première charge
 });
+
+export const dynamic = 'force-dynamic';
 
 // Métadonnées enrichies pour SEO et sécurité
 export const metadata = {
@@ -101,7 +103,7 @@ async function LoginPage() {
     // Journaliser l'erreur
     console.error('Error initializing login page', {
       error: error.message,
-      stack: error,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 }
