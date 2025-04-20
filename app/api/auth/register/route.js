@@ -159,6 +159,7 @@ export async function POST(req) {
     }
 
     console.log('Creating new user...');
+    console.log('Sanitized data:', sanitizedData);
 
     // Création de l'utilisateur
     const user = await User.create({
