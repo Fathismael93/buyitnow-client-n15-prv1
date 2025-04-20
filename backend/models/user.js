@@ -274,9 +274,15 @@ userSchema.methods.resetLoginAttempts = async function () {
 };
 
 // Méthode statique pour rechercher un utilisateur par email avec sensibilité à la casse
-userSchema.statics.findByEmail = async function (email) {
+userSchema.statics.findByEmail = async function (
+  email,
+  includePassword = false,
+) {
   try {
-    return await this.findOne({ email: email.toLowerCase() });
+    // Ajouter '+password' à la sélection quand includePassword est true
+    return includePassword
+      ? await this.findOne({ email: email.toLowerCase() }).select('+password')
+      : await this.findOne({ email: email.toLowerCase() });
   } catch (error) {
     logger.error('Error finding user by email', {
       error: error.message,

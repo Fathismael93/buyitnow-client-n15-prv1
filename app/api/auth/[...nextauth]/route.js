@@ -30,7 +30,7 @@ const userCache = new MemoryCache({
 const getUserByEmail = memoizeWithTTL(async (email) => {
   try {
     // Utiliser la méthode statique optimisée du modèle User
-    return await User.findByEmail(email);
+    return await User.findByEmail(email, true);
   } catch (error) {
     logger.error('Error fetching user by email', {
       error: error.message,
@@ -118,7 +118,7 @@ const auth = {
           }
 
           // Récupération de l'utilisateur (avec la méthode du modèle)
-          const user = await User.findByEmail(sanitizedCredentials.email);
+          const user = await getUserByEmail(sanitizedCredentials.email);
 
           if (!user) {
             // On note la tentative de connexion échouée mais on maintient un message générique
