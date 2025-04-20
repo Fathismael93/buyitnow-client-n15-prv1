@@ -9,7 +9,7 @@ import { toast } from 'react-toastify';
 import { parseCallbackUrl } from '@/helpers/helpers';
 import { loginSchema } from '@/helpers/schemas';
 
-const Login = ({ csrfToken }) => {
+const Login = ({ csrfToken, referer }) => {
   // États du formulaire
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -72,6 +72,7 @@ const Login = ({ csrfToken }) => {
         email,
         password,
         csrfToken,
+        referer,
         callbackUrl: callBackUrl ? parseCallbackUrl(callBackUrl) : '/',
         redirect: false, // Désactiver la redirection automatique pour gérer les erreurs
       });
