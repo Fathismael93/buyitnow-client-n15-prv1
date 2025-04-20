@@ -5,7 +5,6 @@ import { getServerSession } from 'next-auth/next';
 
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import Loading from '@/app/loading';
-import logger from '@/utils/logger';
 
 // Chargement dynamique avec retries optimisés
 const Login = dynamic(
@@ -106,7 +105,7 @@ async function LoginPage() {
       .trim();
     const anonymizedIp = clientIp ? clientIp.replace(/\d+$/, 'xxx') : 'unknown';
 
-    logger.info('Login page accessed', {
+    console.info('Login page accessed', {
       userAgent: headersList.get('user-agent')?.substring(0, 100) || 'unknown',
       referer: referer.substring(0, 200) || 'direct',
       ip: anonymizedIp,
