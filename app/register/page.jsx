@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth/next';
 import { getCsrfToken } from 'next-auth/react';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
-import logger from '@/utils/logger';
 
 import Loading from '@/app/loading';
 
@@ -84,7 +83,7 @@ async function RegisterPage({ searchParams }) {
       .trim();
     const anonymizedIp = clientIp ? clientIp.replace(/\d+$/, 'xxx') : 'unknown';
 
-    logger.info('Registration page accessed', {
+    console.info('Registration page accessed', {
       userAgent: userAgent.substring(0, 100),
       referer: referer.substring(0, 200),
       ip: anonymizedIp,
@@ -99,7 +98,7 @@ async function RegisterPage({ searchParams }) {
       userAgent.toLowerCase().includes('spider');
 
     if (isLikelyBot) {
-      logger.warn('Potential bot detected on registration page', {
+      console.warn('Potential bot detected on registration page', {
         userAgent: userAgent.substring(0, 100),
         ip: anonymizedIp,
       });
@@ -128,7 +127,7 @@ async function RegisterPage({ searchParams }) {
     );
   } catch (error) {
     // Journaliser l'erreur
-    logger.error('Error initializing registration page', {
+    console.error('Error initializing registration page', {
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
