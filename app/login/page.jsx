@@ -67,7 +67,6 @@ async function LoginPage() {
     const csrfToken = await getCsrfToken({ req: { headers: headersList } });
 
     console.log('Login page initialized', {
-      headers: headersList,
       userAgent: userAgent?.substring(0, 100),
       referer: referer?.substring(0, 200),
       isCsrfToken: csrfToken ? 'present' : 'missing',
