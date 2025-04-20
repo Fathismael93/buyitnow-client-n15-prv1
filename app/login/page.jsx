@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth/next';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { getCsrfToken } from 'next-auth/react';
-import { parseCallbackUrl } from '@/helpers/helpers';
 
 import Loading from '@/app/loading';
 
@@ -46,7 +45,7 @@ export const metadata = {
  * Composant serveur pour la page de connexion qui effectue les vérifications
  * préalables et prépare les données nécessaires pour le client
  */
-async function LoginPage({ searchParams }) {
+async function LoginPage() {
   try {
     // Vérifier si l'utilisateur est déjà connecté
     const session = await getServerSession(auth);
@@ -85,15 +84,6 @@ async function LoginPage({ searchParams }) {
           <h1 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Connexion à votre compte
           </h1>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Ou{' '}
-            <a
-              href="/register"
-              className="font-medium text-blue-600 hover:text-blue-500"
-            >
-              créez un compte si vous n&apos;en avez pas encore
-            </a>
-          </p>
         </div>
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
