@@ -128,8 +128,6 @@ const Login = ({ csrfToken }) => {
   return (
     <div className="max-w-md mx-auto mt-10 mb-20 p-4 md:p-7 rounded-lg bg-white shadow-lg">
       <form onSubmit={submitHandler} noValidate>
-        <h2 className="mb-5 text-2xl font-semibold text-gray-800">Connexion</h2>
-
         {/* Alerte hors ligne */}
         {isOffline && (
           <div

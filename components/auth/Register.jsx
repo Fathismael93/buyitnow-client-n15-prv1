@@ -189,10 +189,6 @@ const Register = ({ csrfToken }) => {
   return (
     <div className="max-w-md w-full mx-auto mt-8 mb-16 p-4 md:p-7 rounded-lg bg-white shadow-lg">
       <form ref={formRef} onSubmit={submitHandler} noValidate>
-        <h2 className="mb-6 text-2xl font-bold text-gray-800">
-          Créer un compte
-        </h2>
-
         {/* Alerte hors ligne */}
         {isOffline && (
           <div
