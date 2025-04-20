@@ -66,6 +66,14 @@ async function LoginPage() {
     // Générer un token CSRF pour sécuriser le formulaire
     const csrfToken = await getCsrfToken({ req: { headers: headersList } });
 
+    console.log('Login page initialized', {
+      headers: headersList,
+      userAgent: userAgent?.substring(0, 100),
+      referer: referer?.substring(0, 200),
+      isCsrfToken: csrfToken ? 'present' : 'missing',
+      csrfToken: csrfToken?.substring(0, 20) + '...',
+    });
+
     // Journaliser l'accès à la page (anonymisé)
     const clientIp = (headersList.get('x-forwarded-for') || '')
       .split(',')
