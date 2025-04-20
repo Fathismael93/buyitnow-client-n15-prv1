@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { captureException } from '@/monitoring/sentry';
 import { getErrorDisplayInfo } from '@/monitoring/errorUtils';
 import Link from 'next/link';
-import logger from '@/utils/logger';
 
 /**
  * Gestionnaire d'erreurs spécifique à la page d'inscription
@@ -151,7 +150,7 @@ export default function RegisterError({ error, reset }) {
     });
 
     // Journaliser l'erreur
-    logger.error('Registration error occurred', {
+    console.error('Registration error occurred', {
       error: error.message,
       errorType: errorInfo.title,
       action: errorInfo.action,
