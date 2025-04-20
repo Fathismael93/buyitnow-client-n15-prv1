@@ -52,14 +52,11 @@ export const header = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
 
-// Optimisation avec Edge Runtime
-export const runtime = 'edge';
-
 /**
  * Page d'inscription optimisée avec vérifications de sécurité,
  * gestion des sessions et mesures anti-fraude
  */
-async function RegisterPage({ searchParams }) {
+async function RegisterPage() {
   try {
     // Vérifier si l'utilisateur est déjà connecté
     const session = await getServerSession(auth);
@@ -87,7 +84,6 @@ async function RegisterPage({ searchParams }) {
       userAgent: userAgent.substring(0, 100),
       referer: referer.substring(0, 200),
       ip: anonymizedIp,
-      source: searchParams?.source || 'direct',
     });
 
     // Vérification de base anti-bot/spam
@@ -116,11 +112,7 @@ async function RegisterPage({ searchParams }) {
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <Register
-              csrfToken={csrfToken}
-              referer={referer}
-              source={searchParams?.source}
-            />
+            <Register csrfToken={csrfToken} referer={referer} />
           </div>
         </div>
       </div>
