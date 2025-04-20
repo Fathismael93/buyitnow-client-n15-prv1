@@ -42,9 +42,6 @@ export const metadata = {
   },
 };
 
-// Optimisation avec Edge Runtime quand applicable
-export const runtime = 'edge';
-
 /**
  * Composant serveur pour la page de connexion qui effectue les vérifications
  * préalables et prépare les données nécessaires pour le client
@@ -55,7 +52,7 @@ async function LoginPage({ searchParams }) {
     const session = await getServerSession(auth);
     if (session) {
       // Rediriger vers la page d'accueil ou tableau de bord selon le rôle
-      const redirectUrl = session.user.role === 'admin' ? '/admin' : '/';
+      const redirectUrl = '/';
       return redirect(redirectUrl);
     }
 
@@ -63,9 +60,7 @@ async function LoginPage({ searchParams }) {
     const headersList = headers();
     const userAgent = headersList.get('user-agent') || 'unknown';
     const referer = headersList.get('referer') || 'direct';
-    const callbackUrl = searchParams?.callbackUrl
-      ? parseCallbackUrl(searchParams.callbackUrl)
-      : '/';
+    const callbackUrl = '/';
 
     // Générer un token CSRF pour sécuriser le formulaire
     const csrfToken = await getCsrfToken({ req: { headers: headersList } });
@@ -81,7 +76,6 @@ async function LoginPage({ searchParams }) {
       userAgent: userAgent?.substring(0, 100),
       referer: referer?.substring(0, 200),
       ip: anonymizedIp,
-      hasCallback: !!searchParams?.callbackUrl,
     });
 
     // Rendu du composant client avec les props nécessaires
@@ -119,15 +113,6 @@ async function LoginPage({ searchParams }) {
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
-
-    // Rendu d'une version simplifiée en cas d'erreur
-    return (
-      <div className="min-h-screen flex flex-col justify-center py-12 bg-gray-50">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <Login />
-        </div>
-      </div>
-    );
   }
 }
 
