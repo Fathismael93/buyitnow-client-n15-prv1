@@ -19,7 +19,7 @@ const Login = dynamic(() => import('@/components/auth/Login'), {
 export const metadata = {
   title: 'Connexion | Buy It Now',
   description:
-    'Connectez-vous à votre compte Buy It Now pour accéder à vos commandes et préférences',
+    'Connectez-vous à votre compte Buy It Now pour accéder à vos commandes et informations personnelles.',
   robots: {
     index: false,
     follow: false,
@@ -30,20 +30,18 @@ export const metadata = {
   },
   openGraph: {
     title: 'Connexion | Buy It Now',
-    description:
-      'Connectez-vous à votre compte pour accéder à toutes les fonctionnalités',
+    description: 'Connectez-vous à votre compte Buy It Now',
     type: 'website',
+    images: [
+      {
+        url: '/images/auth-banner.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Buy It Now - Connexion',
+      },
+    ],
   },
 };
-
-// Configuration des en-têtes de sécurité
-export async function generateMetadata() {
-  return {
-    alternates: {
-      canonical: '/login',
-    },
-  };
-}
 
 // Optimisation avec Edge Runtime quand applicable
 export const runtime = 'edge';
