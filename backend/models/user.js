@@ -50,6 +50,7 @@ const userSchema = new mongoose.Schema(
         message: (props) => `${props.value} is not a valid phone number`,
       },
     },
+    // Modification de la validation du mot de passe dans le schéma
     password: {
       type: String,
       required: [true, 'Please enter your password'],
@@ -59,16 +60,16 @@ const userSchema = new mongoose.Schema(
       validate: {
         validator: function (v) {
           // Validation de force du mot de passe - exécutée uniquement lors de la création/modification
-          // Au moins 8 caractères, une majuscule, une minuscule, un chiffre
+          // Au moins 8 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial
           if (this.isModified('password')) {
-            return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/.test(
+            return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/.test(
               v,
             );
           }
           return true;
         },
         message:
-          'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+          'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#)',
       },
     },
     avatar: {
