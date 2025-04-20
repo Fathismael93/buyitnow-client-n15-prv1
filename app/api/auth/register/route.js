@@ -143,6 +143,10 @@ export async function POST(req) {
       );
     }
 
+    console.info('CSRF token validated successfully', {
+      ip: ip.replace(/\d+$/, 'xxx'),
+    });
+
     // Après la validation, supprimer le cookie CSRF pour éviter les réutilisations
     cookieStore.set('csrf_token', '', {
       expires: new Date(0),
