@@ -70,7 +70,6 @@ async function LoginPage() {
       userAgent: userAgent?.substring(0, 100),
       referer: referer?.substring(0, 200),
       isCsrfToken: csrfToken ? 'present' : 'missing',
-      csrfToken: csrfToken?.substring(0, 20) + '...',
     });
 
     // Journaliser l'accès à la page (anonymisé)

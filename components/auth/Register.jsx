@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import AuthContext from '@/context/AuthContext';
 import { registerSchema } from '@/helpers/schemas';
 
-const Register = ({ csrfToken, referer }) => {
+const Register = ({ csrfToken }) => {
   // Contexte d'authentification
   const {
     error,
@@ -136,7 +136,6 @@ const Register = ({ csrfToken, referer }) => {
       await registerUser({
         ...formData,
         csrfToken,
-        referer,
       });
 
       // Réinitialisation du formulaire en cas de succès

@@ -1,7 +1,8 @@
 import { headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth/next';
-import { getCsrfToken } from 'next-auth/react';
+import { randomBytes, createHash } from 'crypto';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 
 import Loading from '@/app/loading';
@@ -72,8 +73,18 @@ async function RegisterPage() {
     const userAgent = headersList.get('user-agent') || 'unknown';
     const referer = headersList.get('referer') || 'direct';
 
-    // Générer un token CSRF pour protéger le formulaire
-    const csrfToken = await getCsrfToken({ req: { headers: headersList } });
+    // Générer un token CSRF
+    const csrfToken = generateCsrfToken();
+
+    // Stocker le token dans un cookie HTTPOnly
+    const cookieStore = cookies();
+    cookieStore.set('csrf_token', csrfToken.hash, {
+      httpOnly: true, // Inaccessible au JavaScript côté client
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax', // Protection contre les attaques CSRF cross-site
+      path: '/',
+      maxAge: 3600, // 1 heure en secondes
+    });
 
     // Journaliser la tentative d'inscription (anonymisée pour la protection des données)
     const clientIp = (headersList.get('x-forwarded-for') || '')
@@ -114,7 +125,7 @@ async function RegisterPage() {
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <Register csrfToken={csrfToken} referer={referer} />
+            <Register csrfToken={csrfToken.clientToken} referer={referer} />
           </div>
         </div>
       </div>
@@ -126,6 +137,21 @@ async function RegisterPage() {
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
+}
+
+// Fonction utilitaire pour générer un token CSRF
+function generateCsrfToken() {
+  // Générer un token aléatoire
+  const random = randomBytes(32).toString('hex');
+
+  // Créer un hash pour stocker dans un cookie
+  const hash = createHash('sha256').update(random).digest('hex');
+
+  // Retourner à la fois le token pour le client et le hash pour la vérification
+  return {
+    clientToken: random, // Sera envoyé au client et inclus dans le formulaire
+    hash: hash, // Sera stocké dans un cookie HTTPOnly
+  };
 }
 
 export default RegisterPage;

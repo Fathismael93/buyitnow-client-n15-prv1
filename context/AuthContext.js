@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
 
   const router = useRouter();
 
-  const registerUser = async ({ name, phone, email, password }) => {
+  const registerUser = async ({ name, phone, email, password, csrfToken }) => {
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
@@ -26,6 +26,7 @@ export const AuthProvider = ({ children }) => {
             phone,
             email,
             password,
+            csrfToken,
           }),
         },
       );

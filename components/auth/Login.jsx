@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-toastify';
 
-import { parseCallbackUrl } from '@/helpers/helpers';
 import { loginSchema } from '@/helpers/schemas';
 
-const Login = ({ csrfToken, referer }) => {
+const Login = ({ csrfToken }) => {
   // États du formulaire
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,8 +17,6 @@ const Login = ({ csrfToken, referer }) => {
   const [isOffline, setIsOffline] = useState(false);
 
   const router = useRouter();
-  const params = useSearchParams();
-  const callBackUrl = params.get('callbackUrl');
 
   // Vérifier l'état de la connexion
   useEffect(() => {
@@ -72,8 +69,6 @@ const Login = ({ csrfToken, referer }) => {
         email,
         password,
         csrfToken,
-        referer,
-        callbackUrl: callBackUrl ? parseCallbackUrl(callBackUrl) : '/',
         redirect: false, // Désactiver la redirection automatique pour gérer les erreurs
       });
 

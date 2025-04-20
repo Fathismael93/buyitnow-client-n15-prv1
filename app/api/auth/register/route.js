@@ -1,8 +1,10 @@
 /* eslint-disable no-unused-vars */
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
+import { cookies } from 'next/headers';
+import { createHash } from 'crypto';
 
-import dbConnect, { checkDbHealth } from '@/backend/config/dbConnect';
+import dbConnect from '@/backend/config/dbConnect';
 import User from '@/backend/models/user';
 import { sanitizeCredentials } from '@/utils/authSanitizers';
 import { registerSchema } from '@/helpers/schemas';
@@ -101,6 +103,51 @@ export async function POST(req) {
         { status: 400 },
       );
     }
+
+    // Vérification du CSRF token
+    const csrfTokenFromRequest = userData.csrfToken;
+    if (!csrfTokenFromRequest) {
+      logger.warn('Missing CSRF token in registration request', {
+        ip: ip.replace(/\d+$/, 'xxx'),
+      });
+
+      return NextResponse.json(
+        { success: false, message: 'Invalid request: security token missing' },
+        { status: 400 },
+      );
+    }
+
+    // Récupérer le hash du token CSRF depuis le cookie
+    const cookieStore = cookies();
+    const csrfCookie = cookieStore.get('csrf_token');
+
+    if (!csrfCookie) {
+      logger.warn('CSRF cookie missing', { ip: ip.replace(/\d+$/, 'xxx') });
+      return NextResponse.json(
+        { success: false, message: 'Security verification failed' },
+        { status: 403 },
+      );
+    }
+
+    // Calculer le hash du token reçu
+    const calculatedHash = createHash('sha256')
+      .update(csrfTokenFromRequest)
+      .digest('hex');
+
+    // Vérifier que les hash correspondent
+    if (calculatedHash !== csrfCookie.value) {
+      logger.warn('CSRF token mismatch', { ip: ip.replace(/\d+$/, 'xxx') });
+      return NextResponse.json(
+        { success: false, message: 'Invalid security token' },
+        { status: 403 },
+      );
+    }
+
+    // Après la validation, supprimer le cookie CSRF pour éviter les réutilisations
+    cookieStore.set('csrf_token', '', {
+      expires: new Date(0),
+      path: '/',
+    });
 
     // Sanitisation des entrées
     const sanitizedData = {
