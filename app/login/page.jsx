@@ -5,7 +5,6 @@ import { getServerSession } from 'next-auth/next';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { getCsrfToken } from 'next-auth/react';
 import { parseCallbackUrl } from '@/helpers/helpers';
-import logger from '@/utils/logger';
 
 import Loading from '@/app/loading';
 
@@ -78,7 +77,7 @@ async function LoginPage({ searchParams }) {
       .trim();
     const anonymizedIp = clientIp ? clientIp.replace(/\d+$/, 'xxx') : 'unknown';
 
-    logger.info('Login page accessed', {
+    console.info('Login page accessed', {
       userAgent: userAgent?.substring(0, 100),
       referer: referer?.substring(0, 200),
       ip: anonymizedIp,
@@ -116,7 +115,7 @@ async function LoginPage({ searchParams }) {
     );
   } catch (error) {
     // Journaliser l'erreur
-    logger.error('Error initializing login page', {
+    console.error('Error initializing login page', {
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
