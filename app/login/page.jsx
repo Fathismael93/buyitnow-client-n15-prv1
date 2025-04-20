@@ -11,7 +11,7 @@ import logger from '@/utils/logger';
 const Login = dynamic(
   () =>
     import('@/components/auth/Login').catch((error) => {
-      logger.error('Failed to load Login component', { error: error.message });
+      console.error('Failed to load Login component', { error: error.message });
       // Retourner un composant de fallback en cas d'erreur
       const FallbackComponent = () => (
         <div className="p-4 bg-red-50 border border-red-200 rounded-md text-center">
@@ -87,7 +87,7 @@ async function LoginPage() {
     if (session) {
       // Rediriger vers la page d'accueil ou le tableau de bord selon le rôle
       const redirectUrl = session.user.role === 'admin' ? '/admin' : '/';
-      logger.info('Redirecting authenticated user from login page', {
+      console.info('Redirecting authenticated user from login page', {
         userId: session.user._id,
         redirectUrl,
       });
@@ -155,7 +155,7 @@ async function LoginPage() {
     );
   } catch (error) {
     // Capture et journalisation des erreurs
-    logger.error('Error initializing login page', {
+    console.error('Error initializing login page', {
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
