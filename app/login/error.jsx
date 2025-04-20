@@ -5,7 +5,6 @@ import { captureException } from '@/monitoring/sentry';
 import { getErrorDisplayInfo } from '@/monitoring/errorUtils';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
-import logger from '@/utils/logger';
 
 /**
  * Gestionnaire d'erreurs spécifique à la page de connexion
@@ -152,7 +151,7 @@ export default function LoginError({ error, reset }) {
 
     // Journaliser l'erreur dans les logs
     const logError = (errorInfo) => {
-      logger.error('Authentication error occurred', {
+      console.error('Authentication error occurred', {
         error: error.message,
         errorType: errorInfo.title,
         action: errorInfo.action,
@@ -171,7 +170,7 @@ export default function LoginError({ error, reset }) {
       ) {
         // Tentative de nettoyage en arrière-plan
         signOut({ redirect: false }).catch((e) =>
-          logger.warn('Failed to sign out after login error', {
+          console.warn('Failed to sign out after login error', {
             error: e.message,
           }),
         );
