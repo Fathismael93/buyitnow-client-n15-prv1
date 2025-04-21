@@ -60,7 +60,7 @@ async function LoginPage() {
       });
       // Rediriger vers la page d'accueil ou tableau de bord selon le rôle
       const redirectUrl = '/';
-      return redirect(redirectUrl);
+      return redirect(redirectUrl, '/');
     }
 
     console.log('User is not logged in, proceeding to login page');
