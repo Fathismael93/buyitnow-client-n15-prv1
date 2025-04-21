@@ -19,6 +19,7 @@ import logger from '@/utils/logger';
 
 export const getAllProducts = async (
   searchParams,
+  csrfToken,
   retryAttempt = 0,
   maxRetries = 3,
 ) => {
@@ -188,6 +189,7 @@ export const getAllProducts = async (
       },
       headers: {
         'Cache-Control': cacheControl,
+        'X-CSRF-Token': csrfToken,
       },
     });
 
@@ -324,7 +326,11 @@ export const getAllProducts = async (
   }
 };
 
-export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
+export const getCategories = async (
+  csrfToken,
+  retryAttempt = 0,
+  maxRetries = 3,
+) => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
@@ -363,6 +369,7 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
       },
       headers: {
         'Cache-Control': cacheControl,
+        'X-CSRF-Token': csrfToken,
       },
     });
 
