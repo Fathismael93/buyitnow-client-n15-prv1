@@ -60,7 +60,7 @@ async function LoginPage() {
       });
       // Rediriger vers la page d'accueil ou tableau de bord selon le rôle
       const redirectUrl = '/';
-      redirect(redirectUrl);
+      return redirect(redirectUrl);
     }
 
     console.log('User is not logged in, proceeding to login page');
@@ -116,7 +116,7 @@ async function LoginPage() {
   } catch (error) {
     // Journaliser l'erreur
     console.error('Error initializing login page', {
-      error: error.message,
+      error: error,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
 
