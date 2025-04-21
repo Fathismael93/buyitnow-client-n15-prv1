@@ -99,7 +99,6 @@ const Login = ({ csrfToken }) => {
         console.log('Connexion réussie', {
           url: data.url,
           user: data.user,
-          role: data.user.role,
         });
         // Connexion réussie
         toast.success('Connexion réussie!');
