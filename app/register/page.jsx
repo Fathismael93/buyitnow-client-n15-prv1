@@ -78,14 +78,10 @@ async function RegisterPage() {
       .trim();
     const anonymizedIp = clientIp ? clientIp.replace(/\d+$/, 'xxx') : 'unknown';
 
-    // Récupérer le token CSRF à partir du middleware
-    const csrfToken = headersList.get('X-CSRF-Token') || 'missing';
-
     console.info('Registration page accessed', {
       userAgent: userAgent.substring(0, 100),
       referer: referer.substring(0, 200),
       ip: anonymizedIp,
-      csrfToken: csrfToken.substring(0, 20),
     });
 
     // Vérification de base anti-bot/spam
@@ -114,7 +110,7 @@ async function RegisterPage() {
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <Register csrfToken={csrfToken} referer={referer} />
+            <Register referer={referer} />
           </div>
         </div>
       </div>
