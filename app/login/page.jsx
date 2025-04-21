@@ -49,18 +49,13 @@ export const metadata = {
  */
 async function LoginPage() {
   try {
-    console.log('Initializing login page');
     // Vérifier si l'utilisateur est déjà connecté
     const session = await getServerSession(auth);
-    console.log('Session:', session);
     if (session) {
-      console.log('User is already logged in, redirecting...');
       // Rediriger vers la page d'accueil ou tableau de bord selon le rôle
       const redirectUrl = '/';
       return redirect(redirectUrl);
     }
-
-    console.log('User is not logged in, proceeding to login page');
 
     // Récupérer les en-têtes pour le logging et la sécurité
     const headersList = headers();
