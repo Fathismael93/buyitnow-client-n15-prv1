@@ -54,7 +54,7 @@ async function LoginPage() {
     if (session) {
       // Rediriger vers la page d'accueil ou tableau de bord selon le rôle
       const redirectUrl = '/';
-      return redirect(redirectUrl);
+      redirect(redirectUrl);
     }
 
     // Récupérer les en-têtes pour le logging et la sécurité
