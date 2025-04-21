@@ -96,10 +96,7 @@ const Login = ({ csrfToken }) => {
           toast.error(data.error || 'Échec de connexion');
         }
       } else if (data?.ok) {
-        console.log('Connexion réussie', {
-          url: data.url,
-          user: data.user,
-        });
+        console.log('Connexion réussie', data);
         // Connexion réussie
         toast.success('Connexion réussie!');
         router.push(data?.url || '/');
