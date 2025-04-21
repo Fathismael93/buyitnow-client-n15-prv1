@@ -1,7 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import { verifyCsrfToken } from '@edge-csrf/nextjs';
 
 import dbConnect from '@/backend/config/dbConnect';
 import User from '@/backend/models/user';
@@ -30,28 +29,6 @@ export async function POST(req) {
   const token = `ip:${ip}`;
 
   try {
-    // Vérification du CSRF token
-    const csrfResult = await verifyCsrfToken(req, headersList);
-    if (!csrfResult.success) {
-      logger.warn('CSRF token verification failed', {
-        ip: ip.replace(/\d+$/, 'xxx'),
-        error: csrfResult.error,
-      });
-
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Invalid security token. Please try again.',
-        },
-        { status: 403 },
-      );
-    }
-
-    console.log('CSRF token verified successfully', {
-      ip: ip.replace(/\d+$/, 'xxx'),
-      csrfToken: csrfResult.token,
-    });
-
     // Vérification du rate limiting
     try {
       await registerLimiter.check(req, null, token);

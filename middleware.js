@@ -1,9 +1,9 @@
 import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
-import { csrf } from '@edge-csrf/nextjs';
+import { createCsrfMiddleware } from '@edge-csrf/nextjs';
 
 // Configuration CSRF
-const csrfProtection = csrf({
+const csrfProtection = createCsrfMiddleware({
   cookie: {
     name: 'csrf-token',
     httpOnly: true,

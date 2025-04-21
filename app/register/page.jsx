@@ -1,7 +1,6 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth/next';
-import { getCsrfToken } from '@edge-csrf/nextjs';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 
 import Loading from '@/app/loading';
@@ -72,15 +71,15 @@ async function RegisterPage() {
     const userAgent = headersList.get('user-agent') || 'unknown';
     const referer = headersList.get('referer') || 'direct';
 
-    // Récupérer le token CSRF à partir du middleware
-    const csrfToken = await getCsrfToken({ headers: headersList });
-
     // Journaliser la tentative d'inscription (anonymisée pour la protection des données)
     const clientIp = (headersList.get('x-forwarded-for') || '')
       .split(',')
       .shift()
       .trim();
     const anonymizedIp = clientIp ? clientIp.replace(/\d+$/, 'xxx') : 'unknown';
+
+    // Récupérer le token CSRF à partir du middleware
+    const csrfToken = headersList.get('X-CSRF-Token') || 'missing';
 
     console.info('Registration page accessed', {
       userAgent: userAgent.substring(0, 100),
