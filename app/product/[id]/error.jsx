@@ -199,7 +199,7 @@ export default function Error({ error, reset }) {
         </div>
 
         {/* Afficher plus de détails en mode développement */}
-        {process.env.NODE_ENV === 'development' && (
+        {process.env.NODE_ENV === 'production' && (
           <div className="mt-8 p-4 bg-gray-100 rounded text-left overflow-auto max-h-60">
             <h3 className="text-lg font-semibold mb-2">
               Détails de l&apos;erreur (visible uniquement en développement):
