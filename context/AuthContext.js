@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
 
   const router = useRouter();
 
-  const registerUser = async ({ name, phone, email, password, csrfToken }) => {
+  const registerUser = async ({ name, phone, email, password }) => {
     try {
       // Mettre à jour l'état de chargement
       setLoading(true);
@@ -108,12 +108,12 @@ export const AuthProvider = ({ children }) => {
       }
 
       // Vérification du CSRF Token
-      if (!csrfToken) {
-        setError('Erreur de sécurité: token manquant');
-        toast.error('Erreur de sécurité: veuillez rafraîchir la page');
-        setLoading(false);
-        return;
-      }
+      // if (!csrfToken) {
+      //   setError('Erreur de sécurité: token manquant');
+      //   toast.error('Erreur de sécurité: veuillez rafraîchir la page');
+      //   setLoading(false);
+      //   return;
+      // }
 
       // Vérifier le rate limiting côté client
       // On utilise l'email comme identifiant pour éviter les créations multiples de comptes
