@@ -12,7 +12,7 @@ import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
 
 // Configuration de la mise en cache (revalidation toutes les 5 heures)
-export const revalidate = 5 * 60 * 60;
+export const revalidate = 18000;
 
 // Configuration des constantes
 const QUERY_TIMEOUT = parseInt(process.env.QUERY_TIMEOUT || 5000); // 5 secondes par défaut
