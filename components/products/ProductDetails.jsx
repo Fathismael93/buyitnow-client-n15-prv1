@@ -107,7 +107,7 @@ const RelatedProducts = memo(({ products, currentProductId }) => {
     );
   }
 
-  const filteredProducts = products.filter((p) => p?._id !== currentProductId);
+  const filteredProducts = products?.filter((p) => p?._id !== currentProductId);
 
   if (filteredProducts.length === 0) {
     return (
@@ -167,7 +167,7 @@ const RelatedProducts = memo(({ products, currentProductId }) => {
         ref={scrollContainerRef}
         className="flex gap-4 p-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-6"
       >
-        {filteredProducts.map((product) => (
+        {filteredProducts?.map((product) => (
           <Link
             key={product?._id}
             href={`/product/${product?._id}`}
@@ -176,7 +176,7 @@ const RelatedProducts = memo(({ products, currentProductId }) => {
           >
             <div className="relative w-full h-[180px] bg-gray-50">
               <Image
-                src={product?.images?.[0]?.url || '/images/default_product.png'}
+                src={product?.images[0]?.url || '/images/default_product.png'}
                 alt={product?.name || 'Image du produit'}
                 fill
                 sizes="180px"
@@ -215,7 +215,7 @@ RelatedProducts.displayName = 'RelatedProducts';
 
 const ProductImageGallery = memo(({ product, onError, onZoomClick }) => {
   const [selectedImage, setSelectedImage] = useState(
-    product?.images?.[0]?.url || '/images/default_product.png',
+    product?.images[0]?.url || '/images/default_product.png',
   );
   const [isLoading, setIsLoading] = useState(true);
 
@@ -231,8 +231,8 @@ const ProductImageGallery = memo(({ product, onError, onZoomClick }) => {
   // Préchargement des images pour une expérience plus fluide
   useEffect(() => {
     const preloadImages = async () => {
-      if (product?.images && product.images.length > 0) {
-        const imagePromises = product.images.map((img) => {
+      if (product?.images && product?.images?.length > 0) {
+        const imagePromises = product?.images.map((img) => {
           if (img?.url) {
             return new Promise((resolve, reject) => {
               const imgEl = document.createElement('img');
@@ -331,9 +331,9 @@ const ProductImageGallery = memo(({ product, onError, onZoomClick }) => {
         </button>
       </div>
 
-      {product?.images && product.images.length > 1 && (
+      {product?.images && product?.images?.length > 1 && (
         <div className="mt-4 grid grid-cols-5 sm:grid-cols-6 gap-2">
-          {product.images.map((img, index) => (
+          {product?.images.map((img, index) => (
             <button
               key={img?.url || index}
               className={`relative border rounded-md overflow-hidden aspect-square focus:outline-none focus:ring-2 transition-all ${
@@ -488,27 +488,31 @@ const ProductDetails = ({ data }) => {
       setQuantity(1);
 
       // Valider et nettoyer les données du produit
-      if (data?.product && typeof data.product === 'object') {
+      if (data?.product && typeof data?.product === 'object') {
         // S'assurer que les champs critiques existent
         const validatedProduct = {
-          ...data.product,
-          name: data.product.name || 'Produit sans nom',
+          ...data?.product,
+          name: data?.product?.name || 'Produit sans nom',
           price:
-            typeof data.product.price === 'number' ? data.product.price : 0,
+            typeof data?.product?.price === 'number' ? data?.product?.price : 0,
           description:
-            data.product.description || 'Aucune description disponible',
-          images: Array.isArray(data.product.images) ? data.product.images : [],
+            data?.product?.description || 'Aucune description disponible',
+          images: Array.isArray(data?.product?.images)
+            ? data?.product?.images
+            : [],
           stock:
-            typeof data.product.stock === 'number' ? data.product.stock : 0,
-          category: data.product.category || { categoryName: 'Non catégorisé' },
+            typeof data?.product?.stock === 'number' ? data?.product?.stock : 0,
+          category: data?.product?.category || {
+            categoryName: 'Non catégorisé',
+          },
         };
 
         setProduct(validatedProduct);
 
         // Vérifier si ce produit est déjà dans le panier
         if (cart && Array.isArray(cart)) {
-          const existingItem = cart.find(
-            (item) => item?.product?._id === validatedProduct._id,
+          const existingItem = cart?.find(
+            (item) => item?.product?._id === validatedProduct?._id,
           );
           if (existingItem) {
             setIsAddedToCart(true);
@@ -521,9 +525,9 @@ const ProductDetails = ({ data }) => {
       // Valider et nettoyer les produits similaires
       if (
         data?.sameCategoryProducts &&
-        Array.isArray(data.sameCategoryProducts)
+        Array.isArray(data?.sameCategoryProducts)
       ) {
-        setRelatedProducts(data.sameCategoryProducts);
+        setRelatedProducts(data?.sameCategoryProducts);
       } else {
         setRelatedProducts([]);
       }
@@ -546,7 +550,7 @@ const ProductDetails = ({ data }) => {
         const newQuantity = prev + change;
         // Limiter la quantité entre 1 et le stock disponible (ou 10 si le stock est très grand)
         const maxQuantity =
-          product && product.stock > 0 ? Math.min(product.stock, 10) : 1;
+          product && product?.stock > 0 ? Math.min(product?.stock, 10) : 1;
         return Math.max(1, Math.min(newQuantity, maxQuantity));
       });
     },
@@ -567,7 +571,9 @@ const ProductDetails = ({ data }) => {
     try {
       setIsLoading(true);
 
-      const isProductInCart = cart.find((i) => i?.product?._id === product._id);
+      const isProductInCart = cart?.find(
+        (i) => i?.product?._id === product?._id,
+      );
 
       if (isProductInCart) {
         // Si le produit est déjà dans le panier, mettre à jour la quantité
@@ -577,7 +583,7 @@ const ProductDetails = ({ data }) => {
         // Sinon, ajouter le produit avec la quantité spécifiée
         for (let i = 0; i < quantity; i++) {
           await addItemToCart({
-            product: product._id,
+            product: product?._id,
           });
         }
         toast.success(
@@ -608,14 +614,14 @@ const ProductDetails = ({ data }) => {
     if (!product) return;
 
     const shareData = {
-      title: product.name,
-      text: product.description.substring(0, 100) + '...',
-      url: window.location.href,
+      title: product?.name,
+      text: product?.description?.substring(0, 100) + '...',
+      url: window?.location?.href,
     };
 
     // Utiliser l'API Web Share si disponible
-    if (navigator.share) {
-      navigator.share(shareData).catch(() => {
+    if (navigator?.share) {
+      navigator?.share(shareData).catch(() => {
         copyToClipboard();
       });
     } else {
@@ -623,7 +629,7 @@ const ProductDetails = ({ data }) => {
     }
 
     function copyToClipboard() {
-      navigator.clipboard.writeText(window.location.href);
+      navigator?.clipboard.writeText(window?.location?.href);
       toast.success('Lien copié dans le presse-papier', {
         icon: '🔗',
       });
@@ -637,10 +643,10 @@ const ProductDetails = ({ data }) => {
         { name: 'Produits', url: '/' },
         {
           name:
-            product.name.length > 50
-              ? `${product.name.substring(0, 50)}...`
-              : product.name,
-          url: `/product/${product._id}`,
+            product?.name?.length > 50
+              ? `${product?.name.substring(0, 50)}...`
+              : product?.name,
+          url: `/product/${product?._id}`,
         },
       ]
     : [{ name: 'Accueil', url: '/' }];
@@ -701,7 +707,7 @@ const ProductDetails = ({ data }) => {
     );
   }
 
-  const inStock = product.stock > 0;
+  const inStock = product?.stock > 0;
 
   return (
     <>
@@ -727,23 +733,23 @@ const ProductDetails = ({ data }) => {
             <div className="order-1 lg:order-2">
               <div className="bg-white rounded-lg p-1">
                 {/* Badge catégorie */}
-                {product.category && (
+                {product?.category && (
                   <div className="mb-2">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {product.category.categoryName}
+                      {product?.category?.categoryName}
                     </span>
                   </div>
                 )}
 
                 {/* Titre du produit */}
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-                  {product.name}
+                  {product?.name}
                 </h1>
 
                 {/* Prix */}
                 <div className="flex items-center mb-4">
                   <p className="text-2xl md:text-3xl font-bold text-primary">
-                    {product.price.toLocaleString(undefined, {
+                    {product?.price?.toLocaleString(undefined, {
                       style: 'currency',
                       currency: 'EUR',
                       minimumFractionDigits: 2,
@@ -765,11 +771,11 @@ const ProductDetails = ({ data }) => {
                 </div>
 
                 {/* Information stock */}
-                <StockInfo stock={product.stock} inStock={inStock} />
+                <StockInfo stock={product?.stock} inStock={inStock} />
 
                 {/* Description */}
                 <div className="mt-4 prose prose-sm sm:prose max-w-none text-gray-600 mb-6">
-                  <p>{product.description}</p>
+                  <p>{product?.description}</p>
                 </div>
 
                 {/* Sélecteur de quantité et ajout au panier */}
@@ -812,7 +818,7 @@ const ProductDetails = ({ data }) => {
                         </span>
                         <button
                           onClick={() => handleQuantityChange(1)}
-                          disabled={quantity >= Math.min(product.stock, 10)}
+                          disabled={quantity >= Math.min(product?.stock, 10)}
                           className="px-3 py-1 border-l border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-light disabled:opacity-50"
                           aria-label="Augmenter la quantité"
                         >
@@ -942,7 +948,7 @@ const ProductDetails = ({ data }) => {
                         Catégorie
                       </dt>
                       <dd className="mt-1 text-sm text-gray-900">
-                        {product.category?.categoryName || 'Non catégorisé'}
+                        {product?.category?.categoryName || 'Non catégorisé'}
                       </dd>
                     </div>
                     <div className="sm:col-span-1">
@@ -950,7 +956,7 @@ const ProductDetails = ({ data }) => {
                         Référence
                       </dt>
                       <dd className="mt-1 text-sm text-gray-900 font-mono">
-                        {product._id || 'N/A'}
+                        {product?._id || 'N/A'}
                       </dd>
                     </div>
                     <div className="sm:col-span-1">
@@ -959,20 +965,10 @@ const ProductDetails = ({ data }) => {
                       </dt>
                       <dd className="mt-1 text-sm text-gray-900">
                         {inStock
-                          ? `${product.stock} unités disponibles`
+                          ? `${product?.stock} unités disponibles`
                           : 'Rupture de stock'}
                       </dd>
                     </div>
-                    {product.slug && (
-                      <div className="sm:col-span-1">
-                        <dt className="text-sm font-medium text-gray-500">
-                          Slug
-                        </dt>
-                        <dd className="mt-1 text-sm text-gray-900 font-mono">
-                          {product.slug}
-                        </dd>
-                      </div>
-                    )}
                   </dl>
                 </div>
               </div>
@@ -987,7 +983,7 @@ const ProductDetails = ({ data }) => {
               </h2>
               <RelatedProducts
                 products={relatedProducts}
-                currentProductId={product._id}
+                currentProductId={product?._id}
               />
             </div>
           </div>
