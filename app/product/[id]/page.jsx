@@ -60,7 +60,7 @@ async function getProductWithCache(id, options = {}) {
 
 // Générer les métadonnées dynamiquement pour chaque produit
 export async function generateMetadata({ params }) {
-  if (!params?.id) {
+  if (!(await params?.id)) {
     return {
       title: 'Produit introuvable | Buy It Now',
       description: "Ce produit n'existe pas ou a été retiré.",
@@ -69,7 +69,7 @@ export async function generateMetadata({ params }) {
 
   try {
     // Utiliser l'ID normalisé
-    const productId = params?.id?.toString().trim();
+    const productId = await params?.id?.toString().trim();
 
     // Récupérer les données avec un cache et un timeout
     const productData = await getProductWithCache(productId, {

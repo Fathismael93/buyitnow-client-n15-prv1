@@ -135,6 +135,7 @@ export default function Error({ error, reset }) {
     // Par défaut
     return {
       code: 'UNKNOWN',
+      error: err,
       message:
         "Une erreur inattendue s'est produite lors du chargement du produit.",
       severity: 'error',
