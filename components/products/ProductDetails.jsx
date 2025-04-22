@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 'use client';
 
 import { useContext, useState, useEffect, useCallback, memo } from 'react';
@@ -11,7 +12,6 @@ import AuthContext from '@/context/AuthContext';
 import CartContext from '@/context/CartContext';
 import { arrayHasData } from '@/helpers/helpers';
 import { INCREASE } from '@/helpers/constants';
-import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { captureException } from '@/monitoring/sentry';
 
 // Chargement dynamique des composants lourds
@@ -272,7 +272,7 @@ const ProductDetails = ({ data }) => {
   const inStock = product.stock > 0;
 
   return (
-    <ErrorBoundary>
+    <>
       <BreadCrumbs breadCrumbs={breadCrumbs} />
       <section className="bg-white py-10">
         <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
@@ -412,7 +412,7 @@ const ProductDetails = ({ data }) => {
           </section>
         </div>
       </section>
-    </ErrorBoundary>
+    </>
   );
 };
 
