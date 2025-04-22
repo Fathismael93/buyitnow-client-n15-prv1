@@ -156,7 +156,7 @@ export const revalidate = 1800; // 30 minutes par défaut
 // Préfetcher le CSS nécessaire pour la page produit
 export function generateViewport() {
   return {
-    themeColor: '#ffffff',
+    themeColor: '#4da8ff',
     // Précharger le CSS critique
     preload: [
       {
