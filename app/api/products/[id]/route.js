@@ -5,6 +5,7 @@ import { headers } from 'next/headers';
 
 import dbConnect from '@/backend/config/dbConnect';
 import Product from '@/backend/models/product';
+import Category from '@/backend/models/category';
 import { createRateLimiter, RATE_LIMIT_ALGORITHMS } from '@/utils/rateLimit';
 import { getCacheHeaders } from '@/utils/cache';
 import { captureException } from '@/monitoring/sentry';
