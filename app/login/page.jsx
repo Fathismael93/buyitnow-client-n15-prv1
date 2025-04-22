@@ -59,8 +59,7 @@ async function LoginPage() {
         role: session.user.role,
       });
       // Rediriger vers la page d'accueil ou tableau de bord selon le rôle
-      const redirectUrl = '/';
-      return redirect(redirectUrl, '/');
+      console.log('User connected, redirecting to dashboard');
     }
 
     console.log('User is not logged in, proceeding to login page');
