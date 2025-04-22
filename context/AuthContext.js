@@ -1,5 +1,4 @@
 /* eslint-disable no-unused-vars */
-/* eslint-disable react/prop-types */
 'use client';
 
 import { registerSchema } from '@/helpers/schemas';
@@ -10,7 +9,6 @@ import {
   sanitizePhone,
 } from '@/utils/authSanitizers';
 import { appCache } from '@/utils/cache';
-import logger from '@/utils/logger';
 import { useRouter } from 'next/navigation';
 import { createContext, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -283,7 +281,7 @@ export const AuthProvider = ({ children }) => {
           }
 
           // Loguer le succès (uniquement en local)
-          logger.info('User registered successfully', {
+          console.info('User registered successfully', {
             component: 'auth',
             action: 'register',
           });
