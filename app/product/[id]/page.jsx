@@ -69,7 +69,7 @@ export async function generateMetadata({ params }) {
 
   try {
     // Utiliser l'ID normalisé
-    const productId = params.id.toString().trim();
+    const productId = params?.id?.toString().trim();
 
     // Récupérer les données avec un cache et un timeout
     const productData = await getProductWithCache(productId, {
@@ -85,52 +85,52 @@ export async function generateMetadata({ params }) {
       };
     }
 
-    const product = productData.product;
+    const product = productData?.product;
 
     // Construction des données structurées JSON-LD pour le SEO
     const jsonLd = {
       '@context': 'https://schema.org',
       '@type': 'Product',
-      name: product.name,
-      description: product.description,
-      image: product.images?.[0]?.url,
-      sku: product._id,
+      name: product?.name,
+      description: product?.description,
+      image: product?.images[0]?.url,
+      sku: product?._id,
       offers: {
         '@type': 'Offer',
-        price: product.price,
+        price: product?.price,
         priceCurrency: 'EUR',
         availability:
-          product.stock > 0
+          product?.stock > 0
             ? 'https://schema.org/InStock'
             : 'https://schema.org/OutOfStock',
       },
     };
 
     return {
-      title: `${product.name} | Buy It Now`,
+      title: `${product?.name} | Buy It Now`,
       description:
-        product.description?.substring(0, 160) ||
+        product?.description?.substring(0, 160) ||
         'Découvrez ce produit de qualité à un prix attractif',
       openGraph: {
-        title: `${product.name} | Buy It Now`,
+        title: `${product?.name} | Buy It Now`,
         description:
-          product.description?.substring(0, 160) ||
+          product?.description?.substring(0, 160) ||
           'Découvrez ce produit de qualité à un prix attractif',
         images:
-          product.images?.length > 0
-            ? [{ url: product.images[0].url, alt: product.name }]
+          product?.images?.length > 0
+            ? [{ url: product?.images[0]?.url, alt: product?.name }]
             : [],
         type: 'product',
         product: {
           price: {
-            amount: product.price,
+            amount: product?.price,
             currency: 'EUR',
           },
         },
       },
       // Ajout des données structurées pour les moteurs de recherche
       alternates: {
-        canonical: `/product/${product.slug || product._id}`,
+        canonical: `/product/${product?.slug || product?._id}`,
       },
       other: {
         'custom:jsonLd': JSON.stringify(jsonLd),
@@ -139,7 +139,7 @@ export async function generateMetadata({ params }) {
   } catch (error) {
     logger.error('Error generating product metadata', {
       productId: params?.id,
-      error: error.message,
+      error: error?.message,
     });
 
     // Métadonnées par défaut en cas d'erreur
@@ -175,7 +175,7 @@ const ProductDetailsPage = async ({ params }) => {
   }
 
   // Utiliser un ID normalisé pour éviter les problèmes
-  const productId = params.id.toString().trim();
+  const productId = params?.id?.toString().trim();
 
   // Traçage de la requête pour le monitoring des performances
   const requestStart = Date.now();
@@ -190,7 +190,7 @@ const ProductDetailsPage = async ({ params }) => {
     const data = await getProductWithCache(productId);
 
     // Si getProductDetails renvoie null ou un objet vide
-    if (!data || !data.product) {
+    if (!data || !data?.product) {
       logger.warn('ProductDetailsPage: Product not found or empty data', {
         productId,
         data: data ? 'empty' : 'null',
@@ -203,31 +203,31 @@ const ProductDetailsPage = async ({ params }) => {
       productId,
       duration: Date.now() - requestStart,
       hasSimilarProducts:
-        Array.isArray(data.sameCategoryProducts) &&
-        data.sameCategoryProducts.length > 0,
+        Array.isArray(data?.sameCategoryProducts) &&
+        data?.sameCategoryProducts?.length > 0,
       action: 'product_page_load_complete',
     });
 
     return (
       <>
         {/* Script pour injecter les données structurées */}
-        {data.product && (
+        {data?.product && (
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
               __html: JSON.stringify({
                 '@context': 'https://schema.org',
                 '@type': 'Product',
-                name: data.product.name,
-                description: data.product.description,
-                image: data.product.images?.[0]?.url,
-                sku: data.product._id,
+                name: data?.product?.name,
+                description: data?.product?.description,
+                image: data?.product?.images[0]?.url,
+                sku: data?.product?._id,
                 offers: {
                   '@type': 'Offer',
-                  price: data.product.price,
+                  price: data?.product?.price,
                   priceCurrency: 'EUR',
                   availability:
-                    data.product.stock > 0
+                    data?.product?.stock > 0
                       ? 'https://schema.org/InStock'
                       : 'https://schema.org/OutOfStock',
                 },
