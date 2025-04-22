@@ -4,7 +4,12 @@ import { headers } from 'next/headers';
 
 import dbConnect from '@/backend/config/dbConnect';
 import User from '@/backend/models/user';
-import { sanitizeCredentials } from '@/utils/authSanitizers';
+import {
+  sanitizeEmail,
+  sanitizeName,
+  sanitizePassword,
+  sanitizePhone,
+} from '@/utils/authSanitizers';
 import { registerSchema } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
@@ -104,10 +109,10 @@ export async function POST(req) {
 
     // Sanitisation des entrées
     const sanitizedData = {
-      name: userData.name || '',
-      email: sanitizeCredentials({ email: userData.email || '' }).email,
-      phone: userData.phone || '',
-      password: userData.password, // Ne pas sanitizer le mot de passe brut pour éviter d'altérer sa valeur
+      name: sanitizeName(userData.name || ''),
+      email: sanitizeEmail(userData.email) || '',
+      phone: sanitizePhone(userData.phone || ''),
+      password: sanitizePassword(userData.password), // Ne pas sanitizer le mot de passe brut pour éviter d'altérer sa valeur
     };
 
     // Validation avec le schéma Yup
