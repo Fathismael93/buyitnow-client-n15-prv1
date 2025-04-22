@@ -129,9 +129,6 @@ const Register = () => {
     setIsSubmitting(true);
 
     try {
-      // Validation complète du formulaire
-      await registerSchema.validate(formData, { abortEarly: false });
-
       // Soumission au serveur
       await registerUser({
         ...formData,

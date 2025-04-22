@@ -29,84 +29,6 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      // Sanitiser les entrées grâce aux utilitaires spécialisés
-      const sanitizedName = sanitizeName(name, { minLength: 2, maxLength: 50 });
-      const sanitizedPhone = sanitizePhone(phone, {
-        minLength: 6,
-        maxLength: 15,
-      });
-      const sanitizedEmail = sanitizeEmail(email);
-      const sanitizedPassword = sanitizePassword(password, {
-        minLength: 8,
-        maxLength: 100,
-      });
-
-      // Vérification des données sanitisées
-      if (!sanitizedName) {
-        setError(
-          'Le nom est invalide ou contient des caractères non autorisés',
-        );
-        toast.error(
-          'Le nom est invalide ou contient des caractères non autorisés',
-        );
-        setLoading(false);
-        return;
-      }
-
-      if (!sanitizedPhone) {
-        setError('Le numéro de téléphone est invalide');
-        toast.error('Le numéro de téléphone est invalide');
-        setLoading(false);
-        return;
-      }
-
-      if (!sanitizedEmail) {
-        setError("L'adresse email est invalide");
-        toast.error("L'adresse email est invalide");
-        setLoading(false);
-        return;
-      }
-
-      if (!sanitizedPassword) {
-        setError(
-          'Le mot de passe est invalide ou ne respecte pas les critères de sécurité',
-        );
-        toast.error(
-          'Le mot de passe est invalide ou ne respecte pas les critères de sécurité',
-        );
-        setLoading(false);
-        return;
-      }
-
-      // Création de l'objet avec les données sanitisées
-      const sanitizedData = {
-        name: sanitizedName,
-        phone: sanitizedPhone,
-        email: sanitizedEmail,
-        password: sanitizedPassword,
-      };
-
-      // Validation avec le schéma
-      try {
-        await registerSchema.validate(sanitizedData, { abortEarly: false });
-      } catch (validationError) {
-        const fieldErrors = {};
-
-        if (validationError.inner) {
-          validationError.inner.forEach((err) => {
-            fieldErrors[err.path] = err.message;
-          });
-          setError('Validation failed');
-          toast.error('Veuillez corriger les erreurs dans le formulaire');
-        } else {
-          setError(validationError.message);
-          toast.error(validationError.message);
-        }
-
-        setLoading(false);
-        return;
-      }
-
       // Vérification du CSRF Token
       // if (!csrfToken) {
       //   setError('Erreur de sécurité: token manquant');
@@ -118,7 +40,7 @@ export const AuthProvider = ({ children }) => {
       // Vérifier le rate limiting côté client
       // On utilise l'email comme identifiant pour éviter les créations multiples de comptes
       const clientIp = 'CLIENT-IP'; // En réalité, ce serait déterminé côté serveur
-      const clientRateLimitKey = `register:${sanitizedEmail}:${clientIp}`;
+      const clientRateLimitKey = `register:${email}:${clientIp}`;
       const maxClientAttempts = 5; // 5 tentatives maximum - défini ici pour être utilisé partout
 
       // Utiliser le cache pour suivre les tentatives d'inscription (en mémoire, côté client)
@@ -178,7 +100,7 @@ export const AuthProvider = ({ children }) => {
           {
             method: 'POST',
             headers,
-            body: JSON.stringify(sanitizedData),
+            body: JSON.stringify({ name, email, phone, password }),
             signal: controller.signal,
             credentials: 'include', // Inclure les cookies pour les sessions
           },
