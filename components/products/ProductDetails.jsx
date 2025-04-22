@@ -233,7 +233,7 @@ const ProductImageGallery = memo(({ product, onError, onZoomClick }) => {
     if (product?.images && product.images.length > 0) {
       product.images.forEach((img) => {
         if (img?.url) {
-          const imgEl = new Image();
+          const imgEl = new window.Image();
           imgEl.src = img.url;
         }
       });
