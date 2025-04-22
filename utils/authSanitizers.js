@@ -93,6 +93,98 @@ export const sanitizeCredentials = (credentials = {}) => {
 };
 
 /**
+ * Sanitise un nom d'utilisateur
+ * - Supprime les espaces en début et fin
+ * - Conserve uniquement les caractères alphanumériques, espaces et certains caractères spécifiques
+ * - Valide la longueur minimale et maximale
+ *
+ * @param {string} name - Le nom à sanitiser
+ * @param {Object} options - Options de validation
+ * @param {number} options.minLength - Longueur minimale (défaut: 2)
+ * @param {number} options.maxLength - Longueur maximale (défaut: 50)
+ * @returns {string|null} - Le nom sanitisé ou null si invalide
+ */
+export const sanitizeName = (name, options = {}) => {
+  const { minLength = 2, maxLength = 50 } = options;
+
+  if (!name || typeof name !== 'string') {
+    return null;
+  }
+
+  // Suppression des espaces en début et fin
+  let sanitized = name.trim();
+
+  // Vérifier la longueur après le trim
+  if (sanitized.length < minLength || sanitized.length > maxLength) {
+    return null;
+  }
+
+  // Suppression des caractères de contrôle et non-imprimables
+  sanitized = sanitized.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+
+  // Vérifier que le nom contient uniquement des caractères valides
+  // Caractères autorisés: lettres, chiffres, espaces, points, tirets, underscores et apostrophes
+  const nameRegex = /^[a-zA-Z0-9\u00C0-\u017F\s._'-]+$/;
+
+  if (!nameRegex.test(sanitized)) {
+    return null;
+  }
+
+  return sanitized;
+};
+
+/**
+ * Sanitise un numéro de téléphone
+ * - Supprime les espaces, tirets et parenthèses
+ * - Conserve uniquement les chiffres et le signe + au début
+ * - Valide le format général d'un numéro de téléphone
+ *
+ * @param {string} phone - Le numéro de téléphone à sanitiser
+ * @param {Object} options - Options de validation
+ * @param {number} options.minLength - Longueur minimale (défaut: 6)
+ * @param {number} options.maxLength - Longueur maximale (défaut: 15)
+ * @param {boolean} options.allowIntlPrefix - Autoriser le préfixe international (défaut: true)
+ * @returns {string|null} - Le numéro de téléphone sanitisé ou null si invalide
+ */
+export const sanitizePhone = (phone, options = {}) => {
+  const { minLength = 6, maxLength = 15, allowIntlPrefix = true } = options;
+
+  if (!phone || typeof phone !== 'string') {
+    return null;
+  }
+
+  // Suppression des espaces en début et fin
+  let sanitized = phone.trim();
+
+  // Suppression des caractères de contrôle et non-imprimables
+  sanitized = sanitized.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+
+  // Conserver uniquement le préfixe + et les chiffres
+  if (allowIntlPrefix && sanitized.startsWith('+')) {
+    sanitized = '+' + sanitized.substring(1).replace(/[^0-9]/g, '');
+  } else {
+    sanitized = sanitized.replace(/[^0-9]/g, '');
+  }
+
+  // Vérifier la longueur
+  if (sanitized.length < minLength || sanitized.length > maxLength) {
+    return null;
+  }
+
+  // Vérifier le format basique d'un numéro de téléphone
+  // Si le préfixe international est autorisé, on accepte un + au début
+  const phoneRegex = allowIntlPrefix
+    ? /^(\+[0-9]{1,3})?[0-9]{6,14}$/
+    : /^[0-9]{6,15}$/;
+
+  if (!phoneRegex.test(sanitized)) {
+    return null;
+  }
+
+  return sanitized;
+};
+
+/**
  * Vérifie si des identifiants sont valides après sanitisation
  * @param {Object} credentials - Les identifiants sanitisés
  * @returns {boolean} - true si les identifiants sont valides
@@ -105,5 +197,7 @@ export default {
   sanitizeEmail,
   sanitizePassword,
   sanitizeCredentials,
+  sanitizeName,
+  sanitizePhone,
   areCredentialsValid,
 };
