@@ -519,34 +519,276 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
   }
 };
 
-export const getProductDetails = async (id) => {
-  const isValidId = mongoose.isValidObjectId(id);
+export const getProductDetails = async (
+  id,
+  retryAttempt = 0,
+  maxRetries = 3,
+) => {
+  const controller = new AbortController();
+  const requestId = `product-${id}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-  if (id === undefined || id === null || !isValidId) {
-    return notFound();
+  // Timeout de 5 secondes pour éviter les requêtes bloquées
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+    logger.warn('Request timeout in getProductDetails', {
+      requestId,
+      productId: id,
+      timeoutMs: 5000,
+      action: 'request_timeout',
+    });
+  }, 5000);
+
+  logger.info('Starting getProductDetails request', {
+    requestId,
+    productId: id,
+    retryAttempt,
+    action: 'get_product_details',
+  });
+
+  try {
+    // Validation améliorée de l'ID
+    if (!id || typeof id !== 'string') {
+      logger.warn('Invalid product ID format (undefined or not string)', {
+        requestId,
+        productId: id,
+        action: 'invalid_id_format',
+      });
+      return notFound();
+    }
+
+    const isValidId = mongoose.isValidObjectId(id);
+    if (!isValidId) {
+      logger.warn('Invalid MongoDB ObjectId format', {
+        requestId,
+        productId: id,
+        action: 'invalid_mongodb_id',
+      });
+      return notFound();
+    }
+
+    // Avant l'appel API
+    logger.debug('Fetching product details from API', {
+      requestId,
+      productId: id,
+      retryAttempt,
+      action: 'api_request_start',
+    });
+
+    // Utiliser les headers de cache optimisés pour un seul produit
+    const cacheControl = getCacheHeaders('singleProduct');
+    const apiUrl = `${process.env.API_URL || ''}/api/products/${id}`;
+
+    const res = await fetch(apiUrl, {
+      signal: controller.signal,
+      next: {
+        // Utiliser la configuration de cache spécifique aux produits individuels
+        revalidate: CACHE_CONFIGS.singleProduct?.staleWhileRevalidate || 7200,
+        tags: ['product', `product-${id}`],
+      },
+      headers: {
+        'Cache-Control': cacheControl['Cache-Control'],
+      },
+    });
+
+    // Après l'appel API
+    logger.debug('API response received', {
+      requestId,
+      productId: id,
+      status: res.status,
+      retryAttempt,
+      action: 'api_request_complete',
+    });
+
+    // Gestion des erreurs HTTP
+    if (!res.ok) {
+      const errorText = await res.text();
+
+      logger.error('API request failed', {
+        requestId,
+        productId: id,
+        status: res.status,
+        error: errorText,
+        retryAttempt,
+        action: 'api_request_error',
+      });
+
+      // Déterminer si l'erreur est récupérable (5xx ou certaines 4xx)
+      const isRetryable = res.status >= 500 || [408, 429].includes(res.status);
+
+      if (isRetryable && retryAttempt < maxRetries) {
+        // Calculer le délai de retry avec backoff exponentiel
+        const retryDelay = Math.min(
+          1000 * Math.pow(2, retryAttempt), // 1s, 2s, 4s, ...
+          15000, // Maximum 15 secondes
+        );
+
+        logger.warn(`Retrying product details request after ${retryDelay}ms`, {
+          requestId,
+          productId: id,
+          retryAttempt: retryAttempt + 1,
+          maxRetries,
+          action: 'retry_scheduled',
+        });
+
+        // Nettoyer le timeout actuel
+        clearTimeout(timeoutId);
+
+        // Attendre avant de réessayer
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+
+        // Réessayer avec le compteur incrémenté
+        return getProductDetails(id, retryAttempt + 1, maxRetries);
+      }
+
+      // Gérer les cas d'erreur spécifiques
+      if (res.status === 404) {
+        logger.info('Product not found', {
+          requestId,
+          productId: id,
+          action: 'product_not_found',
+        });
+        return notFound();
+      }
+
+      // Erreur générique pour les autres cas
+      logger.error('Failed to load product details', {
+        requestId,
+        productId: id,
+        status: res.status,
+        action: 'product_load_failed',
+      });
+      return null;
+    }
+
+    // Traitement de la réponse avec gestion des erreurs de parsing
+    try {
+      const data = await res.json();
+
+      // Vérifier les erreurs business
+      if (data?.success === false) {
+        logger.warn('API returned success: false', {
+          requestId,
+          productId: id,
+          message: data?.message,
+          action: 'api_business_error',
+        });
+
+        // Déterminer si l'erreur business nécessite un notFound() ou non
+        if (
+          data?.code === 'PRODUCT_NOT_FOUND' ||
+          data?.message?.toLowerCase().includes('not found')
+        ) {
+          return notFound();
+        }
+
+        return null;
+      }
+
+      // Vérifier que le produit existe dans la réponse
+      if (!data?.data?.product) {
+        logger.error('Product data missing in response', {
+          requestId,
+          productId: id,
+          action: 'product_data_missing',
+        });
+        return notFound();
+      }
+
+      logger.info('Successfully fetched product details', {
+        requestId,
+        productId: id,
+        productName: data?.data?.product?.name || 'Unknown',
+        similarProductsCount: data?.data?.sameCategoryProducts?.length || 0,
+        action: 'api_success',
+        duration: Date.now() - parseInt(requestId.split('-')[2]), // Calcul approximatif de la durée
+      });
+
+      return data?.data;
+    } catch (parseError) {
+      logger.error('JSON parsing error in getProductDetails', {
+        requestId,
+        productId: id,
+        error: parseError.message,
+        retryAttempt,
+        action: 'parse_error',
+      });
+
+      // Si erreur de parsing et retries disponibles
+      if (retryAttempt < maxRetries) {
+        const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
+        logger.warn(`Retrying after parse error (${retryDelay}ms)`, {
+          requestId,
+          productId: id,
+          retryAttempt: retryAttempt + 1,
+          action: 'retry_scheduled',
+        });
+
+        clearTimeout(timeoutId);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        return getProductDetails(id, retryAttempt + 1, maxRetries);
+      }
+
+      try {
+        const rawText = await res.clone().text();
+
+        logger.error('Raw response text', {
+          requestId,
+          productId: id,
+          text: rawText.substring(0, 200) + '...',
+          action: 'raw_response',
+        });
+      } catch (textError) {
+        logger.error('Failed to get raw response text', {
+          requestId,
+          productId: id,
+          error: textError.message,
+          action: 'raw_response_failed',
+        });
+      }
+
+      return null;
+    }
+  } catch (error) {
+    logger.error('Exception in getProductDetails', {
+      requestId,
+      productId: id,
+      error: error.message,
+      stack: error.stack,
+      retryAttempt,
+      action: 'get_product_details_error',
+    });
+
+    // Déterminer si l'erreur est récupérable
+    const isRetryable =
+      error.name === 'AbortError' ||
+      error.name === 'TimeoutError' ||
+      error.message.includes('network') ||
+      error.message.includes('connection');
+
+    if (isRetryable && retryAttempt < maxRetries) {
+      const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
+      logger.warn(`Retrying after exception (${retryDelay}ms)`, {
+        requestId,
+        productId: id,
+        retryAttempt: retryAttempt + 1,
+        maxRetries,
+        action: 'retry_scheduled',
+      });
+
+      clearTimeout(timeoutId);
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      return getProductDetails(id, retryAttempt + 1, maxRetries);
+    }
+
+    captureException(error, {
+      tags: { action: 'get_product_details' },
+      extra: { productId: id, requestId, retryAttempt },
+    });
+
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const res = await fetch(`${process.env.API_URL}/api/products/${id}`);
-
-  const data = await res.json();
-
-  if (data?.success === false) {
-    toast.info(data?.message);
-    return [];
-  }
-
-  if (data?.data?.product === undefined) {
-    console.error('Product not found');
-    return notFound();
-  }
-
-  if (data?.error !== undefined) {
-    console.error('Error fetching product details');
-    ///////
-    return [];
-  }
-
-  return data?.data;
 };
 
 export const getAllAddresses = async (page) => {
