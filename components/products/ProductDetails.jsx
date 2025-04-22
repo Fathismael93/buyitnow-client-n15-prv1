@@ -230,15 +230,44 @@ const ProductImageGallery = memo(({ product, onError, onZoomClick }) => {
 
   // Préchargement des images pour une expérience plus fluide
   useEffect(() => {
-    if (product?.images && product.images.length > 0) {
-      product.images.forEach((img) => {
-        if (img?.url) {
-          const imgEl = new window.Image();
-          imgEl.src = img.url;
+    const preloadImages = async () => {
+      if (product?.images && product.images.length > 0) {
+        const imagePromises = product.images.map((img) => {
+          if (img?.url) {
+            return new Promise((resolve, reject) => {
+              const imgEl = document.createElement('img');
+              imgEl.onload = resolve;
+              imgEl.onerror = reject;
+              imgEl.src = img.url;
+            });
+          }
+          return Promise.resolve();
+        });
+
+        try {
+          await Promise.all(imagePromises);
+          // Toutes les images sont préchargées
+        } catch (error) {
+          // Gérer silencieusement les erreurs de préchargement
+          console.warn('Failed to preload some product images');
         }
-      });
-    }
+      }
+    };
+
+    preloadImages();
   }, [product?.images]);
+
+  // Préchargement des images pour une expérience plus fluide
+  // useEffect(() => {
+  //   if (product?.images && product.images.length > 0) {
+  //     product.images.forEach((img) => {
+  //       if (img?.url) {
+  //         const imgEl = new window.Image();
+  //         imgEl.src = img.url;
+  //       }
+  //     });
+  //   }
+  // }, [product?.images]);
 
   return (
     <div className="sticky top-20 md:top-24">
