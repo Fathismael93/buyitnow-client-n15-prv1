@@ -78,13 +78,15 @@ export const revalidate = 1800; // 30 minutes par défaut
 
 const ProductDetailsPage = async ({ params }) => {
   // Validation de base des paramètres
-  if (!params?.id) {
+  console.log('ProductDetailsPage: params', { params });
+  const { id } = await params;
+  if (!id) {
     logger.warn('Product ID missing in params', { params });
     notFound();
   }
 
   // Utiliser un ID normalisé pour éviter les problèmes
-  const productId = params.id.toString().trim();
+  const productId = id?.toString().trim();
 
   // Traçage de la requête pour le monitoring des performances
   const requestStart = Date.now();
@@ -93,12 +95,16 @@ const ProductDetailsPage = async ({ params }) => {
     action: 'product_page_load_start',
   });
 
+  console.log('ProductDetailsPage: Fetching product data');
+
   // Récupération des données du produit
   // Si getProductDetails lance une erreur, elle sera capturée par le error.jsx
   const data = await getProductDetails(productId);
 
+  console.log('ProductDetailsPage: Product data fetched', { data });
+
   // Si getProductDetails renvoie null ou un objet vide
-  if (!data || !data.product) {
+  if (!data || !data?.product) {
     logger.warn('ProductDetailsPage: Product not found or empty data', {
       productId,
       data: data ? 'empty' : 'null',
@@ -111,8 +117,8 @@ const ProductDetailsPage = async ({ params }) => {
     productId,
     duration: Date.now() - requestStart,
     hasSimilarProducts:
-      Array.isArray(data.sameCategoryProducts) &&
-      data.sameCategoryProducts.length > 0,
+      Array.isArray(data?.sameCategoryProducts) &&
+      data?.sameCategoryProducts.length > 0,
     action: 'product_page_load_complete',
   });
 
