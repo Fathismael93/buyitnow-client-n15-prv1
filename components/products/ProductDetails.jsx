@@ -969,6 +969,16 @@ const ProductDetails = ({ data }) => {
                           : 'Rupture de stock'}
                       </dd>
                     </div>
+                    {product?.slug && (
+                      <div className="sm:col-span-1">
+                        <dt className="text-sm font-medium text-gray-500">
+                          Slug
+                        </dt>
+                        <dd className="mt-1 text-sm text-gray-900 font-mono">
+                          {product?.slug}
+                        </dd>
+                      </div>
+                    )}
                   </dl>
                 </div>
               </div>
