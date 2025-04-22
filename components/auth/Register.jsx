@@ -145,24 +145,9 @@ const Register = () => {
         });
       }
     } catch (error) {
-      // Traitement des erreurs de validation
-      if (error.name === 'ValidationError') {
-        const fieldErrors = {};
-
-        if (Array.isArray(error.inner)) {
-          error.inner.forEach((err) => {
-            fieldErrors[err.path] = err.message;
-          });
-          setErrors(fieldErrors);
-
-          toast.error('Veuillez corriger les erreurs dans le formulaire');
-        } else {
-          toast.error(error.message);
-        }
-      } else {
-        toast.error('Une erreur est survenue. Veuillez réessayer.');
-        console.error('Registration error:', error);
-      }
+      // Traitement générique des erreurs
+      toast.error('Une erreur est survenue. Veuillez réessayer.');
+      console.error('Registration error:', error);
     } finally {
       setIsSubmitting(false);
     }

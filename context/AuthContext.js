@@ -1,13 +1,6 @@
 /* eslint-disable no-unused-vars */
 'use client';
 
-import { registerSchema } from '@/helpers/schemas';
-import {
-  sanitizeEmail,
-  sanitizeName,
-  sanitizePassword,
-  sanitizePhone,
-} from '@/utils/authSanitizers';
 import { appCache } from '@/utils/cache';
 import { useRouter } from 'next/navigation';
 import { createContext, useState } from 'react';
@@ -29,21 +22,12 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      // Vérification du CSRF Token
-      // if (!csrfToken) {
-      //   setError('Erreur de sécurité: token manquant');
-      //   toast.error('Erreur de sécurité: veuillez rafraîchir la page');
-      //   setLoading(false);
-      //   return;
-      // }
-
       // Vérifier le rate limiting côté client
-      // On utilise l'email comme identifiant pour éviter les créations multiples de comptes
       const clientIp = 'CLIENT-IP'; // En réalité, ce serait déterminé côté serveur
       const clientRateLimitKey = `register:${email}:${clientIp}`;
-      const maxClientAttempts = 5; // 5 tentatives maximum - défini ici pour être utilisé partout
+      const maxClientAttempts = 5; // 5 tentatives maximum
 
-      // Utiliser le cache pour suivre les tentatives d'inscription (en mémoire, côté client)
+      // Utiliser le cache pour suivre les tentatives d'inscription
       let registrationAttempts = 0;
 
       try {
@@ -86,15 +70,13 @@ export const AuthProvider = ({ children }) => {
         'Content-Type': 'application/json',
         Accept: 'application/json',
         'X-Requested-With': 'XMLHttpRequest', // Protection CSRF supplémentaire
+        'Cache-Control':
+          'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
       };
 
       try {
-        // Ajouter headers de cache pour indiquer de ne pas mettre en cache cette requête
-        headers['Cache-Control'] =
-          'no-store, no-cache, must-revalidate, proxy-revalidate';
-        headers['Pragma'] = 'no-cache';
-        headers['Expires'] = '0';
-
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
           {
@@ -144,12 +126,9 @@ export const AuthProvider = ({ children }) => {
             errorData = { message: `Erreur HTTP: ${res.status}` };
           }
 
-          if (statusCode === 400) {
-            // Erreur de validation - Géré par toast
-            setError(errorData.message || "Données d'inscription invalides");
-            toast.error(errorData.message || "Données d'inscription invalides");
-          } else if (statusCode === 409) {
-            // Conflit (email déjà utilisé) - Géré par toast
+          // Traitement unifié des erreurs HTTP
+          if (statusCode === 409) {
+            // Conflit (email déjà utilisé)
             setError('Cet email est déjà utilisé');
             toast.error(
               'Cet email est déjà utilisé. Veuillez vous connecter ou utiliser un autre email.',
@@ -160,13 +139,19 @@ export const AuthProvider = ({ children }) => {
               appCache.ui.delete(clientRateLimitKey);
             }
           } else if (statusCode === 401 || statusCode === 403) {
-            // Erreur d'authentification - Géré par toast
-            setError("Erreur d'authentification");
+            // Erreur d'authentification
+            setError('Erreur de sécurité');
             toast.error(
-              'Votre session a expiré ou le token CSRF est invalide. Veuillez rafraîchir la page.',
+              'Erreur de sécurité. Veuillez rafraîchir la page et réessayer.',
+            );
+          } else if (statusCode >= 400 && statusCode < 500) {
+            // Autres erreurs client (incluant 400 - Bad Request)
+            setError(errorData.message || 'Erreur dans les données envoyées');
+            toast.error(
+              errorData.message || 'Erreur dans les données envoyées',
             );
           } else {
-            // Erreurs serveur - Lancer une erreur pour le composant d'erreur global
+            // Erreurs serveur
             const serverError = new Error(
               errorData.message || `Erreur serveur (${statusCode})`,
             );
@@ -189,7 +174,7 @@ export const AuthProvider = ({ children }) => {
         const data = await res.json();
 
         if (data?.success === false) {
-          // Erreur applicative - Gestion par toast
+          // Erreur applicative
           setError(data?.message || "Échec de l'inscription");
           toast.error(data?.message || "Échec de l'inscription");
           setLoading(false);
