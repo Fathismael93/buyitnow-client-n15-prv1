@@ -533,10 +533,8 @@ const ProductDetails = ({ data }) => {
       }
     } catch (err) {
       setError('Erreur lors du traitement des données du produit');
-      captureException(err, {
-        tags: { component: 'ProductDetails' },
-        extra: { productId: data?.product?._id },
-      });
+      // Propagez l'erreur pour qu'elle soit capturée par le boundary d'erreur
+      throw err; // Cette erreur sera capturée par le composant error.jsx
     }
   }, [data, cart]);
 
@@ -651,36 +649,9 @@ const ProductDetails = ({ data }) => {
       ]
     : [{ name: 'Accueil', url: '/' }];
 
-  // Gestion des erreurs
+  // Par une simple propagation:
   if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-50 p-6 rounded-lg shadow-sm my-4 max-w-2xl mx-auto">
-          <h2 className="text-red-800 font-semibold text-xl mb-3">
-            Erreur de chargement du produit
-          </h2>
-          <p className="text-red-600 mb-4">{error}</p>
-          <Link
-            href="/"
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Retour à la page d&apos;accueil
-          </Link>
-        </div>
-      </div>
-    );
+    throw new Error(error); // Cette erreur sera capturée par le boundary d'erreur
   }
 
   // État de chargement ou absence de données
