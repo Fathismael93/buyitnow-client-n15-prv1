@@ -13,6 +13,14 @@ export const CACHE_CONFIGS = {
     maxAge: 3 * 60 * 60,
     staleWhileRevalidate: 60 * 60,
   },
+  // Nouvelle configuration spécifique pour un seul produit
+  singleProduct: {
+    maxAge: 5 * 60 * 60, // 5 heures (durée plus longue car les détails d'un produit changent moins fréquemment)
+    staleWhileRevalidate: 2 * 60 * 60, // 2 heures (période plus longue de revalidation en arrière-plan)
+    sMaxAge: 12 * 60 * 60, // 12 heures pour les CDN/proxies partagés
+    immutable: false, // Non immutable car le produit peut être mis à jour
+    mustRevalidate: false, // Permet l'utilisation de contenus périmés en cas de problèmes réseau
+  },
   // Durée de cache pour les catégories (1 heure)
   categories: {
     maxAge: 2 * 24 * 60 * 60,
@@ -970,6 +978,15 @@ export const appCache = {
     compress: true,
     name: 'products',
     logFunction: (msg) => console.debug(`[ProductCache] ${msg}`),
+  }),
+
+  // Nouveau cache spécifique pour les produits individuels
+  singleProducts: new MemoryCache({
+    ttl: CACHE_CONFIGS.singleProduct.maxAge * 1000,
+    maxSize: 1000, // Plus d'entrées car chaque produit est une entrée distincte
+    compress: true,
+    name: 'single-products',
+    logFunction: (msg) => console.debug(`[SingleProductCache] ${msg}`),
   }),
 
   categories: new MemoryCache({

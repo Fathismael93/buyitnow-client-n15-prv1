@@ -7,12 +7,12 @@ import dbConnect from '@/backend/config/dbConnect';
 import Product from '@/backend/models/product';
 import Category from '@/backend/models/category';
 import { createRateLimiter, RATE_LIMIT_ALGORITHMS } from '@/utils/rateLimit';
-import { getCacheHeaders } from '@/utils/cache';
+import { appCache, getCacheHeaders, getCacheKey } from '@/utils/cache';
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
 
-// Configuration de la mise en cache (revalidation toutes les heures)
-export const revalidate = 3600;
+// Configuration de la mise en cache (revalidation toutes les 5 heures)
+export const revalidate = 5 * 60 * 60;
 
 // Configuration des constantes
 const QUERY_TIMEOUT = parseInt(process.env.QUERY_TIMEOUT || 5000); // 5 secondes par défaut
@@ -87,6 +87,65 @@ export async function GET(req, { params }) {
             ...rateLimitHeaders,
             'Content-Security-Policy': "default-src 'self'",
             'X-Content-Type-Options': 'nosniff',
+          },
+        },
+      );
+    }
+
+    // Vérifier d'abord le cache mémoire
+    const cacheKey = getCacheKey('single-product', { id });
+    const cachedProduct = appCache.singleProducts.get(cacheKey);
+
+    if (cachedProduct) {
+      logger.info('Product retrieved from cache', {
+        productId: id,
+        requestId,
+        fromCache: true,
+        duration: Date.now() - start,
+      });
+
+      // Récupérer seulement les produits similaires si nécessaire
+      let sameCategoryProducts = [];
+      if (cachedProduct.category) {
+        // Utiliser une clé de cache distincte pour les produits similaires
+        const similarCacheKey = getCacheKey('similar-products', {
+          categoryId: cachedProduct.category,
+        });
+        sameCategoryProducts =
+          appCache.singleProducts.get(similarCacheKey) ||
+          (await Product.findSimilarProductsLite(cachedProduct.category).catch(
+            () => [],
+          ));
+
+        // Mettre en cache les produits similaires si récupérés de la base de données
+        if (
+          sameCategoryProducts.length > 0 &&
+          !appCache.singleProducts.get(similarCacheKey)
+        ) {
+          appCache.singleProducts.set(similarCacheKey, sameCategoryProducts);
+        }
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            product: cachedProduct,
+            sameCategoryProducts,
+          },
+        },
+        {
+          status: 200,
+          headers: {
+            ...getCacheHeaders('singleProduct'),
+            ...rateLimitHeaders,
+            'X-Cache': 'HIT',
+            'Content-Security-Policy': "default-src 'self'",
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY',
+            'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+            ETag: `"${cachedProduct._id}-${cachedProduct.updatedAt || Date.now()}"`,
+            Vary: 'Accept-Language, User-Agent',
           },
         },
       );
@@ -175,6 +234,17 @@ export async function GET(req, { params }) {
       }),
     ]).catch(() => []); // En cas d'erreur, retourner un tableau vide
 
+    // Mettre en cache le produit
+    appCache.singleProducts.set(cacheKey, product);
+
+    // Mettre en cache les produits similaires séparément
+    if (sameCategoryProducts.length > 0) {
+      const similarCacheKey = getCacheKey('similar-products', {
+        categoryId: product.category,
+      });
+      appCache.singleProducts.set(similarCacheKey, sameCategoryProducts);
+    }
+
     // Logging de performance
     const duration = Date.now() - start;
     logger.info('Product retrieved successfully', {
@@ -196,8 +266,9 @@ export async function GET(req, { params }) {
       },
       {
         status: 200,
+        // Par :
         headers: {
-          ...getCacheHeaders('products'),
+          ...getCacheHeaders('singleProduct'), // Utiliser la nouvelle configuration spécifique
           ...rateLimitHeaders,
           'X-Cache': 'MISS',
           'Content-Security-Policy': "default-src 'self'",
@@ -205,6 +276,7 @@ export async function GET(req, { params }) {
           'X-Frame-Options': 'DENY',
           'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
           ETag: `"${product._id}-${product.updatedAt || Date.now()}"`,
+          Vary: 'Accept-Language, User-Agent', // Important pour la mise en cache conditionnelle
         },
       },
     );
