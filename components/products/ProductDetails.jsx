@@ -5,13 +5,10 @@ import dynamic from 'next/dynamic';
 import { toast } from 'react-toastify';
 import Image from 'next/image';
 import Link from 'next/link';
-import Head from 'next/head';
 
 import AuthContext from '@/context/AuthContext';
 import CartContext from '@/context/CartContext';
-import { arrayHasData } from '@/helpers/helpers';
 import { INCREASE } from '@/helpers/constants';
-import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { captureException } from '@/monitoring/sentry';
 
 // Chargement dynamique des composants lourds
@@ -254,7 +251,7 @@ const ProductDetails = ({ data }) => {
           href="/"
           className="mt-2 inline-block text-blue-600 hover:underline"
         >
-          Retour à la page d'accueil
+          Retour à la page d&apos;accueil
         </Link>
       </div>
     );
