@@ -10,6 +10,7 @@ const ProductDetails = dynamic(
   () => import('@/components/products/ProductDetails'),
   {
     loading: () => <ProductLoading />,
+    ssr: true,
   },
 );
 
@@ -57,6 +58,24 @@ export async function generateMetadata({ params }) {
       description: product?.description
         ? `${product?.description.substring(0, 155)}...`
         : 'Discover this amazing product on Buy It Now',
+      openGraph: {
+        title: product?.name,
+        description: product?.description
+          ? `${product?.description?.substring(0, 155)}...`
+          : 'Discover this amazing product on Buy It Now',
+        type: 'product',
+        images: product?.images?.[0]
+          ? [
+              {
+                url: product?.images[0],
+                width: 800,
+                height: 600,
+                alt: product?.name,
+              },
+            ]
+          : [],
+        locale: 'fr_FR',
+      },
     };
   } catch (error) {
     console.error('Error generating product metadata:', error);
