@@ -51,6 +51,13 @@ export async function generateMetadata({ params }) {
         description: 'The requested product could not be found.',
       };
     }
+
+    return {
+      title: `${product?.name} | Buy It Now`,
+      description: product?.description
+        ? `${product?.description.substring(0, 155)}...`
+        : 'Discover this amazing product on Buy It Now',
+    };
   } catch (error) {
     console.error('Error generating product metadata:', error);
 
