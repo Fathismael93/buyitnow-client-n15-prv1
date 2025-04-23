@@ -9,22 +9,73 @@ const ProductDetails = lazy(
   () => import('@/components/products/ProductDetails'),
 );
 
-// Fallback pour les produits similaires au cas où ils ne seraient pas disponibles
-// const SimilarProductsFallback = lazy(
-//   () => import('@/components/products/SimilarProductsFallback'),
-// );
+// Cache simple pour éviter la double récupération du même produit
+// Cela restera en mémoire seulement pendant le rendu d'une requête spécifique
+const requestCache = new Map();
+
+// Fonction d'aide pour récupérer les données avec cache
+async function getProductWithCache(id, options = {}) {
+  const { forMetadata = false, timeout = 5000 } = options;
+  const cacheKey = `product-${id}${forMetadata ? '-meta' : ''}`;
+
+  // Vérifier le cache d'abord
+  if (requestCache.has(cacheKey)) {
+    return requestCache.get(cacheKey);
+  }
+
+  // Préparer la récupération avec timeout
+  const fetchPromise = getProductDetails(id);
+  let resultPromise;
+
+  if (forMetadata) {
+    // Pour les métadonnées, utiliser un timeout court
+    resultPromise = Promise.race([
+      fetchPromise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Metadata fetch timeout')), timeout),
+      ),
+    ]);
+  } else {
+    // Pour le contenu principal, utiliser juste la promesse
+    resultPromise = fetchPromise;
+  }
+
+  try {
+    const result = await resultPromise;
+    requestCache.set(cacheKey, result);
+    return result;
+  } catch (error) {
+    // Log l'erreur mais ne pas la stocker dans le cache
+    logger.error(
+      `Error fetching product ${forMetadata ? 'metadata' : 'data'}`,
+      {
+        productId: id,
+        error: error.message,
+        source: forMetadata ? 'metadata' : 'main_content',
+      },
+    );
+    throw error; // Propager l'erreur
+  }
+}
 
 // Générer les métadonnées dynamiquement pour chaque produit
 export async function generateMetadata({ params }) {
+  if (!params?.id) {
+    return {
+      title: 'Produit introuvable | Buy It Now',
+      description: "Ce produit n'existe pas ou a été retiré.",
+    };
+  }
+
   try {
-    // Récupérer les données de base pour les métadonnées
-    // Utiliser un timeout court pour éviter de bloquer le rendu
-    const productData = await Promise.race([
-      getProductDetails(params?.id),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Metadata timeout')), 2000),
-      ),
-    ]).catch(() => null);
+    // Utiliser l'ID normalisé
+    const productId = params.id.toString().trim();
+
+    // Récupérer les données avec un cache et un timeout
+    const productData = await getProductWithCache(productId, {
+      forMetadata: true,
+      timeout: 2000,
+    }).catch(() => null);
 
     // Si le produit n'est pas trouvé, utiliser des métadonnées par défaut
     if (!productData?.product) {
@@ -35,6 +86,25 @@ export async function generateMetadata({ params }) {
     }
 
     const product = productData.product;
+
+    // Construction des données structurées JSON-LD pour le SEO
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: product.name,
+      description: product.description,
+      image: product.images?.[0]?.url,
+      sku: product._id,
+      offers: {
+        '@type': 'Offer',
+        price: product.price,
+        priceCurrency: 'EUR',
+        availability:
+          product.stock > 0
+            ? 'https://schema.org/InStock'
+            : 'https://schema.org/OutOfStock',
+      },
+    };
 
     return {
       title: `${product.name} | Buy It Now`,
@@ -58,6 +128,13 @@ export async function generateMetadata({ params }) {
           },
         },
       },
+      // Ajout des données structurées pour les moteurs de recherche
+      alternates: {
+        canonical: `/product/${product.slug || product._id}`,
+      },
+      other: {
+        'custom:jsonLd': JSON.stringify(jsonLd),
+      },
     };
   } catch (error) {
     logger.error('Error generating product metadata', {
@@ -76,17 +153,29 @@ export async function generateMetadata({ params }) {
 // Configuration du cache dynamique selon les besoins des produits
 export const revalidate = 1800; // 30 minutes par défaut
 
+// Préfetcher le CSS nécessaire pour la page produit
+export function generateViewport() {
+  return {
+    themeColor: '#ffffff',
+    // Précharger le CSS critique
+    preload: [
+      {
+        href: '/styles/product-critical.css',
+        as: 'style',
+      },
+    ],
+  };
+}
+
 const ProductDetailsPage = async ({ params }) => {
   // Validation de base des paramètres
-  console.log('ProductDetailsPage: params', { params });
-  const { id } = await params;
-  if (!id) {
+  if (!params?.id) {
     logger.warn('Product ID missing in params', { params });
     notFound();
   }
 
   // Utiliser un ID normalisé pour éviter les problèmes
-  const productId = id?.toString().trim();
+  const productId = params.id.toString().trim();
 
   // Traçage de la requête pour le monitoring des performances
   const requestStart = Date.now();
@@ -95,45 +184,74 @@ const ProductDetailsPage = async ({ params }) => {
     action: 'product_page_load_start',
   });
 
-  console.log('ProductDetailsPage: Fetching product data');
+  try {
+    // Récupération des données du produit avec le cache
+    // Si getProductDetails lance une erreur, elle sera capturée par le error.jsx
+    const data = await getProductWithCache(productId);
 
-  // Récupération des données du produit
-  // Si getProductDetails lance une erreur, elle sera capturée par le error.jsx
-  const data = await getProductDetails(productId);
+    // Si getProductDetails renvoie null ou un objet vide
+    if (!data || !data.product) {
+      logger.warn('ProductDetailsPage: Product not found or empty data', {
+        productId,
+        data: data ? 'empty' : 'null',
+      });
+      notFound();
+    }
 
-  console.log('ProductDetailsPage: Product data fetched', { data });
-
-  // Si getProductDetails renvoie null ou un objet vide
-  if (!data || !data?.product) {
-    logger.warn('ProductDetailsPage: Product not found or empty data', {
+    // Logging de performance
+    logger.info('ProductDetailsPage: Product data fetched successfully', {
       productId,
-      data: data ? 'empty' : 'null',
+      duration: Date.now() - requestStart,
+      hasSimilarProducts:
+        Array.isArray(data.sameCategoryProducts) &&
+        data.sameCategoryProducts.length > 0,
+      action: 'product_page_load_complete',
     });
-    notFound();
+
+    return (
+      <>
+        {/* Script pour injecter les données structurées */}
+        {data.product && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                '@context': 'https://schema.org',
+                '@type': 'Product',
+                name: data.product.name,
+                description: data.product.description,
+                image: data.product.images?.[0]?.url,
+                sku: data.product._id,
+                offers: {
+                  '@type': 'Offer',
+                  price: data.product.price,
+                  priceCurrency: 'EUR',
+                  availability:
+                    data.product.stock > 0
+                      ? 'https://schema.org/InStock'
+                      : 'https://schema.org/OutOfStock',
+                },
+              }),
+            }}
+          />
+        )}
+        <Suspense fallback={<Loading />}>
+          <main>
+            <ProductDetails data={data} />
+          </main>
+        </Suspense>
+      </>
+    );
+  } catch (error) {
+    // Si nous arrivons ici, c'est que nous avons une erreur non gérée
+    // Le boundary d'erreur (error.jsx) devrait la capturer
+    logger.error('Unhandled error in ProductDetailsPage', {
+      productId,
+      error: error.message,
+      stack: error.stack,
+    });
+    throw error; // Propager l'erreur au error boundary
   }
-
-  // Logging de performance
-  logger.info('ProductDetailsPage: Product data fetched successfully', {
-    productId,
-    duration: Date.now() - requestStart,
-    hasSimilarProducts:
-      Array.isArray(data?.sameCategoryProducts) &&
-      data?.sameCategoryProducts.length > 0,
-    action: 'product_page_load_complete',
-  });
-
-  return (
-    <Suspense fallback={<Loading />}>
-      <main>
-        <ProductDetails
-          data={data}
-          // fallback={
-          //   <SimilarProductsFallback categoryId={data.product?.category} />
-          // }
-        />
-      </main>
-    </Suspense>
-  );
 };
 
 export default ProductDetailsPage;
