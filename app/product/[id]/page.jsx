@@ -13,6 +13,9 @@ const ProductDetails = dynamic(
   },
 );
 
+// Configuration de revalidation pour la mise en cache
+export const revalidate = 18000; // Revalidation toutes les heures
+
 // Types d'erreurs personnalisés pour une meilleure gestion
 class ProductNotFoundError extends Error {
   constructor(productId) {
