@@ -1,20 +1,17 @@
 import dynamic from 'next/dynamic';
 
 import { getProductDetails } from '@/backend/utils/server-only-methods';
-import Loading from '@/app/product/[id]/Loading';
 import { Suspense } from 'react';
 import { captureException } from '@/monitoring/sentry';
 import { notFound } from 'next/navigation';
+import ProductLoading from './Loading';
 
 const ProductDetails = dynamic(
   () => import('@/components/products/ProductDetails'),
   {
-    loading: () => <Loading />,
+    loading: () => <ProductLoading />,
   },
 );
-
-// Configuration de revalidation pour la mise en cache
-export const revalidate = 18000; // Revalidation toutes les heures
 
 // Types d'erreurs personnalisés pour une meilleure gestion
 class ProductNotFoundError extends Error {
@@ -61,7 +58,7 @@ const ProductDetailsPage = async ({ params }) => {
     }
 
     return (
-      <Suspense fallback={<Loading />}>
+      <Suspense fallback={<ProductLoading />}>
         <section itemScope itemType="https://schema.org/Product">
           <meta itemProp="productID" content={id} />
           <ProductDetails
