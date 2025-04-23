@@ -61,11 +61,11 @@ export async function generateMetadata({ params }) {
       description: product?.description
         ? `${product?.description.substring(0, 155)}...`
         : 'Discover this amazing product on Buy It Now',
-      openGraph: {
-        title: product?.name,
-        type: 'product',
-        locale: 'fr_FR',
-      },
+      // openGraph: {
+      //   title: product?.name,
+      //   type: 'product',
+      //   locale: 'fr_FR',
+      // },
     };
   } catch (error) {
     console.error('Error generating product metadata:', error);
