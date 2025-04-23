@@ -66,6 +66,25 @@ export async function generateMetadata({ params }) {
       //   type: 'product',
       //   locale: 'fr_FR',
       // },
+      // Schéma JSON-LD pour produit (améliore le référencement)
+      other: {
+        'product-json': JSON.stringify({
+          '@context': 'https://schema.org/',
+          '@type': 'Product',
+          name: product?.name,
+          description: product?.description,
+          image: product?.images?.[0] || '',
+          offers: {
+            '@type': 'Offer',
+            price: product?.price,
+            priceCurrency: 'EUR',
+            availability:
+              product?.stock > 0
+                ? 'https://schema.org/InStock'
+                : 'https://schema.org/OutOfStock',
+          },
+        }),
+      },
     };
   } catch (error) {
     console.error('Error generating product metadata:', error);
