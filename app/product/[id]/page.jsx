@@ -1,7 +1,7 @@
 import dynamic from 'next/dynamic';
 
 import { getProductDetails } from '@/backend/utils/server-only-methods';
-import Loading from '@/app/loading';
+import Loading from '@/app/product/[id]/Loading';
 import { Suspense } from 'react';
 import { captureException } from '@/monitoring/sentry';
 import { notFound } from 'next/navigation';
