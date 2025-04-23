@@ -1,199 +1,522 @@
+/* eslint-disable no-unused-vars */
 'use client';
 
-import { useContext, useState } from 'react';
+import {
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  memo,
+  useMemo,
+} from 'react';
 import dynamic from 'next/dynamic';
-
 import { toast } from 'react-toastify';
+import PropTypes from 'prop-types'; // Pour la validation des props
+import Image from 'next/image';
+import Link from 'next/link';
 
 import AuthContext from '@/context/AuthContext';
 import CartContext from '@/context/CartContext';
-import Image from 'next/image';
-import { arrayHasData } from '@/helpers/helpers';
-import Link from 'next/link';
+import { arrayHasData, sanitizeHtml } from '@/helpers/helpers';
 import { INCREASE } from '@/helpers/constants';
-const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
 
-const ProductDetails = ({ product, sameCategoryProducts }) => {
+// Chargement dynamique des composants
+const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
+  ssr: true, // Enable SSR for SEO
+  loading: () => <div className="h-8 bg-gray-100 rounded animate-pulse"></div>,
+});
+
+const ProductImageGallery = memo(function ProductImageGallery({
+  product,
+  selectedImage,
+  onImageSelect,
+}) {
+  // Si pas d'images disponibles, utiliser l'image par défaut
+  const defaultImage = '/images/default_product.png';
+  const productImages =
+    product?.images?.length > 0 ? product.images : [{ url: defaultImage }];
+
+  return (
+    <aside aria-label="Product images">
+      <div
+        className="border border-gray-200 shadow-sm p-3 text-center rounded-md mb-5 bg-white relative"
+        role="img"
+        aria-label={`Main image of ${product?.name || 'product'}`}
+      >
+        <Image
+          className="object-contain inline-block transition-opacity"
+          src={selectedImage || defaultImage}
+          alt={product?.name || 'Product image'}
+          width={400}
+          height={400}
+          priority={true} // Load this image early
+          quality={85}
+          placeholder="blur"
+          blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEtAJJXIDTiQAAAABJRU5ErkJggg=="
+        />
+
+        {/* Overlay de zoom (à implémenter avec une librairie comme react-medium-image-zoom) */}
+        <button
+          className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-sm opacity-70 hover:opacity-100 transition-opacity"
+          aria-label="Zoom image"
+          onClick={() => {
+            /* Intégrer une fonction de zoom ici */
+          }}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            className="w-5 h-5"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+            />
+          </svg>
+        </button>
+      </div>
+
+      {/* Thumbnails gallery */}
+      <div
+        className="space-x-2 overflow-auto text-center whitespace-nowrap pb-3"
+        aria-label="Product thumbnail images"
+        role="group"
+      >
+        {productImages.map((img, index) => (
+          <button
+            key={img?.url || `img-${index}`}
+            className={`inline-block border ${selectedImage === img?.url ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'} cursor-pointer p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all`}
+            onClick={() => onImageSelect(img?.url)}
+            aria-label={`View product image ${index + 1}`}
+            aria-pressed={selectedImage === img?.url}
+          >
+            <Image
+              className="w-14 h-14 object-contain"
+              src={img?.url || defaultImage}
+              alt={`${product?.name || 'Product'} - thumbnail ${index + 1}`}
+              width={56}
+              height={56}
+              onError={(e) => {
+                e.target.src = defaultImage;
+              }}
+            />
+          </button>
+        ))}
+      </div>
+    </aside>
+  );
+});
+
+const ProductInfo = memo(function ProductInfo({
+  product,
+  inStock,
+  onAddToCart,
+}) {
+  // Format prix avec séparateur de milliers et 2 décimales
+  const formattedPrice = new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(product?.price || 0);
+
+  return (
+    <main>
+      <h1 className="font-semibold text-2xl mb-4 text-gray-800">
+        {product?.name || 'Product Not Available'}
+      </h1>
+
+      <div className="flex flex-wrap items-center space-x-2 mb-2">
+        {product?.verified && (
+          <span className="text-green-700 flex items-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 mr-1"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Vérifié
+          </span>
+        )}
+      </div>
+
+      <p
+        className="mb-4 font-semibold text-2xl text-blue-600"
+        aria-label="Prix"
+      >
+        {formattedPrice}
+      </p>
+
+      {/* Description sécurisée contre XSS */}
+      {product?.description ? (
+        <div
+          className="mb-6 text-gray-600 leading-relaxed"
+          dangerouslySetInnerHTML={{
+            __html: sanitizeHtml(product.description),
+          }}
+        />
+      ) : (
+        <p className="mb-6 text-gray-500">
+          Aucune description disponible pour ce produit.
+        </p>
+      )}
+
+      {/* Bouton d'ajout au panier */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        <button
+          className={`px-6 py-3 inline-block text-white font-medium text-center rounded-md transition-colors 
+            ${
+              inStock
+                ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-300 focus:outline-none cursor-pointer'
+                : 'bg-gray-400 cursor-not-allowed'
+            }`}
+          onClick={onAddToCart}
+          disabled={!inStock}
+          aria-label={inStock ? 'Ajouter au panier' : 'Produit indisponible'}
+        >
+          <i className="fa fa-shopping-cart mr-2" aria-hidden="true"></i>
+          {inStock ? 'Ajouter au panier' : 'Indisponible'}
+        </button>
+
+        {/* Bouton de sauvegarde pour plus tard (à implémenter) */}
+        <button
+          className="px-4 py-2 inline-block text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors"
+          aria-label="Sauvegarder pour plus tard"
+        >
+          <i className="far fa-bookmark mr-1" aria-hidden="true"></i>
+          Sauvegarder
+        </button>
+      </div>
+
+      {/* Informations supplémentaires */}
+      <ul className="mb-5 text-gray-600">
+        <li className="mb-2 flex">
+          <span className="font-medium w-36 inline-block">Disponibilité:</span>
+          {inStock ? (
+            <span className="text-green-600 font-medium">En stock</span>
+          ) : (
+            <span className="text-red-600 font-medium">Rupture de stock</span>
+          )}
+        </li>
+        <li className="mb-2 flex">
+          <span className="font-medium w-36 inline-block">Quantité:</span>
+          <span>{product?.stock || 0} unité(s)</span>
+        </li>
+        <li className="mb-2 flex">
+          <span className="font-medium w-36 inline-block">Catégorie:</span>
+          <span>{product?.category?.categoryName || 'Non catégorisé'}</span>
+        </li>
+        <li className="mb-2 flex">
+          <span className="font-medium w-36 inline-block">Référence:</span>
+          <span className="font-mono text-sm">{product?._id || 'N/A'}</span>
+        </li>
+      </ul>
+
+      {/* Badge livraison */}
+      {inStock && (
+        <div className="inline-block bg-green-50 border border-green-100 rounded-lg px-3 py-2 text-green-700 text-sm">
+          <i className="fas fa-truck mr-1" aria-hidden="true"></i>
+          Livraison gratuite à partir de 50€
+        </div>
+      )}
+    </main>
+  );
+});
+
+const RelatedProducts = memo(function RelatedProducts({
+  products,
+  currentProductId,
+}) {
+  // Filtrer les produits pour exclure le produit actuel et limiter à 4 max
+  const filteredProducts = products
+    ?.filter((product) => product?._id !== currentProductId)
+    .slice(0, 4);
+
+  if (!arrayHasData(filteredProducts)) {
+    return null;
+  }
+
+  return (
+    <section aria-labelledby="related-heading" className="mt-12">
+      <h2
+        id="related-heading"
+        className="font-bold text-2xl mb-5 text-gray-800"
+      >
+        Produits similaires
+      </h2>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {filteredProducts.map((product) => (
+          <Link
+            key={product?._id}
+            href={`/product/${product?._id}`}
+            className="group bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200"
+          >
+            <div className="aspect-w-1 aspect-h-1 mb-4 bg-gray-100 rounded-md overflow-hidden">
+              <Image
+                src={product?.images?.[0]?.url || '/images/default_product.png'}
+                alt={product?.name || 'Related product'}
+                width={200}
+                height={200}
+                className="object-contain w-full h-full group-hover:scale-105 transition-transform"
+                loading="lazy" // Chargement différé
+                onError={(e) => {
+                  e.target.src = '/images/default_product.png';
+                }}
+              />
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-800 mb-1 group-hover:text-blue-600 transition-colors line-clamp-2">
+                {product?.name || 'Produit sans nom'}
+              </h3>
+              <p className="font-bold text-blue-600">
+                {new Intl.NumberFormat('fr-FR', {
+                  style: 'currency',
+                  currency: 'EUR',
+                }).format(product?.price || 0)}
+              </p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+});
+
+// Composant principal
+function ProductDetails({ product, sameCategoryProducts }) {
   const { user } = useContext(AuthContext);
   const { addItemToCart, updateCart, cart } = useContext(CartContext);
-  // State to track the currently selected image
-  const [selectedImage, setSelectedImage] = useState(
-    product?.images[0]?.url || '/images/default_product.png',
-  );
 
-  const relatedProducts = arrayHasData(sameCategoryProducts)
-    ? null
-    : sameCategoryProducts?.filter((element) => element?._id !== product?._id);
+  // État pour l'image sélectionnée
+  const [selectedImage, setSelectedImage] = useState(null);
 
-  // Function to handle image selection
-  const handleImageSelect = (image) => {
-    setSelectedImage(image);
-  };
+  // État pour le feedback d'ajout au panier
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
-  const inStock =
-    product === undefined || product?.length === 0
-      ? false
-      : product?.stock >= 1;
-
-  const addToCartHandler = () => {
-    if (!user) {
-      return toast.error('Sign in to add items in your cart !');
-    }
-    const isProductInCart = cart.find((i) => i?.product?._id === product?._id);
-
-    if (isProductInCart) {
-      updateCart(isProductInCart, INCREASE);
+  // Définir l'image sélectionnée au chargement ou quand le produit change
+  useEffect(() => {
+    if (product?.images && product.images.length > 0) {
+      setSelectedImage(product.images[0]?.url);
     } else {
-      addItemToCart({
-        product: product?._id,
-      });
+      setSelectedImage('/images/default_product.png');
     }
-  };
+  }, [product]);
 
-  const breadCrumbs = product !== undefined &&
-    product !== null && [
-      { name: 'Home', url: '/' },
+  // Vérifier si le produit est en stock - memoized
+  const inStock = useCallback(() => {
+    if (!product || product?.stock === undefined) return false;
+    return product.stock >= 1;
+  }, [product]);
+
+  // Définir les breadcrumbs une seule fois
+  const breadCrumbs = useMemo(() => {
+    if (!product) return null;
+
+    return [
+      { name: 'Accueil', url: '/' },
+      { name: 'Produits', url: '/products' },
       {
-        name: `${product === undefined || product?.length === 0 ? '' : product?.name?.substring(0, 100)} ...`,
-        url: `/products/${product?._id}`,
+        name: product.category?.categoryName || 'Catégorie',
+        url: `/category/${product.category?._id || 'all'}`,
+      },
+      {
+        name: product.name
+          ? product.name.length > 40
+            ? `${product.name.substring(0, 40)}...`
+            : product.name
+          : 'Produit',
+        url: `/product/${product._id}`,
       },
     ];
-  return (
-    <>
-      <BreadCrumbs breadCrumbs={breadCrumbs} />
-      <section className="bg-white py-10">
-        <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-5">
-            {product === undefined || product?.length === 0 ? (
-              <div className="w-full">
-                <p className="font-bold text-xl text-center">
-                  No product found!
-                </p>
-              </div>
-            ) : (
-              <>
-                <aside>
-                  <div className="border border-gray-200 shadow-xs p-3 text-center rounded-sm mb-5">
-                    <Image
-                      className="object-cover inline-block"
-                      src={selectedImage}
-                      alt="Product title"
-                      width="340"
-                      height="340"
-                    />
-                  </div>
-                  <div className="space-x-2 overflow-auto text-center whitespace-nowrap">
-                    {product?.images?.map((img) => (
-                      <div
-                        key={img?.url}
-                        className={`inline-block border ${selectedImage === img?.url ? 'border-blue-500' : 'border-gray-200'} cursor-pointer p-1 rounded-md`}
-                        onClick={() => handleImageSelect(img?.url)}
-                      >
-                        <Image
-                          className="w-30 h-30"
-                          src={
-                            img?.url ? img.url : '/images/default_product.png'
-                          }
-                          alt={product?.name}
-                          title={product?.name}
-                          width={30}
-                          height={30}
-                          onError={() => {
-                            setSelectedImage('/images/default_product.png');
-                          }}
-                          style={{ objectFit: 'contain' }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </aside>
-                <main>
-                  <h2 className="font-semibold text-2xl mb-4">
-                    {product?.name}
-                  </h2>
+  }, [product]);
 
-                  <div className="flex flex-wrap items-center space-x-2 mb-2">
-                    <span className="text-green-700">Verified</span>
-                  </div>
+  // Gérer l'ajout au panier
+  const handleAddToCart = useCallback(() => {
+    // Sécurité et validation
+    if (!product || !product._id) {
+      toast.error('Produit invalide');
+      return;
+    }
 
-                  <p className="mb-4 font-semibold text-xl">
-                    ${product?.price}
-                  </p>
+    if (!user) {
+      toast.info(
+        'Veuillez vous connecter pour ajouter des articles à votre panier',
+      );
+      return;
+    }
 
-                  <p className="mb-4 text-gray-500">{product?.description}</p>
+    if (!inStock()) {
+      toast.warning('Ce produit est en rupture de stock');
+      return;
+    }
 
-                  <div className="flex flex-wrap gap-2 mb-5">
-                    <button
-                      className="px-4 py-2 inline-block text-white cursor-pointer bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
-                      onClick={addToCartHandler}
-                      disabled={!inStock}
-                    >
-                      <i className="fa fa-shopping-cart mr-2"></i>
-                      Add to cart
-                    </button>
-                  </div>
+    setIsAddingToCart(true);
 
-                  <ul className="mb-5">
-                    <li className="mb-1">
-                      {' '}
-                      <b className="font-medium w-36 inline-block">Stock</b>
-                      {inStock ? (
-                        <span className="text-green-700">In Stock</span>
-                      ) : (
-                        <span className="text-red-700">Out of Stock</span>
-                      )}
-                    </li>
-                    <li className="mb-1">
-                      {' '}
-                      <b className="font-medium w-36 inline-block">Category:</b>
-                      <span className="text-gray-500">
-                        {product?.category?.categoryName}
-                      </span>
-                    </li>
-                  </ul>
-                </main>
-              </>
-            )}
-          </div>
-          <hr />
-          <h1 className="font-bold text-2xl mb-3 ml-3">Related Products</h1>
-          <div className="flex gap-6 p-3 mt-4 ml-3 border-blue-200 border rounded-lg">
-            {!arrayHasData(relatedProducts) &&
-              relatedProducts?.map((product) => (
-                <Link
-                  key={product?._id}
-                  href={`/product/${product?._id}`}
-                  className="h-58 ml-3 p-5 shadow-lg rounded-md hover:bg-blue-100 hover:rounded-md cursor-pointer"
-                >
-                  <Image
-                    priority
-                    src={
-                      product?.images[0]
-                        ? product?.images[0]?.url
-                        : '/images/default_product.png'
-                    }
-                    alt={product?.name}
-                    title={product?.name}
-                    width="100"
-                    height="150"
-                    placeholder="blur-sm"
-                    blurDataURL="/images/default_product.png"
-                    onError={() => ''}
-                    style={{ objectFit: 'fill' }}
-                  />
-                  <div className="mt-3 align-bottom">
-                    <h2 className="font-semibold">
-                      {product?.name?.substring(0, 15)}...
-                    </h2>
-                    <h3>${product?.price}</h3>
-                  </div>
-                </Link>
-              ))}
-          </div>
+    try {
+      const isProductInCart = cart.find((i) => i?.product?._id === product._id);
+
+      if (isProductInCart) {
+        updateCart(isProductInCart, INCREASE);
+        toast.success('Quantité mise à jour dans votre panier');
+      } else {
+        addItemToCart({
+          product: product._id,
+        });
+        toast.success('Produit ajouté à votre panier');
+      }
+    } catch (error) {
+      console.error('Error adding item to cart:', error);
+      toast.error("Erreur lors de l'ajout au panier. Veuillez réessayer.");
+    } finally {
+      setIsAddingToCart(false);
+    }
+  }, [product, user, cart, inStock, addItemToCart, updateCart]);
+
+  // Gérer la sélection d'image
+  const handleImageSelect = useCallback((imageUrl) => {
+    setSelectedImage(imageUrl);
+  }, []);
+
+  // État de chargement ou d'erreur
+  if (!product) {
+    return (
+      <div className="container max-w-xl mx-auto px-4 py-16 text-center">
+        <div className="bg-white shadow-md rounded-lg p-8">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-12 w-12 text-gray-400 mx-auto mb-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">
+            Produit non disponible
+          </h2>
+          <p className="text-gray-500 mb-6">
+            Le produit demandé n&apos;existe pas ou a été retiré de notre
+            catalogue.
+          </p>
+          <Link
+            href="/"
+            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Retour à l&apos;accueil
+          </Link>
         </div>
-      </section>
-    </>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-50 py-10">
+      {breadCrumbs && <BreadCrumbs breadCrumbs={breadCrumbs} />}
+
+      <div className="container max-w-6xl mx-auto px-4">
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            {/* Galerie d'images */}
+            <ProductImageGallery
+              product={product}
+              selectedImage={selectedImage}
+              onImageSelect={handleImageSelect}
+            />
+
+            {/* Informations produit */}
+            <ProductInfo
+              product={product}
+              inStock={inStock()}
+              onAddToCart={handleAddToCart}
+            />
+          </div>
+
+          {/* Description détaillée */}
+          <div className="border-t border-gray-200 pt-8 mt-8">
+            <div className="prose prose-blue max-w-none">
+              <h2 className="text-xl font-semibold mb-4">
+                Description détaillée
+              </h2>
+              {product.description ? (
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeHtml(product.description),
+                  }}
+                />
+              ) : (
+                <p className="text-gray-500">
+                  Aucune description détaillée disponible.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Spécifications produit */}
+          {product.specifications && (
+            <div className="border-t border-gray-200 pt-8 mt-8">
+              <h2 className="text-xl font-semibold mb-4">Spécifications</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(product.specifications).map(([key, value]) => (
+                  <div key={key} className="flex">
+                    <span className="font-medium w-36">{key}:</span>
+                    <span>{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Produits connexes */}
+        <RelatedProducts
+          products={sameCategoryProducts}
+          currentProductId={product._id}
+        />
+      </div>
+    </div>
   );
+}
+
+// Validation des props pour une meilleure robustesse
+ProductDetails.propTypes = {
+  product: PropTypes.shape({
+    _id: PropTypes.string,
+    name: PropTypes.string,
+    price: PropTypes.number,
+    description: PropTypes.string,
+    stock: PropTypes.number,
+    images: PropTypes.arrayOf(
+      PropTypes.shape({
+        url: PropTypes.string,
+      }),
+    ),
+    category: PropTypes.shape({
+      _id: PropTypes.string,
+      categoryName: PropTypes.string,
+    }),
+    specifications: PropTypes.object,
+  }),
+  sameCategoryProducts: PropTypes.array,
 };
 
-export default ProductDetails;
+// Valeurs par défaut pour éviter les erreurs
+ProductDetails.defaultProps = {
+  product: null,
+  sameCategoryProducts: [],
+};
+
+export default memo(ProductDetails);
