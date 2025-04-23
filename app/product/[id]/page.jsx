@@ -3,6 +3,8 @@ import dynamic from 'next/dynamic';
 import { getProductDetails } from '@/backend/utils/server-only-methods';
 import Loading from '@/app/loading';
 import { Suspense } from 'react';
+import { captureException } from '@/monitoring/sentry';
+import { notFound } from 'next/navigation';
 
 const ProductDetails = dynamic(
   () => import('@/components/products/ProductDetails'),
@@ -34,9 +36,8 @@ export const metadata = {
 };
 
 const ProductDetailsPage = async ({ params }) => {
+  const { id } = await params;
   try {
-    const { id } = await params;
-
     // Validation de l'ID
     if (!id || typeof id !== 'string') {
       throw new ProductNotFoundError('invalid');
@@ -68,7 +69,28 @@ const ProductDetailsPage = async ({ params }) => {
       </Suspense>
     );
   } catch (error) {
-    console.log(error);
+    console.error(`Error loading product ${id}:`, error);
+
+    // Enregistrement de l'erreur dans Sentry avec contexte enrichi
+    captureException(error, {
+      tags: {
+        component: 'ProductDetailsPage',
+        errorType: error.name,
+        productId: params?.id,
+      },
+      extra: {
+        message: error.message,
+        statusCode: error.statusCode || 500,
+      },
+    });
+
+    // Redirection vers la page 404 si le produit n'existe pas
+    if (error.statusCode === 404 || error instanceof ProductNotFoundError) {
+      notFound(); // Utilise la fonctionnalité Next.js pour afficher la page 404
+    }
+
+    // Les autres types d'erreurs seront capturés par error.jsx
+    throw error;
   }
 };
 
