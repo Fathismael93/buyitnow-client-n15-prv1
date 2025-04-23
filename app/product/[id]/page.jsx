@@ -32,6 +32,11 @@ const ProductDetailsPage = async ({ params }) => {
       throw new ProductNotFoundError('invalid');
     }
 
+    // Sanitization basique de l'ID (à adapter selon votre format d'ID)
+    if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+      throw new ProductNotFoundError('invalid format');
+    }
+
     const data = await getProductDetails((await params)?.id);
 
     return (

@@ -1,7 +1,6 @@
-/* eslint-disable react/prop-types */
 'use client';
 
-import React, { useContext, useState } from 'react';
+import { useContext, useState } from 'react';
 import dynamic from 'next/dynamic';
 
 import { toast } from 'react-toastify';
@@ -75,8 +74,6 @@ const ProductDetails = ({ product, sameCategoryProducts }) => {
               <>
                 <aside>
                   <div className="border border-gray-200 shadow-xs p-3 text-center rounded-sm mb-5">
-                    {console.log('selectedImage: ')}
-                    {console.log(selectedImage)}
                     <Image
                       className="object-cover inline-block"
                       src={selectedImage}
