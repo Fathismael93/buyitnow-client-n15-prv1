@@ -160,7 +160,7 @@ const ProductInfo = memo(function ProductInfo({
         <div
           className="mb-6 text-gray-600 leading-relaxed"
           dangerouslySetInnerHTML={{
-            __html: sanitizeHtml(product.description),
+            __html: product.description,
           }}
         />
       ) : (
