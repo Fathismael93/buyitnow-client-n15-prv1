@@ -17,7 +17,7 @@ import Link from 'next/link';
 
 import AuthContext from '@/context/AuthContext';
 import CartContext from '@/context/CartContext';
-import { arrayHasData, sanitizeHtml } from '@/helpers/helpers';
+import { arrayHasData } from '@/helpers/helpers';
 import { INCREASE } from '@/helpers/constants';
 
 // Chargement dynamique des composants
@@ -454,7 +454,7 @@ function ProductDetails({ product, sameCategoryProducts }) {
               {product.description ? (
                 <div
                   dangerouslySetInnerHTML={{
-                    __html: sanitizeHtml(product.description),
+                    __html: product.description,
                   }}
                 />
               ) : (
