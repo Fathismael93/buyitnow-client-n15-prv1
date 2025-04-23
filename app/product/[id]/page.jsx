@@ -51,50 +51,6 @@ export async function generateMetadata({ params }) {
         description: 'The requested product could not be found.',
       };
     }
-
-    return {
-      title: `${product?.name} | Buy It Now`,
-      description: product?.description
-        ? `${product?.description?.substring(0, 155)}...`
-        : 'Discover this amazing product on Buy It Now',
-      openGraph: {
-        title: product?.name,
-        description: product?.description
-          ? `${product?.description?.substring(0, 155)}...`
-          : 'Discover this amazing product on Buy It Now',
-        type: 'product',
-        images: product?.images?.[0]
-          ? [
-              {
-                url: product?.images[0],
-                width: 800,
-                height: 600,
-                alt: product?.name,
-              },
-            ]
-          : [],
-        locale: 'fr_FR',
-      },
-      // Schéma JSON-LD pour produit (améliore le référencement)
-      other: {
-        'product-json': JSON.stringify({
-          '@context': 'https://schema.org/',
-          '@type': 'Product',
-          name: product?.name,
-          description: product?.description,
-          image: product?.images?.[0] || '',
-          offers: {
-            '@type': 'Offer',
-            price: product?.price,
-            priceCurrency: 'EUR',
-            availability:
-              product?.stock > 0
-                ? 'https://schema.org/InStock'
-                : 'https://schema.org/OutOfStock',
-          },
-        }),
-      },
-    };
   } catch (error) {
     console.error('Error generating product metadata:', error);
 
