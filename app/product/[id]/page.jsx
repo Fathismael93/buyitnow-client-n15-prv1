@@ -35,6 +35,7 @@ class ProductFetchError extends Error {
 // Métadonnées dynamiques pour un meilleur SEO
 export async function generateMetadata({ params }) {
   const { id } = await params;
+  console.log('Checking if ID is there', id);
   try {
     if (!id) {
       return {
