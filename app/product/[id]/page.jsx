@@ -46,7 +46,7 @@ export async function generateMetadata({ params }) {
     const data = await getProductDetails(id);
     const product = data?.product;
 
-    console.log('Product data in generateMetadata:', product);
+    console.log('Product data in generateMetadata:', data);
 
     if (!product) {
       return {
@@ -62,9 +62,6 @@ export async function generateMetadata({ params }) {
         : 'Discover this amazing product on Buy It Now',
       openGraph: {
         title: product?.name,
-        description: product?.description
-          ? `${product?.description?.substring(0, 155)}...`
-          : 'Discover this amazing product on Buy It Now',
         type: 'product',
         locale: 'fr_FR',
       },
