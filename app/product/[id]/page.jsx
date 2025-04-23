@@ -19,6 +19,15 @@ class ProductNotFoundError extends Error {
   }
 }
 
+class ProductFetchError extends Error {
+  constructor(productId, originalError) {
+    super(`Failed to fetch product with ID ${productId}`);
+    this.name = 'ProductFetchError';
+    this.cause = originalError;
+    this.statusCode = 500;
+  }
+}
+
 export const metadata = {
   title: 'Single Product',
 };
@@ -37,7 +46,14 @@ const ProductDetailsPage = async ({ params }) => {
       throw new ProductNotFoundError('invalid format');
     }
 
-    const data = await getProductDetails((await params)?.id);
+    const data = await getProductDetails(id).catch((error) => {
+      throw new ProductFetchError(id, error);
+    });
+
+    // Vérifier si le produit existe
+    if (!data?.product) {
+      throw new ProductNotFoundError(id);
+    }
 
     return (
       <ProductDetails
