@@ -46,6 +46,8 @@ export async function generateMetadata({ params }) {
     const data = await getProductDetails(id);
     const product = data?.product;
 
+    console.log('Product data in generateMetadata:', product);
+
     if (!product) {
       return {
         title: 'Product Not Found | Buy It Now',
@@ -64,16 +66,6 @@ export async function generateMetadata({ params }) {
           ? `${product?.description?.substring(0, 155)}...`
           : 'Discover this amazing product on Buy It Now',
         type: 'product',
-        images: product?.images?.[0]
-          ? [
-              {
-                url: product?.images[0],
-                width: 800,
-                height: 600,
-                alt: product?.name,
-              },
-            ]
-          : [],
         locale: 'fr_FR',
       },
     };
