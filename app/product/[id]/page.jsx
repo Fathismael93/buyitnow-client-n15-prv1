@@ -2,6 +2,7 @@ import dynamic from 'next/dynamic';
 
 import { getProductDetails } from '@/backend/utils/server-only-methods';
 import Loading from '@/app/loading';
+import { Suspense } from 'react';
 
 const ProductDetails = dynamic(
   () => import('@/components/products/ProductDetails'),
@@ -56,10 +57,15 @@ const ProductDetailsPage = async ({ params }) => {
     }
 
     return (
-      <ProductDetails
-        product={data?.product}
-        sameCategoryProducts={data?.sameCategoryProducts}
-      />
+      <Suspense fallback={<Loading />}>
+        <section itemScope itemType="https://schema.org/Product">
+          <meta itemProp="productID" content={id} />
+          <ProductDetails
+            product={data.product}
+            sameCategoryProducts={data.sameCategoryProducts}
+          />
+        </section>
+      </Suspense>
     );
   } catch (error) {
     console.log(error);
