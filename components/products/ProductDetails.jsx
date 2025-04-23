@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 'use client';
 
 import {
@@ -20,11 +19,25 @@ import CartContext from '@/context/CartContext';
 import { arrayHasData } from '@/helpers/helpers';
 import { INCREASE } from '@/helpers/constants';
 
+// Pour la sécurité - nécessite d'installer cette dépendance
+// npm install dompurify
+import DOMPurify from 'dompurify';
+
 // Chargement dynamique des composants
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
   ssr: true, // Enable SSR for SEO
-  loading: () => <div className="h-8 bg-gray-100 rounded animate-pulse"></div>,
+  loading: () => (
+    <div className="h-8 bg-gray-100 rounded-lg animate-pulse"></div>
+  ),
 });
+
+// Formatter le prix avec séparateur de milliers et devise
+const formatPrice = (price) => {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(price || 0);
+};
 
 const ProductImageGallery = memo(function ProductImageGallery({
   product,
@@ -39,12 +52,12 @@ const ProductImageGallery = memo(function ProductImageGallery({
   return (
     <aside aria-label="Product images">
       <div
-        className="border border-gray-200 shadow-sm p-3 text-center rounded-md mb-5 bg-white relative"
+        className="border border-gray-200 shadow-sm p-3 text-center rounded-lg mb-5 bg-white relative h-auto max-h-[500px] flex items-center justify-center"
         role="img"
         aria-label={`Main image of ${product?.name || 'product'}`}
       >
         <Image
-          className="object-contain inline-block transition-opacity"
+          className="object-contain max-h-[450px] inline-block transition-opacity"
           src={selectedImage || defaultImage}
           alt={product?.name || 'Product image'}
           width={400}
@@ -82,14 +95,18 @@ const ProductImageGallery = memo(function ProductImageGallery({
 
       {/* Thumbnails gallery */}
       <div
-        className="space-x-2 overflow-auto text-center whitespace-nowrap pb-3"
+        className="space-x-2 overflow-x-auto pb-3 flex flex-nowrap scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 -mx-2 px-2"
         aria-label="Product thumbnail images"
         role="group"
       >
         {productImages.map((img, index) => (
           <button
             key={img?.url || `img-${index}`}
-            className={`inline-block border ${selectedImage === img?.url ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'} cursor-pointer p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all`}
+            className={`inline-block border ${
+              selectedImage === img?.url
+                ? 'border-blue-500 ring-2 ring-blue-200'
+                : 'border-gray-200'
+            } cursor-pointer p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all`}
             onClick={() => onImageSelect(img?.url)}
             aria-label={`View product image ${index + 1}`}
             aria-pressed={selectedImage === img?.url}
@@ -115,16 +132,17 @@ const ProductInfo = memo(function ProductInfo({
   product,
   inStock,
   onAddToCart,
+  isAddingToCart,
 }) {
-  // Format prix avec séparateur de milliers et 2 décimales
-  const formattedPrice = new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(product?.price || 0);
+  // Formattage du prix mémoïsé
+  const formattedPrice = useMemo(
+    () => formatPrice(product?.price),
+    [product?.price],
+  );
 
   return (
     <main>
-      <h1 className="font-semibold text-2xl mb-4 text-gray-800">
+      <h1 className="font-semibold text-xl sm:text-2xl mb-4 text-gray-800">
         {product?.name || 'Product Not Available'}
       </h1>
 
@@ -149,7 +167,7 @@ const ProductInfo = memo(function ProductInfo({
       </div>
 
       <p
-        className="mb-4 font-semibold text-2xl text-blue-600"
+        className="mb-4 font-semibold text-xl sm:text-2xl text-blue-600"
         aria-label="Prix"
       >
         {formattedPrice}
@@ -160,35 +178,62 @@ const ProductInfo = memo(function ProductInfo({
         <div
           className="mb-6 text-gray-600 leading-relaxed"
           dangerouslySetInnerHTML={{
-            __html: product.description,
+            __html: DOMPurify.sanitize(product.description),
           }}
         />
       ) : (
-        <p className="mb-6 text-gray-500">
+        <p className="mb-6 text-gray-600">
           Aucune description disponible pour ce produit.
         </p>
       )}
 
       {/* Bouton d'ajout au panier */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <button
-          className={`px-6 py-3 inline-block text-white font-medium text-center rounded-md transition-colors 
+          className={`w-full sm:w-auto px-6 py-3 inline-block text-white font-medium text-center rounded-lg transition-colors 
             ${
               inStock
                 ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-300 focus:outline-none cursor-pointer'
                 : 'bg-gray-400 cursor-not-allowed'
             }`}
           onClick={onAddToCart}
-          disabled={!inStock}
+          disabled={!inStock || isAddingToCart}
           aria-label={inStock ? 'Ajouter au panier' : 'Produit indisponible'}
         >
-          <i className="fa fa-shopping-cart mr-2" aria-hidden="true"></i>
-          {inStock ? 'Ajouter au panier' : 'Indisponible'}
+          {isAddingToCart ? (
+            <span className="inline-flex items-center">
+              <svg
+                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              Ajout en cours...
+            </span>
+          ) : (
+            <>
+              <i className="fa fa-shopping-cart mr-2" aria-hidden="true"></i>
+              {inStock ? 'Ajouter au panier' : 'Indisponible'}
+            </>
+          )}
         </button>
 
-        {/* Bouton de sauvegarde pour plus tard (à implémenter) */}
         <button
-          className="px-4 py-2 inline-block text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors"
+          className="w-full sm:w-auto px-4 py-2 inline-block text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors"
           aria-label="Sauvegarder pour plus tard"
         >
           <i className="far fa-bookmark mr-1" aria-hidden="true"></i>
@@ -236,9 +281,13 @@ const RelatedProducts = memo(function RelatedProducts({
   currentProductId,
 }) {
   // Filtrer les produits pour exclure le produit actuel et limiter à 4 max
-  const filteredProducts = products
-    ?.filter((product) => product?._id !== currentProductId)
-    .slice(0, 4);
+  const filteredProducts = useMemo(
+    () =>
+      products
+        ?.filter((product) => product?._id !== currentProductId)
+        .slice(0, 4),
+    [products, currentProductId],
+  );
 
   if (!arrayHasData(filteredProducts)) {
     return null;
@@ -248,7 +297,7 @@ const RelatedProducts = memo(function RelatedProducts({
     <section aria-labelledby="related-heading" className="mt-12">
       <h2
         id="related-heading"
-        className="font-bold text-2xl mb-5 text-gray-800"
+        className="font-bold text-xl sm:text-2xl mb-5 text-gray-800"
       >
         Produits similaires
       </h2>
@@ -260,7 +309,7 @@ const RelatedProducts = memo(function RelatedProducts({
             href={`/product/${product?._id}`}
             className="group bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200"
           >
-            <div className="aspect-w-1 aspect-h-1 mb-4 bg-gray-100 rounded-md overflow-hidden">
+            <div className="aspect-w-1 aspect-h-1 mb-4 bg-gray-100 rounded-lg overflow-hidden">
               <Image
                 src={product?.images?.[0]?.url || '/images/default_product.png'}
                 alt={product?.name || 'Related product'}
@@ -268,6 +317,8 @@ const RelatedProducts = memo(function RelatedProducts({
                 height={200}
                 className="object-contain w-full h-full group-hover:scale-105 transition-transform"
                 loading="lazy" // Chargement différé
+                placeholder="blur"
+                blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEtAJJXIDTiQAAAABJRU5ErkJggg=="
                 onError={(e) => {
                   e.target.src = '/images/default_product.png';
                 }}
@@ -278,10 +329,7 @@ const RelatedProducts = memo(function RelatedProducts({
                 {product?.name || 'Produit sans nom'}
               </h3>
               <p className="font-bold text-blue-600">
-                {new Intl.NumberFormat('fr-FR', {
-                  style: 'currency',
-                  currency: 'EUR',
-                }).format(product?.price || 0)}
+                {formatPrice(product?.price)}
               </p>
             </div>
           </Link>
@@ -359,6 +407,8 @@ function ProductDetails({ product, sameCategoryProducts }) {
       return;
     }
 
+    if (isAddingToCart) return; // Éviter les clics multiples
+
     setIsAddingToCart(true);
 
     try {
@@ -377,9 +427,12 @@ function ProductDetails({ product, sameCategoryProducts }) {
       console.error('Error adding item to cart:', error);
       toast.error("Erreur lors de l'ajout au panier. Veuillez réessayer.");
     } finally {
-      setIsAddingToCart(false);
+      // Ajouter un délai minimum pour éviter le flickering de l'UI
+      setTimeout(() => {
+        setIsAddingToCart(false);
+      }, 500);
     }
-  }, [product, user, cart, inStock, addItemToCart, updateCart]);
+  }, [product, user, cart, inStock, addItemToCart, updateCart, isAddingToCart]);
 
   // Gérer la sélection d'image
   const handleImageSelect = useCallback((imageUrl) => {
@@ -408,13 +461,13 @@ function ProductDetails({ product, sameCategoryProducts }) {
           <h2 className="text-xl font-semibold text-gray-700 mb-2">
             Produit non disponible
           </h2>
-          <p className="text-gray-500 mb-6">
+          <p className="text-gray-600 mb-6">
             Le produit demandé n&apos;existe pas ou a été retiré de notre
             catalogue.
           </p>
           <Link
             href="/"
-            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Retour à l&apos;accueil
           </Link>
@@ -442,6 +495,7 @@ function ProductDetails({ product, sameCategoryProducts }) {
               product={product}
               inStock={inStock()}
               onAddToCart={handleAddToCart}
+              isAddingToCart={isAddingToCart}
             />
           </div>
 
@@ -454,11 +508,11 @@ function ProductDetails({ product, sameCategoryProducts }) {
               {product.description ? (
                 <div
                   dangerouslySetInnerHTML={{
-                    __html: product.description,
+                    __html: DOMPurify.sanitize(product.description),
                   }}
                 />
               ) : (
-                <p className="text-gray-500">
+                <p className="text-gray-600">
                   Aucune description détaillée disponible.
                 </p>
               )}
@@ -491,6 +545,19 @@ function ProductDetails({ product, sameCategoryProducts }) {
   );
 }
 
+// Support pour les préférences de réduction des animations
+// Ajouter ce CSS dans votre fichier global.css
+/*
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+*/
+
 // Validation des props pour une meilleure robustesse
 ProductDetails.propTypes = {
   product: PropTypes.shape({
@@ -509,6 +576,7 @@ ProductDetails.propTypes = {
       categoryName: PropTypes.string,
     }),
     specifications: PropTypes.object,
+    verified: PropTypes.bool,
   }),
   sameCategoryProducts: PropTypes.array,
 };
