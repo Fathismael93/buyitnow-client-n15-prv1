@@ -524,7 +524,6 @@ export const getProductDetails = async (
   retryAttempt = 0,
   maxRetries = 3,
 ) => {
-  console.log('getProductDetails: id', { id });
   const controller = new AbortController();
   const requestId = `product-${id}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
@@ -547,7 +546,6 @@ export const getProductDetails = async (
   });
 
   try {
-    console.log('getProductDetails: params', { id });
     // Validation améliorée de l'ID
     if (!id || typeof id !== 'string') {
       logger.warn('Invalid product ID format (undefined or not string)', {
@@ -557,8 +555,6 @@ export const getProductDetails = async (
       });
       return notFound();
     }
-
-    console.log('Checking if id is valid mongoose bject');
 
     const isValidId = mongoose.isValidObjectId(id);
     if (!isValidId) {
@@ -571,8 +567,6 @@ export const getProductDetails = async (
       return notFound();
     }
 
-    console.log('ID valid');
-
     // Avant l'appel API
     logger.debug('Fetching product details from API', {
       requestId,
@@ -581,13 +575,9 @@ export const getProductDetails = async (
       action: 'api_request_start',
     });
 
-    console.log('getProductDetails: Fetching product details from Cache');
-
     // Utiliser les headers de cache optimisés pour un seul produit
     const cacheControl = getCacheHeaders('singleProduct');
     const apiUrl = `${process.env.API_URL || ''}/api/products/${id}`;
-
-    console.log('Fetching from apiUrl', { apiUrl });
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
@@ -671,14 +661,9 @@ export const getProductDetails = async (
       return null;
     }
 
-    console.log('getProductDetails: API response received');
-
     // Traitement de la réponse avec gestion des erreurs de parsing
     try {
-      console.log('getProductDetails: Parsing JSON response');
       const data = await res.json();
-
-      console.log('getProductDetails: JSON parsed successfully', { data });
 
       // Vérifier les erreurs business
       if (data?.success === false) {
