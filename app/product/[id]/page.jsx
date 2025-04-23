@@ -4,7 +4,7 @@ import { getProductDetails } from '@/backend/utils/server-only-methods';
 import { Suspense } from 'react';
 import { captureException } from '@/monitoring/sentry';
 import { notFound } from 'next/navigation';
-import ProductLoading from './Loading';
+import ProductLoading from './ProductLoading';
 
 const ProductDetails = dynamic(
   () => import('@/components/products/ProductDetails'),
