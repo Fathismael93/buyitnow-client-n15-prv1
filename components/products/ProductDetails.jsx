@@ -594,7 +594,7 @@ function ProductDetails({ product, sameCategoryProducts }) {
           </div>
 
           {/* Description détaillée */}
-          <div className="border-t border-gray-200 pt-8 mt-8">
+          {/* <div className="border-t border-gray-200 pt-8 mt-8">
             <div className="prose prose-blue max-w-none">
               <h2 className="text-xl font-semibold mb-4">
                 Description détaillée
@@ -611,7 +611,7 @@ function ProductDetails({ product, sameCategoryProducts }) {
                 </p>
               )}
             </div>
-          </div>
+          </div> */}
 
           {/* Spécifications produit */}
           {product.specifications && (
