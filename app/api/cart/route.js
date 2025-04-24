@@ -69,8 +69,12 @@ export async function GET(req) {
       );
     }
 
+    console.log('Email of user', req.user.email);
+
     // Trouver l'utilisateur
     const user = await User.findOne({ email: req.user.email }).select('_id');
+
+    console.log('User found:', user);
 
     if (!user) {
       logger.warn('User not found for cart request', {
