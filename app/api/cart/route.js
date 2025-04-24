@@ -171,7 +171,7 @@ export async function GET(req) {
       price: item.product.price,
       quantity: item.quantity,
       stock: item.product.stock,
-      subtotal: formattedCart.quantity * formattedCart.price, // Utiliser la propriété virtuelle définie dans le modèle
+      subtotal: item.quantity * item.product.price, // Utiliser la propriété virtuelle définie dans le modèle
       imageUrl: item.product.images[0].url || '',
     }));
 
