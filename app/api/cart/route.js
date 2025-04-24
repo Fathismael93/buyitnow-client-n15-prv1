@@ -36,44 +36,73 @@ export async function GET(req) {
       );
     }
 
-    let cart;
-    const result = await Cart.find({ user: user._id }).populate('product');
-    cart = result;
+    // 3. Requête MongoDB optimisée - Spécifier uniquement les champs nécessaires
+    let cartItems = await Cart.find({ user: user._id })
+      .populate('product', 'name price stock imageUrl') // Uniquement les champs nécessaires
+      .lean(); // Retourne des objets JavaScript simples pour une meilleure performance
 
-    // IF THE QUANTITY HAS EXCEDEED THE PRODUCT STOCK AVAILABLE THEN UPDATE THE QUANTITY TO EQUAL THE PRODUCT STOCK
+    // 1 & 5. Remplacement de la boucle inefficace par une opération en bloc
+    const bulkOps = [];
+    const itemsToUpdate = cartItems.filter(
+      (item) => item.quantity > item.product.stock,
+    );
 
-    for (let index = 0; index < result.length; index++) {
-      const productQuantity = result[index].quantity;
-      const productStock = result[index].product.stock;
-      const id = result[index]._id;
+    // Préparer les opérations de mise à jour en masse
+    itemsToUpdate.forEach((item) => {
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: item._id },
+          update: { $set: { quantity: item.product.stock } },
+        },
+      });
+    });
 
-      if (productQuantity > productStock) {
-        const cartUpdated = await Cart.findByIdAndUpdate(id, {
-          quantity: productStock,
-        });
+    // Exécuter les mises à jour en bloc si nécessaire
+    if (bulkOps.length > 0) {
+      await Cart.bulkWrite(bulkOps);
 
-        cart = cartUpdated;
-      }
+      // Récupérer les données mises à jour en une seule requête
+      cartItems = await Cart.find({ user: user._id })
+        .populate('product', 'name price stock imageUrl')
+        .lean();
     }
 
-    const cartCount = cart.length;
+    // 2. Éviter la double assignation confuse de la variable cart
+    // La variable cartItems est maintenant utilisée de manière cohérente
+
+    const cartCount = cartItems.length;
+
+    // 6. Contrôle des données retournées - Transformer les données pour n'inclure que l'essentiel
+    const formattedCart = cartItems.map((item) => ({
+      id: item._id,
+      productId: item.product._id,
+      productName: item.product.name,
+      price: item.product.price,
+      quantity: item.quantity,
+      stock: item.product.stock,
+      subtotal: item.quantity * item.product.price,
+      imageUrl: item.product.imageUrl,
+    }));
 
     return NextResponse.json(
       {
         success: true,
         data: {
           cartCount,
-          cart,
+          cart: formattedCart,
         },
       },
       { status: 200 },
     );
   } catch (error) {
+    // 4. Gestion d'erreur améliorée - Logger l'erreur complète mais ne pas l'exposer
+    console.error('Cart GET error:', error);
+
     return NextResponse.json(
       {
         success: false,
         message: 'Something is wrong with server! Please try again later',
-        error: error,
+        errorId: Date.now().toString(), // ID unique pour retrouver l'erreur dans les logs
       },
       { status: 500 },
     );
