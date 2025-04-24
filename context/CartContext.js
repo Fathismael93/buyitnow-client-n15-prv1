@@ -28,6 +28,9 @@ export const CartProvider = ({ children }) => {
         'Cache-Control': 'no-cache',
       };
 
+      console.log('Getting token from localStorage');
+      console.log(localStorage.getItem('token'));
+
       // Ajout d'un token d'authentification si disponible
       if (
         typeof localStorage !== 'undefined' &&
