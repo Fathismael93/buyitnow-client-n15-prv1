@@ -29,7 +29,7 @@ export const CartProvider = ({ children }) => {
       };
 
       console.log('Getting token from localStorage');
-      console.log(localStorage.getItem('token'));
+      console.log(localStorage);
 
       // Ajout d'un token d'authentification si disponible
       if (
