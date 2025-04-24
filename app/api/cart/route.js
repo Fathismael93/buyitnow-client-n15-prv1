@@ -30,8 +30,8 @@ export async function GET(req) {
 
     try {
       const limitResult = await rateLimiter.check(req);
-      // Ajouter les headers de rate limiting qui seraient normalement ajoutés par le middleware
-      const headers = limitResult.headers || {};
+      // Les headers seront utilisés plus tard
+      const rateHeaders = limitResult.headers || {};
     } catch (rateLimitError) {
       logger.warn('Rate limit exceeded for cart API', {
         user: req.user?.email,
@@ -52,8 +52,9 @@ export async function GET(req) {
       );
     }
 
-    // Connecter à la base de données
-    const connectionInstance = await dbConnect();
+    // Connecter à la base de données avec timeout
+    const connectionOptions = { serverSelectionTimeoutMS: 5000 }; // Timeout de 5 secondes
+    const connectionInstance = await dbConnect(connectionOptions);
 
     if (!connectionInstance.connection) {
       logger.error('Database connection failed for cart request', {
@@ -86,8 +87,50 @@ export async function GET(req) {
       );
     }
 
+    // Vérification côté serveur des droits d'accès (s'assurer que l'utilisateur accède à son propre panier)
+    if (
+      req.query &&
+      req.query.userId &&
+      req.query.userId !== user._id.toString()
+    ) {
+      logger.warn('Unauthorized access attempt to cart', {
+        requestUser: req.query.userId,
+        authenticatedUser: user._id.toString(),
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Unauthorized access',
+        },
+        { status: 403 },
+      );
+    }
+
     // Génération de la clé de cache
     const cacheKey = getCacheKey('cart', { userId: user._id.toString() });
+
+    // Vérification du header If-None-Match pour les requêtes conditionnelles
+    const ifNoneMatch = req.headers.get('if-none-match');
+    const currentEtag = `W/"cart-${user._id}-${Date.now().toString(36)}"`;
+
+    if (ifNoneMatch && ifNoneMatch === currentEtag) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          ETag: currentEtag,
+          'Cache-Control': 'private, max-age=60',
+          'X-Content-Type-Options': 'nosniff',
+        },
+      });
+    }
+
+    // Nettoyer les paniers expirés au passage (opération asynchrone en arrière-plan)
+    Cart.removeExpiredItems().catch((err) => {
+      logger.error('Failed to remove expired cart items', {
+        error: err.message,
+      });
+    });
 
     // Essayer de récupérer les données du cache
     let cartItems = appCache.products.get(cacheKey);
@@ -98,11 +141,26 @@ export async function GET(req) {
         cacheKey,
       });
 
-      // Utiliser la méthode statique optimisée du modèle Cart
-      cartItems = await Cart.findByUser(user._id);
+      // Utiliser la méthode statique optimisée du modèle Cart avec timeout
+      const cartPromise = new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error('Database query timeout'));
+        }, 3000); // 3 secondes timeout
 
-      // Mettre en cache les résultats pour 5 minutes (300000 ms)
-      appCache.products.set(cacheKey, cartItems, { ttl: 300000 });
+        try {
+          const result = Cart.findByUser(user._id);
+          clearTimeout(timeoutId);
+          resolve(result);
+        } catch (error) {
+          clearTimeout(timeoutId);
+          reject(error);
+        }
+      });
+
+      cartItems = await cartPromise;
+
+      // Mettre en cache les résultats pour 2 minutes (120000 ms) - réduit de 5 à 2 minutes
+      appCache.products.set(cacheKey, cartItems, { ttl: 120000 });
     } else {
       logger.debug('Cart cache hit', {
         userId: user._id,
@@ -118,6 +176,17 @@ export async function GET(req) {
         !item.product.deleted &&
         item.product.active !== false,
     );
+
+    // Limitation de taille des résultats
+    const MAX_CART_ITEMS = 50; // Limiter à 50 articles maximum
+    if (cartItems.length > MAX_CART_ITEMS) {
+      logger.warn('Cart size exceeds maximum limit', {
+        userId: user._id,
+        cartSize: cartItems.length,
+        limit: MAX_CART_ITEMS,
+      });
+      cartItems = cartItems.slice(0, MAX_CART_ITEMS);
+    }
 
     // Préparer les opérations de mise à jour en masse
     const bulkOps = [];
@@ -141,9 +210,24 @@ export async function GET(req) {
         });
       });
 
-      // Exécuter les mises à jour en bloc
+      // Exécuter les mises à jour en bloc avec timeout
       if (bulkOps.length > 0) {
-        await Cart.bulkWrite(bulkOps);
+        const bulkWritePromise = new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            reject(new Error('Database bulk write timeout'));
+          }, 5000); // 5 secondes timeout
+
+          try {
+            const result = Cart.bulkWrite(bulkOps);
+            clearTimeout(timeoutId);
+            resolve(result);
+          } catch (error) {
+            clearTimeout(timeoutId);
+            reject(error);
+          }
+        });
+
+        await bulkWritePromise;
 
         // Invalider le cache après mise à jour
         appCache.products.delete(cacheKey);
@@ -161,9 +245,18 @@ export async function GET(req) {
       price: item.product.price,
       quantity: item.quantity,
       stock: item.product.stock,
-      subtotal: item.quantity * item.product.price, // Utiliser la propriété virtuelle définie dans le modèle
-      imageUrl: item.product.images[0].url || '',
+      subtotal:
+        item.subtotal !== null
+          ? item.subtotal
+          : item.quantity * item.product.price, // Utiliser la propriété virtuelle définie dans le modèle
+      imageUrl:
+        item.product.imageUrl ||
+        (item.product.images && item.product.images[0]
+          ? item.product.images[0].url
+          : ''),
     }));
+
+    console.log('Formatted cart items:', formattedCart);
 
     const cartCount = formattedCart.length;
     const cartTotal = formattedCart.reduce(
@@ -171,8 +264,18 @@ export async function GET(req) {
       0,
     );
 
-    // Ajouter des headers de cache conditionnels
-    const etag = `W/"cart-${user._id}-${cartCount}-${Date.now()}"`;
+    console.log('Cart count:', cartCount);
+    console.log('Cart total:', cartTotal);
+
+    // Ajouter des headers de sécurité additionnels
+    const securityHeaders = {
+      ETag: currentEtag,
+      'Cache-Control': 'private, max-age=60',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'X-XSS-Protection': '1; mode=block',
+      'Referrer-Policy': 'same-origin',
+    };
 
     logger.info('Cart retrieved successfully', {
       userId: user._id,
@@ -191,10 +294,7 @@ export async function GET(req) {
       },
       {
         status: 200,
-        headers: {
-          ETag: etag,
-          'Cache-Control': 'private, max-age=60',
-        },
+        headers: securityHeaders,
       },
     );
   } catch (error) {
@@ -218,6 +318,11 @@ export async function GET(req) {
         error: error.message,
         code: error.code,
       });
+    } else if (error.message && error.message.includes('timeout')) {
+      statusCode = 503;
+      errorMessage = 'Service temporarily unavailable';
+      errorCode = 'TIMEOUT_ERROR';
+      logger.error('Database timeout in cart API', { error: error.message });
     } else if (error.message && error.message.includes('authentication')) {
       statusCode = 401;
       errorMessage = 'Authentication failed';

@@ -10,7 +10,6 @@ import {
   maxPriceSchema,
   minPriceSchema,
   pageSchema,
-  priceRangeSchema,
   searchSchema,
 } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
