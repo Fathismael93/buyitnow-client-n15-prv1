@@ -29,9 +29,8 @@ export async function GET(req) {
     });
 
     try {
-      const limitResult = await rateLimiter.check(req);
-      // Les headers seront utilisés plus tard
-      const rateHeaders = limitResult.headers || {};
+      // APRÈS:
+      await rateLimiter.check(req);
     } catch (rateLimitError) {
       logger.warn('Rate limit exceeded for cart API', {
         user: req.user?.email,
@@ -111,7 +110,7 @@ export async function GET(req) {
 
     // Vérification du header If-None-Match pour les requêtes conditionnelles
     const ifNoneMatch = req.headers.get('if-none-match');
-    const currentEtag = `W/"cart-${user._id}-${Date.now().toString(36)}"`;
+    const currentEtag = `W/"cart-${user._id}-${cartItems?.length || 0}"`;
 
     if (ifNoneMatch && ifNoneMatch === currentEtag) {
       return new NextResponse(null, {
