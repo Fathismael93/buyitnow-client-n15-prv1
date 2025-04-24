@@ -244,10 +244,9 @@ export async function GET(req) {
       price: item.product.price,
       quantity: item.quantity,
       stock: item.product.stock,
-      subtotal:
-        item.subtotal !== null
-          ? item.subtotal
-          : item.quantity * item.product.price, // Utiliser la propriété virtuelle définie dans le modèle
+      subtotal: isNaN(item.subtotal)
+        ? item.quantity * item.product.price
+        : item.subtotal, // Utiliser la propriété virtuelle définie dans le modèle
       imageUrl:
         item.product.imageUrl ||
         (item.product.images && item.product.images[0]
