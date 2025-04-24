@@ -135,6 +135,7 @@ const ProductInfo = memo(function ProductInfo({
   inStock,
   onAddToCart,
   isAddingToCart,
+  onShare,
 }) {
   // Formattage du prix mémoïsé
   const formattedPrice = useMemo(
@@ -245,10 +246,11 @@ const ProductInfo = memo(function ProductInfo({
 
         <button
           className="w-full sm:w-auto px-4 py-2 inline-block text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors"
-          aria-label="Sauvegarder pour plus tard"
+          aria-label="Partager ce produit"
+          onClick={onShare}
         >
-          <i className="far fa-bookmark mr-1" aria-hidden="true"></i>
-          Sauvegarder
+          <i className="fas fa-share-alt mr-1" aria-hidden="true"></i>
+          Partager
         </button>
       </div>
 
@@ -491,6 +493,40 @@ function ProductDetails({ product, sameCategoryProducts }) {
     }
   }, [product, user, cart, inStock, addItemToCart, updateCart, isAddingToCart]);
 
+  // Fonction pour partager le produit
+  const handleShare = useCallback(() => {
+    // Vérifier si l'API Web Share est disponible
+    if (navigator.share) {
+      // Utiliser l'API Web Share (mobile)
+      navigator
+        .share({
+          title: product?.name || 'Découvrez ce produit',
+          text: `Découvrez ${product?.name} sur notre boutique.`,
+          url: window.location.href,
+        })
+        .then(() => console.log('Produit partagé avec succès'))
+        .catch((error) => console.error('Erreur lors du partage:', error));
+    } else {
+      // Fallback pour les navigateurs qui ne supportent pas l'API Web Share
+      // Copier l'URL dans le presse-papier
+      navigator.clipboard
+        .writeText(window.location.href)
+        .then(() => {
+          toast.success('Lien copié dans le presse-papier !');
+        })
+        .catch(() => {
+          // Si clipboard API n'est pas supportée, créer un élément temporaire
+          const tempInput = document.createElement('input');
+          tempInput.value = window.location.href;
+          document.body.appendChild(tempInput);
+          tempInput.select();
+          document.execCommand('copy');
+          document.body.removeChild(tempInput);
+          toast.success('Lien copié dans le presse-papier !');
+        });
+    }
+  }, [product?.name]);
+
   // Gérer la sélection d'image
   const handleImageSelect = useCallback((imageUrl) => {
     setSelectedImage(imageUrl);
@@ -553,6 +589,7 @@ function ProductDetails({ product, sameCategoryProducts }) {
               inStock={inStock}
               onAddToCart={handleAddToCart}
               isAddingToCart={isAddingToCart}
+              onShare={handleShare}
             />
           </div>
 
@@ -601,29 +638,6 @@ function ProductDetails({ product, sameCategoryProducts }) {
     </div>
   );
 }
-
-// Support pour les préférences de réduction des animations
-// Ajouter ce CSS dans votre fichier global.css
-/*
-@media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-@media (max-width: 640px) {
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-}
-*/
 
 // Validation des props pour une meilleure robustesse
 ProductDetails.propTypes = {
