@@ -29,14 +29,6 @@ const cartSchema = new mongoose.Schema(
       type: String,
       required: true, // Garder une copie du nom pour référence historique
     },
-    productVariant: {
-      type: mongoose.Schema.Types.Mixed,
-      default: null, // Pour stocker les options du produit (taille, couleur, etc.)
-    },
-    active: {
-      type: Boolean,
-      default: true, // Pour les articles temporairement retirés du panier
-    },
     createdAt: {
       type: Date,
       default: Date.now,
