@@ -6,15 +6,60 @@ import User from '@/backend/models/user';
 import Cart from '@/backend/models/cart';
 import Product from '@/backend/models/product';
 import { DECREASE, INCREASE } from '@/helpers/constants';
-import { appCache } from '@/utils/cache';
+import { appCache, getCacheKey } from '@/utils/cache';
+import logger from '@/utils/logger';
+import { createRateLimiter } from '@/utils/rateLimit';
+import { captureException } from '@/monitoring/sentry';
 
 export async function GET(req) {
+  // Journalisation structurée de la requête
+  logger.info('Cart API GET request received', {
+    route: 'api/cart/GET',
+    user: req.user?.email || 'unauthenticated',
+  });
+
   try {
+    // Vérifier l'authentification
     await isAuthenticatedUser(req, NextResponse);
 
+    // Appliquer le rate limiting pour les requêtes authentifiées
+    const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
+      prefix: 'cart_api',
+      getTokenFromReq: (req) => req.user?.email || req.user?.id,
+    });
+
+    try {
+      const limitResult = await rateLimiter.check(req);
+      // Ajouter les headers de rate limiting qui seraient normalement ajoutés par le middleware
+      const headers = limitResult.headers || {};
+    } catch (rateLimitError) {
+      logger.warn('Rate limit exceeded for cart API', {
+        user: req.user?.email,
+        error: rateLimitError.message,
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Too many requests, please try again later',
+        },
+        {
+          status: 429,
+          headers: rateLimitError.headers || {
+            'Retry-After': '60',
+          },
+        },
+      );
+    }
+
+    // Connecter à la base de données
     const connectionInstance = await dbConnect();
 
     if (!connectionInstance.connection) {
+      logger.error('Database connection failed for cart request', {
+        user: req.user?.email,
+      });
+
       return NextResponse.json(
         {
           success: false,
@@ -24,9 +69,14 @@ export async function GET(req) {
       );
     }
 
+    // Trouver l'utilisateur
     const user = await User.findOne({ email: req.user.email }).select('_id');
 
     if (!user) {
+      logger.warn('User not found for cart request', {
+        email: req.user.email,
+      });
+
       return NextResponse.json(
         {
           success: false,
@@ -36,43 +86,74 @@ export async function GET(req) {
       );
     }
 
-    // 3. Requête MongoDB optimisée - Spécifier uniquement les champs nécessaires
-    let cartItems = await Cart.find({ user: user._id })
-      .populate('product', 'name price stock imageUrl') // Uniquement les champs nécessaires
-      .lean(); // Retourne des objets JavaScript simples pour une meilleure performance
+    // Génération de la clé de cache
+    const cacheKey = getCacheKey('cart', { userId: user._id.toString() });
 
-    // 1 & 5. Remplacement de la boucle inefficace par une opération en bloc
+    // Essayer de récupérer les données du cache
+    let cartItems = appCache.products.get(cacheKey);
+
+    if (!cartItems) {
+      logger.debug('Cart cache miss, fetching from database', {
+        userId: user._id,
+        cacheKey,
+      });
+
+      // Utiliser la méthode statique optimisée du modèle Cart
+      cartItems = await Cart.findByUser(user._id);
+
+      // Mettre en cache les résultats pour 5 minutes (300000 ms)
+      appCache.products.set(cacheKey, cartItems, { ttl: 300000 });
+    } else {
+      logger.debug('Cart cache hit', {
+        userId: user._id,
+        cacheKey,
+      });
+    }
+
+    // Filtrer les produits inactifs ou supprimés
+    cartItems = cartItems.filter(
+      (item) =>
+        item.product &&
+        item.product.stock > 0 &&
+        !item.product.deleted &&
+        item.product.active !== false,
+    );
+
+    // Préparer les opérations de mise à jour en masse
     const bulkOps = [];
     const itemsToUpdate = cartItems.filter(
       (item) => item.quantity > item.product.stock,
     );
 
-    // Préparer les opérations de mise à jour en masse
-    itemsToUpdate.forEach((item) => {
-      bulkOps.push({
-        updateOne: {
-          filter: { _id: item._id },
-          update: { $set: { quantity: item.product.stock } },
-        },
+    // Vérifier et corriger les quantités qui dépassent le stock disponible
+    if (itemsToUpdate.length > 0) {
+      logger.info('Adjusting cart quantities to match available stock', {
+        userId: user._id,
+        itemCount: itemsToUpdate.length,
       });
-    });
 
-    // Exécuter les mises à jour en bloc si nécessaire
-    if (bulkOps.length > 0) {
-      await Cart.bulkWrite(bulkOps);
+      itemsToUpdate.forEach((item) => {
+        bulkOps.push({
+          updateOne: {
+            filter: { _id: item._id },
+            update: { $set: { quantity: item.product.stock } },
+          },
+        });
+      });
 
-      // Récupérer les données mises à jour en une seule requête
-      cartItems = await Cart.find({ user: user._id })
-        .populate('product', 'name price stock imageUrl')
-        .lean();
+      // Exécuter les mises à jour en bloc
+      if (bulkOps.length > 0) {
+        await Cart.bulkWrite(bulkOps);
+
+        // Invalider le cache après mise à jour
+        appCache.products.delete(cacheKey);
+
+        // Récupérer les données mises à jour
+        cartItems = await Cart.findByUser(user._id);
+      }
     }
 
-    // 2. Éviter la double assignation confuse de la variable cart
-    // La variable cartItems est maintenant utilisée de manière cohérente
-
-    const cartCount = cartItems.length;
-
-    // 6. Contrôle des données retournées - Transformer les données pour n'inclure que l'essentiel
+    // Formatter les données pour la réponse
     const formattedCart = cartItems.map((item) => ({
       id: item._id,
       productId: item.product._id,
@@ -80,31 +161,92 @@ export async function GET(req) {
       price: item.product.price,
       quantity: item.quantity,
       stock: item.product.stock,
-      subtotal: item.quantity * item.product.price,
+      subtotal: item.subtotal, // Utiliser la propriété virtuelle définie dans le modèle
       imageUrl: item.product.imageUrl,
     }));
+
+    const cartCount = formattedCart.length;
+    const cartTotal = formattedCart.reduce(
+      (sum, item) => sum + item.subtotal,
+      0,
+    );
+
+    // Ajouter des headers de cache conditionnels
+    const etag = `W/"cart-${user._id}-${cartCount}-${Date.now()}"`;
+
+    logger.info('Cart retrieved successfully', {
+      userId: user._id,
+      cartCount,
+      cartTotal,
+    });
 
     return NextResponse.json(
       {
         success: true,
         data: {
           cartCount,
+          cartTotal,
           cart: formattedCart,
         },
       },
-      { status: 200 },
+      {
+        status: 200,
+        headers: {
+          ETag: etag,
+          'Cache-Control': 'private, max-age=60',
+        },
+      },
     );
   } catch (error) {
-    // 4. Gestion d'erreur améliorée - Logger l'erreur complète mais ne pas l'exposer
-    console.error('Cart GET error:', error);
+    // Gestion d'erreur plus granulaire
+    let statusCode = 500;
+    let errorMessage = 'Something is wrong with server! Please try again later';
+    let errorCode = 'SERVER_ERROR';
+
+    // Journalisation et classification des erreurs
+    if (error.name === 'ValidationError') {
+      statusCode = 400;
+      errorMessage = 'Invalid data provided';
+      errorCode = 'VALIDATION_ERROR';
+      logger.warn('Cart validation error', { error: error.message });
+    } else if (
+      error.name === 'MongoError' ||
+      error.name === 'MongoServerError'
+    ) {
+      errorCode = 'DATABASE_ERROR';
+      logger.error('MongoDB error in cart API', {
+        error: error.message,
+        code: error.code,
+      });
+    } else if (error.message && error.message.includes('authentication')) {
+      statusCode = 401;
+      errorMessage = 'Authentication failed';
+      errorCode = 'AUTH_ERROR';
+      logger.warn('Authentication error in cart API', { error: error.message });
+    } else {
+      // Erreur non identifiée
+      logger.error('Unhandled error in cart GET API', {
+        error: error.message,
+        stack: error.stack,
+      });
+
+      // Envoyer à Sentry pour monitoring
+      captureException(error, {
+        tags: {
+          component: 'api',
+          route: 'cart/GET',
+        },
+      });
+    }
 
     return NextResponse.json(
       {
         success: false,
-        message: 'Something is wrong with server! Please try again later',
-        errorId: Date.now().toString(), // ID unique pour retrouver l'erreur dans les logs
+        message: errorMessage,
+        code: errorCode,
+        requestId: Date.now().toString(36),
       },
-      { status: 500 },
+      { status: statusCode },
     );
   }
 }
