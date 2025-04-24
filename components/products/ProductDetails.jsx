@@ -52,21 +52,23 @@ const ProductImageGallery = memo(function ProductImageGallery({
   return (
     <aside aria-label="Product images">
       <div
-        className="border border-gray-200 shadow-sm p-3 text-center rounded-lg mb-5 bg-white relative h-auto max-h-[500px] flex items-center justify-center"
+        className="border border-gray-200 shadow-sm p-3 text-center rounded-lg mb-5 bg-white relative h-auto max-h-[500px] flex items-center justify-center overflow-hidden"
         role="img"
         aria-label={`Main image of ${product?.name || 'product'}`}
       >
-        <Image
-          className="object-contain max-h-[450px] inline-block transition-opacity"
-          src={selectedImage || defaultImage}
-          alt={product?.name || 'Product image'}
-          width={400}
-          height={400}
-          priority={true} // Load this image early
-          quality={85}
-          placeholder="blur"
-          blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEtAJJXIDTiQAAAABJRU5ErkJggg=="
-        />
+        <div className="w-full h-full transition-transform duration-300 hover:scale-110">
+          <Image
+            className="object-contain max-h-[450px] inline-block transition-opacity"
+            src={selectedImage || defaultImage}
+            alt={product?.name || 'Product image'}
+            width={400}
+            height={400}
+            priority={true} // Load this image early
+            quality={85}
+            placeholder="blur"
+            blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEtAJJXIDTiQAAAABJRU5ErkJggg=="
+          />
+        </div>
 
         {/* Overlay de zoom (à implémenter avec une librairie comme react-medium-image-zoom) */}
         <button
@@ -95,7 +97,7 @@ const ProductImageGallery = memo(function ProductImageGallery({
 
       {/* Thumbnails gallery */}
       <div
-        className="space-x-2 overflow-x-auto pb-3 flex flex-nowrap scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 -mx-2 px-2"
+        className="space-x-2 overflow-x-auto pb-3 flex flex-nowrap scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 -mx-2 px-2 hide-scrollbar sm:flex-wrap"
         aria-label="Product thumbnail images"
         role="group"
       >
@@ -166,12 +168,21 @@ const ProductInfo = memo(function ProductInfo({
         )}
       </div>
 
-      <p
-        className="mb-4 font-semibold text-xl sm:text-2xl text-blue-600"
-        aria-label="Prix"
-      >
-        {formattedPrice}
-      </p>
+      <div className="flex flex-wrap items-baseline mb-4">
+        <p
+          className="font-semibold text-xl sm:text-2xl text-blue-600 mr-3"
+          aria-label="Prix"
+        >
+          {formattedPrice}
+        </p>
+
+        {/* Afficher un prix barré si c'est pertinent */}
+        {product?.oldPrice && (
+          <p className="text-sm sm:text-base text-gray-500 line-through">
+            {formatPrice(product.oldPrice)}
+          </p>
+        )}
+      </div>
 
       {/* Description sécurisée contre XSS */}
       {product?.description ? (
@@ -246,9 +257,35 @@ const ProductInfo = memo(function ProductInfo({
         <li className="mb-2 flex">
           <span className="font-medium w-36 inline-block">Disponibilité:</span>
           {inStock ? (
-            <span className="text-green-600 font-medium">En stock</span>
+            <span className="text-green-600 font-medium flex items-center">
+              <svg
+                className="w-4 h-4 mr-1"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              En stock
+            </span>
           ) : (
-            <span className="text-red-600 font-medium">Rupture de stock</span>
+            <span className="text-red-600 font-medium flex items-center">
+              <svg
+                className="w-4 h-4 mr-1"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Rupture de stock
+            </span>
           )}
         </li>
         <li className="mb-2 flex">
@@ -272,6 +309,24 @@ const ProductInfo = memo(function ProductInfo({
           Livraison gratuite à partir de 50€
         </div>
       )}
+
+      {/* Badge de popularité basé sur les ventes */}
+      {product?.sold > 10 && (
+        <div className="mt-4 inline-block bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-amber-700 text-sm mr-2">
+          <i className="fas fa-fire mr-1" aria-hidden="true"></i>
+          {product.sold > 100 ? 'Très populaire' : 'Populaire'}
+        </div>
+      )}
+
+      {/* Indiquer quand le produit est récent (moins de 30 jours) */}
+      {product?.createdAt &&
+        new Date(product.createdAt) >
+          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) && (
+          <div className="mt-4 inline-block bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-blue-700 text-sm">
+            <i className="fas fa-star mr-1" aria-hidden="true"></i>
+            Nouveau
+          </div>
+        )}
     </main>
   );
 });
@@ -289,7 +344,9 @@ const RelatedProducts = memo(function RelatedProducts({
     [products, currentProductId],
   );
 
-  if (!arrayHasData(filteredProducts)) {
+  // Si arrayHasData retourne true, cela signifie que le tableau est vide ou invalide
+  // Donc nous voulons vérifier SI arrayHasData est true, ALORS return null
+  if (arrayHasData(filteredProducts)) {
     return null;
   }
 
@@ -307,15 +364,15 @@ const RelatedProducts = memo(function RelatedProducts({
           <Link
             key={product?._id}
             href={`/product/${product?._id}`}
-            className="group bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200"
+            className="group bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 hover:border-blue-100 transform hover:-translate-y-1"
           >
             <div className="aspect-w-1 aspect-h-1 mb-4 bg-gray-100 rounded-lg overflow-hidden">
               <Image
                 src={product?.images?.[0]?.url || '/images/default_product.png'}
-                alt={product?.name || 'Related product'}
+                alt={product?.name || 'Produit similaire'}
                 width={200}
                 height={200}
-                className="object-contain w-full h-full group-hover:scale-105 transition-transform"
+                className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300"
                 loading="lazy" // Chargement différé
                 placeholder="blur"
                 blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEtAJJXIDTiQAAAABJRU5ErkJggg=="
@@ -360,7 +417,7 @@ function ProductDetails({ product, sameCategoryProducts }) {
   }, [product]);
 
   // Vérifier si le produit est en stock - memoized
-  const inStock = useCallback(() => {
+  const inStock = useMemo(() => {
     if (!product || product?.stock === undefined) return false;
     return product.stock >= 1;
   }, [product]);
@@ -402,7 +459,7 @@ function ProductDetails({ product, sameCategoryProducts }) {
       return;
     }
 
-    if (!inStock()) {
+    if (!inStock) {
       toast.warning('Ce produit est en rupture de stock');
       return;
     }
@@ -477,11 +534,11 @@ function ProductDetails({ product, sameCategoryProducts }) {
   }
 
   return (
-    <div className="bg-gray-50 py-10">
+    <div className="bg-gray-50 py-6 sm:py-10">
       {breadCrumbs && <BreadCrumbs breadCrumbs={breadCrumbs} />}
 
       <div className="container max-w-6xl mx-auto px-4">
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-100">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             {/* Galerie d'images */}
             <ProductImageGallery
@@ -493,7 +550,7 @@ function ProductDetails({ product, sameCategoryProducts }) {
             {/* Informations produit */}
             <ProductInfo
               product={product}
-              inStock={inStock()}
+              inStock={inStock}
               onAddToCart={handleAddToCart}
               isAddingToCart={isAddingToCart}
             />
@@ -556,6 +613,16 @@ function ProductDetails({ product, sameCategoryProducts }) {
     scroll-behavior: auto !important;
   }
 }
+
+@media (max-width: 640px) {
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
 */
 
 // Validation des props pour une meilleure robustesse
@@ -564,8 +631,11 @@ ProductDetails.propTypes = {
     _id: PropTypes.string,
     name: PropTypes.string,
     price: PropTypes.number,
+    oldPrice: PropTypes.number,
     description: PropTypes.string,
     stock: PropTypes.number,
+    sold: PropTypes.number,
+    createdAt: PropTypes.string,
     images: PropTypes.arrayOf(
       PropTypes.shape({
         url: PropTypes.string,
