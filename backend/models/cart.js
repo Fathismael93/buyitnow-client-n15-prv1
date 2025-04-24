@@ -78,8 +78,8 @@ cartSchema.methods.updateQuantity = function (newQuantity) {
 
 // Méthode statique pour trouver tous les articles du panier d'un utilisateur
 cartSchema.statics.findByUser = function (userId) {
-  return this.find({ user: userId, active: true })
-    .populate('product', 'name price stock imageUrl')
+  return this.find({ user: userId })
+    .populate('product', 'name price stock images')
     .sort({ createdAt: -1 });
 };
 
