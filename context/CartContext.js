@@ -28,9 +28,6 @@ export const CartProvider = ({ children }) => {
         'Cache-Control': 'no-cache',
       };
 
-      console.log('Getting token from localStorage');
-      console.log(localStorage);
-
       // Ajout d'un token d'authentification si disponible
       if (
         typeof localStorage !== 'undefined' &&
@@ -42,7 +39,11 @@ export const CartProvider = ({ children }) => {
       // Requête avec signal d'annulation et headers
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart`, {
         signal: controller.signal,
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        credentials: 'include', // Assurez-vous que les cookies sont envoyés
       });
 
       // Nettoyage du timeout
