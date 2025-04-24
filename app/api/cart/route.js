@@ -254,16 +254,11 @@ export async function GET(req) {
           : ''),
     }));
 
-    console.log('Formatted cart items:', formattedCart);
-
     const cartCount = formattedCart.length;
     const cartTotal = formattedCart.reduce(
       (sum, item) => sum + item.subtotal,
       0,
     );
-
-    console.log('Cart count:', cartCount);
-    console.log('Cart total:', cartTotal);
 
     // Ajouter des headers de sécurité additionnels
     const securityHeaders = {
