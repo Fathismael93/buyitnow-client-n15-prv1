@@ -53,8 +53,7 @@ export async function GET(req) {
     }
 
     // Connecter à la base de données avec timeout
-    const connectionOptions = { serverSelectionTimeoutMS: 5000 }; // Timeout de 5 secondes
-    const connectionInstance = await dbConnect(connectionOptions);
+    const connectionInstance = await dbConnect();
 
     if (!connectionInstance.connection) {
       logger.error('Database connection failed for cart request', {
