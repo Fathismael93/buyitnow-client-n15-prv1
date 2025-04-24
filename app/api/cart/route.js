@@ -69,12 +69,8 @@ export async function GET(req) {
       );
     }
 
-    console.log('Email of user', req.user.email);
-
     // Trouver l'utilisateur
     const user = await User.findOne({ email: req.user.email }).select('_id');
-
-    console.log('User found:', user);
 
     if (!user) {
       logger.warn('User not found for cart request', {
@@ -105,8 +101,6 @@ export async function GET(req) {
       // Utiliser la méthode statique optimisée du modèle Cart
       cartItems = await Cart.findByUser(user._id);
 
-      console.log('Cart items from DB:', cartItems);
-
       // Mettre en cache les résultats pour 5 minutes (300000 ms)
       appCache.products.set(cacheKey, cartItems, { ttl: 300000 });
     } else {
@@ -124,8 +118,6 @@ export async function GET(req) {
         !item.product.deleted &&
         item.product.active !== false,
     );
-
-    console.log('Filtered cart items:', cartItems);
 
     // Préparer les opérations de mise à jour en masse
     const bulkOps = [];
@@ -161,8 +153,6 @@ export async function GET(req) {
       }
     }
 
-    console.log('Final cart items after adjustments:', cartItems);
-
     // Formatter les données pour la réponse
     const formattedCart = cartItems.map((item) => ({
       id: item._id,
@@ -175,16 +165,11 @@ export async function GET(req) {
       imageUrl: item.product.images[0].url || '',
     }));
 
-    console.log('Formatted cart items:', formattedCart);
-
     const cartCount = formattedCart.length;
     const cartTotal = formattedCart.reduce(
       (sum, item) => sum + item.subtotal,
       0,
     );
-
-    console.log('Cart count:', cartCount);
-    console.log('Cart total:', cartTotal);
 
     // Ajouter des headers de cache conditionnels
     const etag = `W/"cart-${user._id}-${cartCount}-${Date.now()}"`;
