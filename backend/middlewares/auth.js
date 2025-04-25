@@ -11,8 +11,6 @@ const isAuthenticatedUser = async (req, res) => {
   }
 
   req.user = session.user;
-
-  res.next();
 };
 
 export default isAuthenticatedUser;

@@ -17,7 +17,7 @@ export async function GET(req) {
   console.log('Request method:', req.method);
   console.log('Request URL:', req.url);
   console.log('Request query:', req.query);
-  console.log('Request user:', req.user);
+  console.log('Request user before isAuthenticatedUser:', req.user);
   console.log('Request cookies:', req.cookies);
   console.log('Request params:', req.params);
   console.log('Request IP:', req.ip);
@@ -33,6 +33,8 @@ export async function GET(req) {
   try {
     // Vérifier l'authentification
     await isAuthenticatedUser(req, NextResponse);
+
+    console.log('Request user after isAuthenticatedUser:', req.user);
 
     // Appliquer le rate limiting pour les requêtes authentifiées
     const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
