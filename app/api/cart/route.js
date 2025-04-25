@@ -12,6 +12,19 @@ import { createRateLimiter } from '@/utils/rateLimit';
 import { captureException } from '@/monitoring/sentry';
 
 export async function GET(req) {
+  console.log('GET cart API called');
+  console.log('Request headers:', req.headers);
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
+  console.log('Request body:', await req.json());
+  console.log('Request query:', req.query);
+  console.log('Request user:', req.user);
+  console.log('Request cookies:', req.cookies);
+  console.log('Request params:', req.params);
+  console.log('Request IP:', req.ip);
+  console.log('Request protocol:', req.protocol);
+  console.log('Request hostname:', req.hostname);
+  console.log('Request path:', req.path);
   // Journalisation structurée de la requête
   logger.info('Cart API GET request received', {
     route: 'api/cart/GET',
