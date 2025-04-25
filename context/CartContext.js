@@ -23,6 +23,7 @@ export const CartProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [cart, setCart] = useState([]);
   const [cartCount, setCartCount] = useState(0);
+  const [cartTotal, setCartTotal] = useState(0);
   const [checkoutInfo, setCheckoutInfo] = useState(null);
   const [orderInfo, setOrderInfo] = useState(null);
 
@@ -169,6 +170,7 @@ export const CartProvider = ({ children }) => {
       if (data.data && Array.isArray(data.data.cart)) {
         setCart(data.data.cart);
         setCartCount(data.data.cartCount || data.data.cart.length);
+        setCartTotal(data.data.cartTotal || 0);
 
         // Mise en cache des données
         try {
@@ -337,6 +339,7 @@ export const CartProvider = ({ children }) => {
         loading,
         cart,
         cartCount,
+        cartTotal,
         checkoutInfo,
         orderInfo,
         setLoading,

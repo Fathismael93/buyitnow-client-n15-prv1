@@ -16,6 +16,8 @@ const Cart = () => {
     deleteItemFromCart,
     cart,
     cartCount,
+    // eslint-disable-next-line no-unused-vars
+    cartTotal,
     setLoading,
     saveOnCheckout,
     setCartToState,
