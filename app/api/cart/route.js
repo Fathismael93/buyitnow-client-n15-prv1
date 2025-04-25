@@ -12,7 +12,6 @@ import { createRateLimiter } from '@/utils/rateLimit';
 import { captureException } from '@/monitoring/sentry';
 
 export async function GET(req) {
-  console.log('GET cart API called');
   // Journalisation structurée de la requête
   logger.info('Cart API GET request received', {
     route: 'api/cart/GET',
@@ -22,8 +21,6 @@ export async function GET(req) {
   try {
     // Vérifier l'authentification
     await isAuthenticatedUser(req, NextResponse);
-
-    console.log('Request user after isAuthenticatedUser:', req.user);
 
     // Appliquer le rate limiting pour les requêtes authentifiées
     const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
@@ -70,12 +67,8 @@ export async function GET(req) {
         { status: 500 },
       );
     }
-
-    console.log('Getting user from database:', req.user.email);
     // Trouver l'utilisateur
     const user = await User.findOne({ email: req.user.email }).select('_id');
-
-    console.log('User found:', user);
 
     if (!user) {
       logger.warn('User not found for cart request', {
@@ -90,12 +83,10 @@ export async function GET(req) {
         { status: 404 },
       );
     }
-
-    console.log('Verifying user ID in query:');
     // Vérification côté serveur des droits d'accès (s'assurer que l'utilisateur accède à son propre panier)
-    if (req.user && req.user._id && req.user._id !== user.id) {
+    if (req.user && req.user._id && req.user._id !== user._id) {
       logger.warn('Unauthorized access attempt to cart', {
-        requestUser: req.query.userId,
+        requestUser: req.user._id,
         authenticatedUser: user._id.toString(),
       });
 
@@ -112,19 +103,19 @@ export async function GET(req) {
     const cacheKey = getCacheKey('cart', { userId: user._id.toString() });
 
     // Vérification du header If-None-Match pour les requêtes conditionnelles
-    // const ifNoneMatch = req.headers.get('if-none-match');
-    // const currentEtag = `W/"cart-${user._id}-${cartItems?.length || 0}"`;
+    const ifNoneMatch = req.headers.get('if-none-match');
+    const currentEtag = `W/"cart-${user._id}-${cartItems?.length || 0}"`;
 
-    // if (ifNoneMatch && ifNoneMatch === currentEtag) {
-    //   return new NextResponse(null, {
-    //     status: 304,
-    //     headers: {
-    //       ETag: currentEtag,
-    //       'Cache-Control': 'private, max-age=60',
-    //       'X-Content-Type-Options': 'nosniff',
-    //     },
-    //   });
-    // }
+    if (ifNoneMatch && ifNoneMatch === currentEtag) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          ETag: currentEtag,
+          'Cache-Control': 'private, max-age=60',
+          'X-Content-Type-Options': 'nosniff',
+        },
+      });
+    }
 
     // Nettoyer les paniers expirés au passage (opération asynchrone en arrière-plan)
     Cart.removeExpiredItems().catch((err) => {

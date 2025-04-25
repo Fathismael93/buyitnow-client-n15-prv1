@@ -39,12 +39,9 @@ export default withAuth(
       url?.startsWith('/cart') ||
       url?.startsWith('/shipping')
     ) {
-      console.log('Middleware user', user);
       if (!user) {
-        console.log('Middleware user not found', user);
         return NextResponse.redirect(new URL('/', req.url));
       }
-      console.log('Middleware user found', user);
       return NextResponse.next();
     }
   },

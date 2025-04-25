@@ -22,20 +22,6 @@ export const CartProvider = ({ children }) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 secondes
 
-      // Préparation des headers appropriés
-      const headers = {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-      };
-
-      // Ajout d'un token d'authentification si disponible
-      if (
-        typeof localStorage !== 'undefined' &&
-        localStorage.getItem('token')
-      ) {
-        headers['Authorization'] = `Bearer ${localStorage.getItem('token')}`;
-      }
-
       // Requête avec signal d'annulation et headers
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart`, {
         signal: controller.signal,
