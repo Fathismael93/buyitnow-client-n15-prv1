@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -24,89 +24,178 @@ const Cart = () => {
 
   const [error, setError] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const router = useRouter();
 
+  // Mémoriser le chargement du panier pour éviter des re-renders inutiles
+  const loadCartData = useCallback(async () => {
+    try {
+      await setCartToState();
+      setIsInitialized(true);
+      return true;
+    } catch (err) {
+      console.error('Failed to load cart data:', err);
+      setError('Unable to load your cart. Please try again later.');
+      return false;
+    }
+  }, [setCartToState]);
+
   // Effectuer le chargement initial des données
   useEffect(() => {
-    const loadCartData = async () => {
-      try {
-        await setCartToState();
-        setIsInitialized(true);
-      } catch (err) {
-        console.error('Failed to load cart data:', err);
-        setError('Unable to load your cart. Please try again later.');
-      }
-    };
-
     loadCartData();
-    // Précharger la page suivante
+    // Précharger les pages suivantes
     router.prefetch('/shipping');
+    router.prefetch('/shipping-choice');
+  }, [loadCartData, router]);
+
+  // Fonction pour afficher temporairement un feedback
+  const showFeedback = useCallback((message, type = 'success') => {
+    setFeedback({ message, type });
+    setTimeout(() => setFeedback(null), 3000);
   }, []);
 
-  // Gestionnaires d'événements optimisés avec feedback d'erreur
-  const increaseQty = async (cartItem) => {
-    if (cartItem.quantity >= cartItem.stock) {
-      return; // Empêcher d'augmenter au-delà du stock
-    }
+  // Gestionnaires d'événements optimisés avec feedback
+  const increaseQty = useCallback(
+    async (cartItem) => {
+      if (cartItem.quantity >= cartItem.stock) {
+        showFeedback('Maximum stock quantity reached', 'warning');
+        return;
+      }
 
-    setLoading(true);
-    try {
-      await updateCart(cartItem, INCREASE);
-    } catch (err) {
-      console.error('Failed to increase quantity:', err);
-      setError('Unable to update quantity. Please try again.');
-    }
-  };
+      setLoading(true);
+      try {
+        await updateCart(cartItem, INCREASE);
+        showFeedback('Quantity increased');
+      } catch (err) {
+        console.error('Failed to increase quantity:', err);
+        setError('Unable to update quantity. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [setLoading, updateCart, showFeedback],
+  );
 
-  const decreaseQty = async (cartItem) => {
-    setLoading(true);
-    try {
-      await updateCart(cartItem, DECREASE);
-    } catch (err) {
-      console.error('Failed to decrease quantity:', err);
-      setError('Unable to update quantity. Please try again.');
-    }
-  };
+  const decreaseQty = useCallback(
+    async (cartItem) => {
+      if (cartItem.quantity <= 1) {
+        showFeedback('Minimum quantity reached', 'warning');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        await updateCart(cartItem, DECREASE);
+        showFeedback('Quantity decreased');
+      } catch (err) {
+        console.error('Failed to decrease quantity:', err);
+        setError('Unable to update quantity. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [setLoading, updateCart, showFeedback],
+  );
+
+  const handleDeleteItem = useCallback(
+    async (itemId) => {
+      if (
+        !window.confirm(
+          'Are you sure you want to remove this item from your cart?',
+        )
+      ) {
+        return;
+      }
+
+      setLoading(true);
+      try {
+        await deleteItemFromCart(itemId);
+        showFeedback('Item removed from cart');
+      } catch (err) {
+        console.error('Failed to remove item:', err);
+        setError('Unable to remove item. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [deleteItemFromCart, setLoading, showFeedback],
+  );
 
   // Calculer les totaux avec useMemo pour éviter des recalculs inutiles
   const cartSummary = useMemo(() => {
     if (!cart || cartCount === 0) return { totalUnits: 0, totalAmount: 0 };
 
-    const totalUnits = cart.reduce((acc, item) => acc + item.quantity, 0);
+    const totalUnits = cart.reduce((acc, item) => {
+      return (
+        acc + (item && typeof item.quantity === 'number' ? item.quantity : 0)
+      );
+    }, 0);
 
-    return { totalUnits, totalAmount: cartTotal };
-  }, [cart]);
+    // Utiliser cartTotal depuis le context si disponible, sinon calculer
+    const totalAmount =
+      cartTotal ||
+      parseFloat(
+        cart
+          .reduce((acc, item) => {
+            const itemSubtotal =
+              item?.subtotal || item?.quantity * item?.price || 0;
+            return acc + itemSubtotal;
+          }, 0)
+          .toFixed(2),
+      );
 
-  const checkoutHandler = () => {
+    return { totalUnits, totalAmount };
+  }, [cart, cartCount, cartTotal]);
+
+  const checkoutHandler = useCallback(() => {
     // Valider le panier avant de procéder au checkout
     if (!cart || cart.length === 0) {
       setError('Your cart is empty');
       return;
     }
 
-    const data = {
-      amount: cartSummary.totalAmount,
-      tax: (cartSummary.totalAmount * 0.05).toFixed(2), // Exemple de calcul de taxe
-      totalAmount: (parseFloat(cartSummary.totalAmount) * 1.05).toFixed(2), // Total avec taxe
-    };
+    try {
+      const amount = parseFloat(cartSummary.totalAmount);
 
-    saveOnCheckout(data);
-  };
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error('Invalid cart total');
+      }
+
+      const tax = parseFloat((amount * 0.05).toFixed(2));
+      const totalAmount = parseFloat((amount + tax).toFixed(2));
+
+      const data = {
+        amount,
+        tax,
+        totalAmount,
+      };
+
+      saveOnCheckout(data);
+      // Le Link va gérer la navigation, mais on peut préparer les données ici
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setError('Unable to proceed to checkout. Please try again.');
+    }
+  }, [cart, cartSummary.totalAmount, saveOnCheckout]);
 
   // Afficher un message d'erreur si une erreur s'est produite
   if (error) {
     return (
       <div className="container mx-auto px-4 py-10 text-center">
-        <div className="bg-red-100 p-4 rounded-md mb-4">
-          <p className="text-red-700">{error}</p>
+        <div
+          className="bg-danger-light p-4 rounded-md mb-4 max-w-md mx-auto"
+          role="alert"
+          aria-live="assertive"
+        >
+          <p className="text-danger-dark">{error}</p>
         </div>
         <button
           onClick={() => {
             setError(null);
-            setCartToState();
+            loadCartData();
           }}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md"
+          className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
         >
           Try Again
         </button>
@@ -120,98 +209,200 @@ const Cart = () => {
   }
 
   return (
-    <>
-      <section className="py-5 sm:py-7 bg-blue-100">
-        <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
-          <h1 className="text-3xl font-semibold mb-2" aria-live="polite">
+    <div className="min-h-screen bg-secondary-light">
+      {/* Notification de feedback */}
+      {feedback && (
+        <div
+          className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-md transition-opacity duration-300 ${
+            feedback.type === 'success'
+              ? 'bg-success-light text-success-dark'
+              : feedback.type === 'warning'
+                ? 'bg-yellow-100 text-yellow-800'
+                : 'bg-danger-light text-danger-dark'
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {feedback.message}
+        </div>
+      )}
+
+      {/* En-tête du panier */}
+      <section className="py-5 sm:py-7 bg-primary-light text-white">
+        <div className="container max-w-6xl mx-auto px-4">
+          <h1
+            className="text-2xl md:text-3xl font-semibold mb-1"
+            aria-live="polite"
+          >
             {cartCount || 0} Item{cartCount !== 1 ? 's' : ''} in Cart
           </h1>
+          <p className="text-sm md:text-base opacity-80">
+            Review your items and proceed to checkout
+          </p>
         </div>
       </section>
 
       {cartCount > 0 ? (
-        <section className="py-10">
-          <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <main className="md:w-3/4">
-                <article className="border border-gray-200 bg-white shadow-xs rounded-sm mb-5 p-3 lg:p-5">
+        <section className="py-8 md:py-10">
+          <div className="container max-w-6xl mx-auto px-4">
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Contenu principal du panier */}
+              <main className="w-full lg:w-3/4">
+                <article className="border border-gray-200 bg-white shadow-sm rounded-lg mb-5 overflow-hidden">
+                  {/* Bannière de mise à jour */}
                   {loading && isInitialized && (
-                    <div className="text-center p-4">
-                      <p>Updating cart...</p>
+                    <div className="bg-primary-light bg-opacity-10 text-center p-3 border-b border-primary-light">
+                      <p className="text-primary-dark">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5 inline-block animate-spin mr-2"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                          <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10"
+                            strokeOpacity="0.75"
+                          />
+                        </svg>
+                        Updating your cart...
+                      </p>
                     </div>
                   )}
 
-                  {cart?.map((cartItem) => (
-                    <ItemCart
-                      key={cartItem.id}
-                      cartItem={cartItem}
-                      deleteItemFromCart={deleteItemFromCart}
-                      decreaseQty={decreaseQty}
-                      increaseQty={increaseQty}
-                    />
-                  ))}
+                  {/* En-têtes des colonnes sur les plus grands écrans */}
+                  <div className="hidden md:flex bg-gray-50 p-4 border-b border-gray-200">
+                    <div className="w-full md:w-2/5 xl:w-2/4 font-medium">
+                      Product
+                    </div>
+                    <div className="w-24 font-medium">Quantity</div>
+                    <div className="w-28 font-medium">Price</div>
+                    <div className="flex-auto text-right font-medium">
+                      Action
+                    </div>
+                  </div>
+
+                  {/* Liste des articles */}
+                  <div className="divide-y divide-gray-200">
+                    {cart?.map((cartItem) => (
+                      <ItemCart
+                        key={cartItem.id}
+                        cartItem={cartItem}
+                        deleteItemFromCart={handleDeleteItem}
+                        decreaseQty={decreaseQty}
+                        increaseQty={increaseQty}
+                      />
+                    ))}
+                  </div>
                 </article>
               </main>
-              <aside className="md:w-1/4">
-                <article className="border border-gray-200 bg-white shadow-xs rounded-sm mb-5 p-3 lg:p-5">
-                  <ul className="mb-5">
+
+              {/* Résumé du panier */}
+              <aside className="w-full lg:w-1/4">
+                <article className="border border-gray-200 bg-white shadow-sm rounded-lg p-5 sticky top-6">
+                  <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
+
+                  <ul className="mb-5 divide-y divide-gray-200">
                     <li
-                      className="flex justify-between text-gray-600 mb-1"
+                      className="flex justify-between py-3 text-gray-600"
                       aria-label={`Total units: ${cartSummary.totalUnits}`}
                     >
                       <span>Total Units:</span>
-                      <span className="text-green-800">
+                      <span className="text-success-dark font-medium">
                         {cartSummary.totalUnits}{' '}
-                        {cartSummary.totalUnits !== 1 ? 'Units' : 'Unit'}
+                        {cartSummary.totalUnits !== 1 ? 'items' : 'item'}
+                      </span>
+                    </li>
+                    <li className="flex justify-between py-3 text-gray-600">
+                      <span>Subtotal:</span>
+                      <span className="font-medium">
+                        $
+                        {typeof cartSummary.totalAmount === 'number'
+                          ? cartSummary.totalAmount.toFixed(2)
+                          : cartSummary.totalAmount}
+                      </span>
+                    </li>
+                    <li className="flex justify-between py-3 text-gray-600">
+                      <span>Tax (5%):</span>
+                      <span className="font-medium">
+                        $
+                        {typeof cartSummary.totalAmount === 'number'
+                          ? (cartSummary.totalAmount * 0.05).toFixed(2)
+                          : '0.00'}
                       </span>
                     </li>
                     <li
-                      className="text-lg font-bold border-t flex justify-between mt-3 pt-3"
-                      aria-label={`Total price: $${cartSummary.totalAmount}`}
+                      className="flex justify-between py-3 text-xl font-bold text-gray-800"
+                      aria-label={`Total price: $${typeof cartSummary.totalAmount === 'number' ? (cartSummary.totalAmount * 1.05).toFixed(2) : cartSummary.totalAmount}`}
                     >
-                      <span>Total price:</span>
-                      <span>$ {cartSummary.totalAmount}</span>
+                      <span>Total:</span>
+                      <span>
+                        $
+                        {typeof cartSummary.totalAmount === 'number'
+                          ? (cartSummary.totalAmount * 1.05).toFixed(2)
+                          : cartSummary.totalAmount}
+                      </span>
                     </li>
                   </ul>
 
-                  <Link
-                    className="px-4 py-3 mb-2 inline-block text-lg w-full text-center font-bold text-white bg-green-800 border border-transparent rounded-md hover:bg-green-700 cursor-pointer"
-                    onClick={checkoutHandler}
-                    aria-label="Proceed to checkout"
-                    href="/shipping-choice"
-                  >
-                    Continue
-                  </Link>
+                  <div className="space-y-3">
+                    <Link
+                      className="block w-full px-4 py-3 text-center text-white bg-success hover:bg-success-dark rounded-md transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-success focus:ring-offset-2"
+                      onClick={checkoutHandler}
+                      aria-label="Proceed to checkout"
+                      href="/shipping-choice"
+                    >
+                      Proceed to Checkout
+                    </Link>
 
-                  <Link
-                    aria-label="Return to shop"
-                    href="/"
-                    className="px-4 py-3 inline-block text-lg w-full text-center font-semibold text-green-800 bg-white shadow-xs border border-gray-200 rounded-md hover:bg-gray-100"
-                  >
-                    Back to shop
-                  </Link>
+                    <Link
+                      aria-label="Continue shopping"
+                      href="/"
+                      className="block w-full px-4 py-3 text-center text-success-dark bg-white border border-success hover:bg-success-light hover:text-success-dark rounded-md transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-success focus:ring-offset-2"
+                    >
+                      Continue Shopping
+                    </Link>
+                  </div>
                 </article>
               </aside>
             </div>
           </div>
         </section>
       ) : (
-        <div className="container mx-auto px-4 py-16 text-center">
-          <div className="bg-white p-6 shadow-md rounded-md max-w-md mx-auto">
-            <p className="font-bold text-xl mb-4">Your Cart is Empty!</p>
-            <p className="text-gray-600 mb-6">
+        <div className="container mx-auto px-4 py-16">
+          <div className="bg-white p-8 shadow-md rounded-lg max-w-md mx-auto text-center">
+            <div className="mb-6 text-gray-400">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-16 w-16 mx-auto"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                />
+              </svg>
+            </div>
+            <h2 className="font-bold text-2xl mb-4">Your Cart is Empty</h2>
+            <p className="text-gray-600 mb-8">
               Looks like you haven&apos;t added any items to your cart yet.
             </p>
             <Link
               href="/"
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              className="inline-block px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
             >
               Start Shopping
             </Link>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
