@@ -264,7 +264,7 @@ export async function GET(req) {
 
     // Ajouter des headers de sécurité additionnels
     const securityHeaders = {
-      ETag: currentEtag,
+      // ETag: currentEtag,
       'Cache-Control': 'private, max-age=60',
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
