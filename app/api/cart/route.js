@@ -102,21 +102,6 @@ export async function GET(req) {
     // Génération de la clé de cache
     const cacheKey = getCacheKey('cart', { userId: user._id.toString() });
 
-    // Vérification du header If-None-Match pour les requêtes conditionnelles
-    const ifNoneMatch = req.headers.get('if-none-match');
-    const currentEtag = `W/"cart-${user._id}-${cartItems?.length || 0}"`;
-
-    if (ifNoneMatch && ifNoneMatch === currentEtag) {
-      return new NextResponse(null, {
-        status: 304,
-        headers: {
-          ETag: currentEtag,
-          'Cache-Control': 'private, max-age=60',
-          'X-Content-Type-Options': 'nosniff',
-        },
-      });
-    }
-
     // Nettoyer les paniers expirés au passage (opération asynchrone en arrière-plan)
     Cart.removeExpiredItems().catch((err) => {
       logger.error('Failed to remove expired cart items', {
@@ -255,7 +240,6 @@ export async function GET(req) {
 
     // Ajouter des headers de sécurité additionnels
     const securityHeaders = {
-      // ETag: currentEtag,
       'Cache-Control': 'private, max-age=60',
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
