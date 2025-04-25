@@ -95,13 +95,13 @@ const ItemCart = ({
           <div className="leading-5">
             <p
               className="font-semibold not-italic"
-              aria-label={`Total: $${cartItem.subtotal.toFixed(2)}`}
+              aria-label={`Total: $${cartItem.subtotal?.toFixed(2)}`}
               title="Total price for this item"
             >
-              ${cartItem.subtotal.toFixed(2)}
+              ${cartItem.subtotal?.toFixed(2)}
             </p>
             <small className="text-gray-800" data-testid="unit price per item">
-              ${cartItem.price.toFixed(2)} / per item
+              ${cartItem.price?.toFixed(2)} / per item
             </small>
           </div>
         </div>
