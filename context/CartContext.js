@@ -164,6 +164,8 @@ export const CartProvider = ({ children }) => {
         return;
       }
 
+      console.log('Cart data fetched successfully', data);
+
       if (data.data && Array.isArray(data.data.cart)) {
         setCart(data.data.cart);
         setCartCount(data.data.cartCount || data.data.cart.length);

@@ -232,8 +232,6 @@ export async function GET(req) {
           : ''),
     }));
 
-    console.log('Formatted cart items:', formattedCart);
-
     const cartCount = formattedCart.length;
     const cartTotal = formattedCart.reduce(
       (sum, item) => sum + item.subtotal,
