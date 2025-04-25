@@ -112,19 +112,19 @@ export async function GET(req) {
     const cacheKey = getCacheKey('cart', { userId: user._id.toString() });
 
     // Vérification du header If-None-Match pour les requêtes conditionnelles
-    const ifNoneMatch = req.headers.get('if-none-match');
-    const currentEtag = `W/"cart-${user._id}-${cartItems?.length || 0}"`;
+    // const ifNoneMatch = req.headers.get('if-none-match');
+    // const currentEtag = `W/"cart-${user._id}-${cartItems?.length || 0}"`;
 
-    if (ifNoneMatch && ifNoneMatch === currentEtag) {
-      return new NextResponse(null, {
-        status: 304,
-        headers: {
-          ETag: currentEtag,
-          'Cache-Control': 'private, max-age=60',
-          'X-Content-Type-Options': 'nosniff',
-        },
-      });
-    }
+    // if (ifNoneMatch && ifNoneMatch === currentEtag) {
+    //   return new NextResponse(null, {
+    //     status: 304,
+    //     headers: {
+    //       ETag: currentEtag,
+    //       'Cache-Control': 'private, max-age=60',
+    //       'X-Content-Type-Options': 'nosniff',
+    //     },
+    //   });
+    // }
 
     // Nettoyer les paniers expirés au passage (opération asynchrone en arrière-plan)
     Cart.removeExpiredItems().catch((err) => {
