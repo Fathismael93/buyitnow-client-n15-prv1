@@ -84,7 +84,7 @@ export async function GET(req) {
       );
     }
     // Vérification côté serveur des droits d'accès (s'assurer que l'utilisateur accède à son propre panier)
-    if (req.user && req.user._id && req.user._id !== user._id) {
+    if (req.user && req.user._id && req.user._id !== user.id) {
       logger.warn('Unauthorized access attempt to cart', {
         requestUser: req.user._id,
         authenticatedUser: user._id.toString(),
