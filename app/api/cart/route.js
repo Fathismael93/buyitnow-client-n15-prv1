@@ -93,7 +93,7 @@ export async function GET(req) {
 
     console.log('Verifying user ID in query:');
     // Vérification côté serveur des droits d'accès (s'assurer que l'utilisateur accède à son propre panier)
-    if (req.user && req.user._id && req.user._id !== user._id.toString()) {
+    if (req.user && req.user._id && req.user._id !== user.id) {
       logger.warn('Unauthorized access attempt to cart', {
         requestUser: req.query.userId,
         authenticatedUser: user._id.toString(),
