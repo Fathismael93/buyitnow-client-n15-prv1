@@ -13,17 +13,6 @@ import { captureException } from '@/monitoring/sentry';
 
 export async function GET(req) {
   console.log('GET cart API called');
-  console.log('Request headers:', req.headers);
-  console.log('Request method:', req.method);
-  console.log('Request URL:', req.url);
-  console.log('Request query:', req.query);
-  console.log('Request user before isAuthenticatedUser:', req.user);
-  console.log('Request cookies:', req.cookies);
-  console.log('Request params:', req.params);
-  console.log('Request IP:', req.ip);
-  console.log('Request protocol:', req.protocol);
-  console.log('Request hostname:', req.hostname);
-  console.log('Request path:', req.path);
   // Journalisation structurée de la requête
   logger.info('Cart API GET request received', {
     route: 'api/cart/GET',
@@ -82,8 +71,11 @@ export async function GET(req) {
       );
     }
 
+    console.log('Getting user from database:', req.user.email);
     // Trouver l'utilisateur
     const user = await User.findOne({ email: req.user.email }).select('_id');
+
+    console.log('User found:', user);
 
     if (!user) {
       logger.warn('User not found for cart request', {
@@ -99,12 +91,9 @@ export async function GET(req) {
       );
     }
 
+    console.log('Verifying user ID in query:');
     // Vérification côté serveur des droits d'accès (s'assurer que l'utilisateur accède à son propre panier)
-    if (
-      req.query &&
-      req.query.userId &&
-      req.query.userId !== user._id.toString()
-    ) {
+    if (req.user && req.user._id && req.user._id !== user._id.toString()) {
       logger.warn('Unauthorized access attempt to cart', {
         requestUser: req.query.userId,
         authenticatedUser: user._id.toString(),
