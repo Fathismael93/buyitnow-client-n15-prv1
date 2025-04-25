@@ -79,14 +79,12 @@ const CartPage = async () => {
     }
 
     return (
-      <ErrorBoundary fallback={CartErrorComponent}>
-        <div itemScope itemType="https://schema.org/ItemList">
-          <meta itemProp="name" content="Shopping Cart" />
-          <Suspense fallback={<CartSkeleton />}>
-            <Cart />
-          </Suspense>
-        </div>
-      </ErrorBoundary>
+      <div itemScope itemType="https://schema.org/ItemList">
+        <meta itemProp="name" content="Shopping Cart" />
+        <Suspense>
+          <Cart />
+        </Suspense>
+      </div>
     );
   } catch (error) {
     console.error('Error accessing cart page:', error);
