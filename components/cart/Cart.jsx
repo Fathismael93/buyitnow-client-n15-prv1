@@ -16,7 +16,6 @@ const Cart = () => {
     deleteItemFromCart,
     cart,
     cartCount,
-    // eslint-disable-next-line no-unused-vars
     cartTotal,
     setLoading,
     saveOnCheckout,
@@ -72,14 +71,11 @@ const Cart = () => {
 
   // Calculer les totaux avec useMemo pour éviter des recalculs inutiles
   const cartSummary = useMemo(() => {
-    if (!cart || cart.length === 0) return { totalUnits: 0, totalAmount: 0 };
+    if (!cart || cartCount === 0) return { totalUnits: 0, totalAmount: 0 };
 
     const totalUnits = cart.reduce((acc, item) => acc + item.quantity, 0);
-    const totalAmount = cart
-      .reduce((acc, item) => acc + item.subtotal, 0)
-      .toFixed(2);
 
-    return { totalUnits, totalAmount };
+    return { totalUnits, totalAmount: cartTotal };
   }, [cart]);
 
   const checkoutHandler = () => {
