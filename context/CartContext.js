@@ -4,6 +4,19 @@ import { DECREASE } from '@/helpers/constants';
 import { createContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 
+// Fonction utilitaire de debounce (à mettre à l'extérieur de votre composant)
+const debounce = (func, wait) => {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
@@ -337,19 +350,6 @@ export const CartProvider = ({ children }) => {
       {children}
     </CartContext.Provider>
   );
-};
-
-// Fonction utilitaire de debounce (à mettre à l'extérieur de votre composant)
-const debounce = (func, wait) => {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
 };
 
 export default CartContext;
