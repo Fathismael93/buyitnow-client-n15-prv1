@@ -16,7 +16,6 @@ export async function GET(req) {
   console.log('Request headers:', req.headers);
   console.log('Request method:', req.method);
   console.log('Request URL:', req.url);
-  console.log('Request body:', await req.json());
   console.log('Request query:', req.query);
   console.log('Request user:', req.user);
   console.log('Request cookies:', req.cookies);
