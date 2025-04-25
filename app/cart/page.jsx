@@ -65,10 +65,11 @@ export const metadata = {
 
 const CartPage = async () => {
   try {
+    const cookie = await cookies();
     // Vérification de l'authentification côté serveur
     const sessionCookie =
-      cookies().get('next-auth.session-token') ||
-      cookies().get('__Secure-next-auth.session-token');
+      cookie.get('next-auth.session-token') ||
+      cookie.get('__Secure-next-auth.session-token');
 
     if (!sessionCookie) {
       // Rediriger vers la page de connexion avec le retour à la page du panier
