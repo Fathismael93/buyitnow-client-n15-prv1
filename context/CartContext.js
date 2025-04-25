@@ -26,9 +26,6 @@ export const CartProvider = ({ children }) => {
     };
   }, []);
 
-  // Créer une version avec debounce pour éviter les appels multiples rapides
-  const debouncedSetCartToState = debounce(setCartToState, 300);
-
   // Nombre de tentatives maximum
   const MAX_RETRY_COUNT = 3;
   // Délai de base entre les tentatives (augmentera exponentiellement)
@@ -213,6 +210,9 @@ export const CartProvider = ({ children }) => {
       }
     }
   };
+
+  // Créer une version avec debounce pour éviter les appels multiples rapides
+  const debouncedSetCartToState = debounce(setCartToState, 300);
 
   const addItemToCart = async ({ product }) => {
     try {
