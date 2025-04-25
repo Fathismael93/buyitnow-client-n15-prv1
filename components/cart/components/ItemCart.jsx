@@ -15,6 +15,8 @@ const ItemCart = ({
   // Vérification que la quantité ne dépasse pas le stock
   const canIncreaseQuantity = cartItem.quantity < cartItem.stock;
 
+  console.log('ItemCart', cartItem);
+
   return (
     <div className="cart-item">
       <div className="flex flex-wrap lg:flex-row gap-5 mb-4">
