@@ -3,14 +3,11 @@ import dynamic from 'next/dynamic';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { captureException } from '@/monitoring/sentry';
-
-// Composant de chargement spécifique au panier
-import CartSkeleton from '@/components/cart/CartSkeleton';
-import ErrorBoundary from '@/components/shared/ErrorBoundary';
+import Loading from '../loading';
 
 // Import dynamique du composant Cart avec fallback spécifique
 const Cart = dynamic(() => import('@/components/cart/Cart'), {
-  loading: () => <CartSkeleton />,
+  loading: () => <Loading />,
   ssr: true,
 });
 
@@ -35,36 +32,36 @@ export const metadata = {
 };
 
 // Composant d'erreur spécifique pour le panier
-const CartErrorComponent = ({ error }) => {
-  // Capture l'erreur dans Sentry
-  React.useEffect(() => {
-    captureException(error, {
-      tags: {
-        component: 'CartPage',
-        errorType: error.name,
-      },
-      extra: {
-        message: error.message,
-        statusCode: error.statusCode || 500,
-      },
-    });
-  }, [error]);
+// const CartErrorComponent = ({ error }) => {
+//   // Capture l'erreur dans Sentry
+//   React.useEffect(() => {
+//     captureException(error, {
+//       tags: {
+//         component: 'CartPage',
+//         errorType: error.name,
+//       },
+//       extra: {
+//         message: error.message,
+//         statusCode: error.statusCode || 500,
+//       },
+//     });
+//   }, [error]);
 
-  return (
-    <div className="container mx-auto p-4 text-center">
-      <h1 className="text-2xl font-bold text-red-600 mb-4">
-        Une erreur est survenue
-      </h1>
-      <p className="mb-4">Impossible de charger votre panier.</p>
-      <button
-        onClick={() => window.location.reload()}
-        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-      >
-        Réessayer
-      </button>
-    </div>
-  );
-};
+//   return (
+//     <div className="container mx-auto p-4 text-center">
+//       <h1 className="text-2xl font-bold text-red-600 mb-4">
+//         Une erreur est survenue
+//       </h1>
+//       <p className="mb-4">Impossible de charger votre panier.</p>
+//       <button
+//         onClick={() => window.location.reload()}
+//         className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+//       >
+//         Réessayer
+//       </button>
+//     </div>
+//   );
+// };
 
 const CartPage = async () => {
   try {
