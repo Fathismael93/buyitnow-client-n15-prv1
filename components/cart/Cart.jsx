@@ -104,6 +104,7 @@ const Cart = () => {
     }
 
     setLoading(true);
+    console.log('Item to delete from cart Id', itemId);
     try {
       await deleteItemFromCart(itemId);
       showFeedback('Item removed from cart');
