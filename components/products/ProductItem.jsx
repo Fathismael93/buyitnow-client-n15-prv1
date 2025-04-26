@@ -40,7 +40,7 @@ const ProductItem = memo(({ product }) => {
 
         console.log('cart', cart);
 
-        const isProductInCart = cart.find((i) => i?.product?._id === productId);
+        const isProductInCart = cart.find((i) => i?.product?.id === productId);
 
         console.log('isProductInCart', isProductInCart);
 
