@@ -246,8 +246,9 @@ export const CartProvider = ({ children }) => {
       }
 
       if (data?.data) {
-        console.log('Data', data);
-        // setCartToState();
+        setCart(data.data.cart);
+        setCartCount(data.data.cartCount);
+        setCartTotal(data.data.cartTotal);
         toast.success('Product added to cart');
       }
     } catch (error) {
@@ -276,7 +277,7 @@ export const CartProvider = ({ children }) => {
         }
 
         if (data?.success) {
-          setCartToState();
+          console.log('Data updated', data);
           toast.success(data?.message);
           setLoading(false);
         }

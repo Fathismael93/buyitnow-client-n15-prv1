@@ -629,7 +629,7 @@ export async function POST(req) {
           cartCount,
           cartTotal,
           cart: formattedCart,
-          newItemId: cartAdded._id,
+          // newItemId: cartAdded._id,
         },
         message: 'Product added to cart',
       },
@@ -712,12 +712,67 @@ export async function POST(req) {
 }
 
 export async function PUT(req) {
+  // Journalisation structurée de la requête
+  logger.info('Cart API PUT request received', {
+    route: 'api/cart/PUT',
+    user: req.user?.email || 'unauthenticated',
+  });
+
   try {
+    // Vérifier l'authentification
     await isAuthenticatedUser(req, NextResponse);
 
-    const connectionInstance = await dbConnect();
+    // Appliquer le rate limiting pour les requêtes authentifiées
+    const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
+      prefix: 'cart_api',
+      getTokenFromReq: (req) => req.user?.email || req.user?.id,
+    });
+
+    try {
+      await rateLimiter.check(req);
+    } catch (rateLimitError) {
+      logger.warn('Rate limit exceeded for cart API', {
+        user: req.user?.email,
+        error: rateLimitError.message,
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Too many requests, please try again later',
+        },
+        {
+          status: 429,
+          headers: rateLimitError.headers || {
+            'Retry-After': '60',
+          },
+        },
+      );
+    }
+
+    // Connecter à la base de données avec timeout
+    const connectionPromise = new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error('Database connection timeout'));
+      }, 3000); // 3 secondes timeout
+
+      try {
+        const result = dbConnect();
+        clearTimeout(timeoutId);
+        resolve(result);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        reject(error);
+      }
+    });
+
+    const connectionInstance = await connectionPromise;
 
     if (!connectionInstance.connection) {
+      logger.error('Database connection failed for cart PUT request', {
+        user: req.user?.email,
+      });
+
       return NextResponse.json(
         {
           success: false,
@@ -727,9 +782,14 @@ export async function PUT(req) {
       );
     }
 
-    const user = await User.findOne({ email: req.user.email });
+    // Trouver l'utilisateur
+    const user = await User.findOne({ email: req.user.email }).select('_id');
 
     if (!user) {
+      logger.warn('User not found for cart PUT request', {
+        email: req.user.email,
+      });
+
       return NextResponse.json(
         {
           success: false,
@@ -741,10 +801,107 @@ export async function PUT(req) {
 
     const body = await req.json();
 
-    const productId = body.product.product._id;
-    const product = await Product.findById(productId);
+    // Nettoyer les paniers expirés au passage (opération asynchrone en arrière-plan)
+    Cart.removeExpiredItems().catch((err) => {
+      logger.error('Failed to remove expired cart items', {
+        error: err.message,
+      });
+    });
+
+    // Extraire les identifiants nécessaires
+    const cartItemId = body.product?._id;
+    const productId = body.product?.product?._id;
+    const action = body.value;
+
+    if (!cartItemId || !productId) {
+      logger.warn('Invalid cart item data provided for update', {
+        userId: user._id,
+        cartItemId,
+        productId,
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Invalid cart item data',
+        },
+        { status: 400 },
+      );
+    }
+
+    // Vérifier que l'élément du panier existe et appartient à l'utilisateur
+    const cartItemPromise = new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error('Cart item query timeout'));
+      }, 3000);
+
+      try {
+        const result = Cart.findById(cartItemId).populate('product');
+        clearTimeout(timeoutId);
+        resolve(result);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        reject(error);
+      }
+    });
+
+    const cartItem = await cartItemPromise;
+
+    if (!cartItem) {
+      logger.warn('Cart item not found for update', {
+        userId: user._id,
+        cartItemId,
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Cart item not found',
+        },
+        { status: 404 },
+      );
+    }
+
+    // Vérification des droits d'accès
+    if (cartItem.user.toString() !== user._id.toString()) {
+      logger.warn('Unauthorized access attempt to cart item', {
+        requestUser: user._id.toString(),
+        cartItemUser: cartItem.user.toString(),
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Unauthorized access',
+        },
+        { status: 403 },
+      );
+    }
+
+    // Vérifier que le produit existe encore
+    const productPromise = new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error('Product query timeout'));
+      }, 3000);
+
+      try {
+        const result = Product.findById(productId);
+        clearTimeout(timeoutId);
+        resolve(result);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        reject(error);
+      }
+    });
+
+    const product = await productPromise;
 
     if (!product) {
+      logger.warn('Product not found for cart update', {
+        userId: user._id,
+        productId,
+      });
+
       return NextResponse.json(
         {
           success: false,
@@ -754,67 +911,283 @@ export async function PUT(req) {
       );
     }
 
-    // IF THE USER WANT TO INCREASE THE QUANTITY OF A PRODUCT IN THE CART THEN THE VALUE WILL BE INCREASE
+    // Vérifier si le produit est actif et non supprimé
+    if (!product.isActive) {
+      logger.warn('Attempt to update cart with inactive or deleted product', {
+        userId: user._id,
+        productId: product._id,
+        active: product.active,
+        deleted: product.deleted,
+      });
 
-    if (body.value === INCREASE) {
-      const neededQuantity = body.product.quantity + 1;
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Product is no longer available',
+        },
+        { status: 400 },
+      );
+    }
+
+    let updatedCart;
+    let operation = 'unknown';
+
+    // Gérer l'augmentation de la quantité
+    if (action === INCREASE) {
+      operation = 'increase';
+      const neededQuantity = cartItem.quantity + 1;
+
+      // Vérifier la disponibilité du stock
       if (neededQuantity > product.stock) {
+        logger.warn('Insufficient stock for cart update', {
+          userId: user._id,
+          productId: product._id,
+          requestedQuantity: neededQuantity,
+          availableStock: product.stock,
+        });
+
         return NextResponse.json(
           {
             success: false,
-            message: 'Inavailable quantity',
+            message: `Only ${product.stock} units available`,
           },
-          { status: 404 },
+          { status: 400 },
         );
       }
 
-      const updatedCart = await Cart.findByIdAndUpdate(body.product._id, {
-        quantity: neededQuantity,
+      // Utiliser la méthode du modèle Cart avec timeout
+      const updatePromise = new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error('Cart update timeout'));
+        }, 3000);
+
+        try {
+          const result = cartItem.updateQuantity(neededQuantity);
+          clearTimeout(timeoutId);
+          resolve(result);
+        } catch (error) {
+          clearTimeout(timeoutId);
+          reject(error);
+        }
       });
 
-      if (updatedCart) {
-        // Après la création réussie, invalider le cache des produits
-        appCache.products.invalidatePattern(/^products:/);
-
-        return NextResponse.json(
-          {
-            success: true,
-            message: 'Cart updated',
-          },
-          { status: 200 },
-        );
-      }
+      updatedCart = await updatePromise;
     }
+    // Gérer la diminution de la quantité
+    else if (action === DECREASE) {
+      operation = 'decrease';
+      const neededQuantity = cartItem.quantity - 1;
 
-    // IF THE USER WANT TO DECREASE THE QUANTITY OF A PRODUCT IN THE CART THEN THE VALUE WILL BE DECREASE
+      // Si la quantité est réduite à 0, supprimer l'élément du panier
+      if (neededQuantity <= 0) {
+        const deletePromise = new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            reject(new Error('Cart delete timeout'));
+          }, 3000);
 
-    if (body.value === DECREASE) {
-      const neededQuantity = body.product.quantity - 1;
-      const updatedCart = await Cart.findByIdAndUpdate(body.product._id, {
-        quantity: neededQuantity,
+          try {
+            const result = Cart.findByIdAndDelete(cartItemId);
+            clearTimeout(timeoutId);
+            resolve(result);
+          } catch (error) {
+            clearTimeout(timeoutId);
+            reject(error);
+          }
+        });
+
+        await deletePromise;
+        updatedCart = null; // Indiquer que l'élément a été supprimé
+        operation = 'remove';
+      } else {
+        // Utiliser la méthode du modèle Cart avec timeout
+        const updatePromise = new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            reject(new Error('Cart update timeout'));
+          }, 3000);
+
+          try {
+            const result = cartItem.updateQuantity(neededQuantity);
+            clearTimeout(timeoutId);
+            resolve(result);
+          } catch (error) {
+            clearTimeout(timeoutId);
+            reject(error);
+          }
+        });
+
+        updatedCart = await updatePromise;
+      }
+    } else {
+      logger.warn('Invalid cart update action', {
+        userId: user._id,
+        action,
       });
 
-      if (updatedCart) {
-        // Après la création réussie, invalider le cache des produits
-        appCache.products.invalidatePattern(/^products:/);
-
-        return NextResponse.json(
-          {
-            success: true,
-            message: 'Cart updated',
-          },
-          { status: 200 },
-        );
-      }
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Invalid action',
+        },
+        { status: 400 },
+      );
     }
+
+    // Générer la clé de cache spécifique
+    const cacheKey = getCacheKey('cart', { userId: user._id.toString() });
+
+    // Invalider le cache spécifique pour ce panier utilisateur
+    appCache.products.delete(cacheKey);
+
+    // Récupérer le panier complet mis à jour
+    const getUserCartPromise = new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error('Cart retrieval timeout'));
+      }, 3000);
+
+      try {
+        const result = Cart.findByUser(user._id);
+        clearTimeout(timeoutId);
+        resolve(result);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        reject(error);
+      }
+    });
+
+    const cartItems = await getUserCartPromise;
+
+    // Filtrer les produits inactifs ou supprimés
+    const filteredCartItems = cartItems.filter(
+      (item) =>
+        item.product &&
+        item.product.stock > 0 &&
+        !item.product.deleted &&
+        item.product.active !== false,
+    );
+
+    // Formatter les données pour la réponse
+    const formattedCart = filteredCartItems.map((item) => ({
+      id: item._id,
+      productId: item.product._id,
+      productName: item.product.name,
+      price: item.product.price,
+      quantity: item.quantity,
+      stock: item.product.stock,
+      subtotal: isNaN(item.subtotal)
+        ? item.quantity * item.product.price
+        : item.subtotal,
+      imageUrl:
+        item.product.imageUrl ||
+        (item.product.images && item.product.images[0]
+          ? item.product.images[0].url
+          : ''),
+    }));
+
+    const cartCount = formattedCart.length;
+    const cartTotal = formattedCart.reduce(
+      (sum, item) => sum + item.subtotal,
+      0,
+    );
+
+    // Ajouter des headers de sécurité additionnels
+    const securityHeaders = {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      Pragma: 'no-cache',
+      Expires: '0',
+      'Surrogate-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'X-XSS-Protection': '1; mode=block',
+      'Referrer-Policy': 'same-origin',
+    };
+
+    logger.info('Cart updated successfully', {
+      userId: user._id,
+      productId: product._id,
+      operation,
+      cartCount,
+      cartTotal,
+    });
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          cartCount,
+          cartTotal,
+          cart: formattedCart,
+          operation,
+          updatedItemId: updatedCart ? updatedCart._id : cartItemId,
+        },
+        message:
+          operation === 'remove'
+            ? 'Product removed from cart'
+            : 'Cart quantity updated',
+      },
+      {
+        status: 200,
+        headers: securityHeaders,
+      },
+    );
   } catch (error) {
+    // Gestion d'erreur plus granulaire
+    let statusCode = 500;
+    let errorMessage = 'Something is wrong with server! Please try again later';
+    let errorCode = 'SERVER_ERROR';
+
+    // Journalisation et classification des erreurs
+    if (error.name === 'ValidationError') {
+      statusCode = 400;
+      errorMessage = 'Invalid data provided';
+      errorCode = 'VALIDATION_ERROR';
+      logger.warn('Cart validation error', { error: error.message });
+    } else if (
+      error.name === 'MongoError' ||
+      error.name === 'MongoServerError'
+    ) {
+      errorCode = 'DATABASE_ERROR';
+      logger.error('MongoDB error in cart PUT API', {
+        error: error.message,
+        code: error.code,
+      });
+    } else if (error.message && error.message.includes('timeout')) {
+      statusCode = 503;
+      errorMessage = 'Service temporarily unavailable';
+      errorCode = 'TIMEOUT_ERROR';
+      logger.error('Database timeout in cart PUT API', {
+        error: error.message,
+      });
+    } else if (error.message && error.message.includes('authentication')) {
+      statusCode = 401;
+      errorMessage = 'Authentication failed';
+      errorCode = 'AUTH_ERROR';
+      logger.warn('Authentication error in cart PUT API', {
+        error: error.message,
+      });
+    } else {
+      // Erreur non identifiée
+      logger.error('Unhandled error in cart PUT API', {
+        error: error.message,
+        stack: error.stack,
+      });
+
+      // Envoyer à Sentry pour monitoring
+      captureException(error, {
+        tags: {
+          component: 'api',
+          route: 'cart/PUT',
+        },
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,
-        message: 'Something is wrong with server! Please try again later',
-        error: error,
+        message: errorMessage,
+        code: errorCode,
+        requestId: Date.now().toString(36),
       },
-      { status: 500 },
+      { status: statusCode },
     );
   }
 }
