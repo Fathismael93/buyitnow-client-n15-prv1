@@ -473,8 +473,8 @@ export async function POST(req) {
     }
 
     // Vérifier si le produit est actif et non supprimé
-    if (!product.active || product.deleted) {
-      logger.warn('Attempt to add inactive or deleted product to cart', {
+    if (!product.isActive) {
+      logger.warn('Attempt to add inactive product to cart', {
         productId: product._id,
         active: product.active,
         deleted: product.deleted,
