@@ -472,7 +472,7 @@ function ProductDetails({ product, sameCategoryProducts }) {
 
     try {
       console.log('Product', product);
-      const isProductInCart = cart.find((i) => i?.product?.id === product._id);
+      const isProductInCart = cart.find((i) => i?.productId === product._id);
 
       if (isProductInCart) {
         updateCart(isProductInCart, INCREASE);
