@@ -38,11 +38,17 @@ const ProductItem = memo(({ product }) => {
           );
         }
 
+        console.log('cart', cart);
+
         const isProductInCart = cart.find((i) => i?.product?._id === productId);
 
+        console.log('isProductInCart', isProductInCart);
+
         if (isProductInCart) {
+          console.log('Updating Product');
           updateCart(isProductInCart, INCREASE);
         } else {
+          console.log('Adding Product');
           addItemToCart({
             product: productId,
           });
