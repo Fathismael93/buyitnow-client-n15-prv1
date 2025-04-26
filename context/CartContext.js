@@ -306,6 +306,8 @@ export const CartProvider = ({ children }) => {
         return;
       }
 
+      console.log(data);
+
       if (data?.success) {
         setCartToState();
         toast.success(data?.message);
