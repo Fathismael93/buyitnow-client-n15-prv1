@@ -808,6 +808,8 @@ export async function PUT(req) {
       });
     });
 
+    console.log('Body', body);
+
     // Extraire les identifiants nécessaires
     const cartItemId = body.product?._id;
     const productId = body.product?.product?._id;
