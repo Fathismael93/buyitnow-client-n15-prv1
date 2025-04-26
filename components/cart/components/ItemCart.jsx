@@ -1,127 +1,200 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { memo } from 'react';
 
-const ItemCart = ({
+const ItemCart = memo(function ItemCart({
   cartItem,
   deleteItemFromCart,
   decreaseQty,
   increaseQty,
-}) => {
+}) {
+  if (!cartItem) return null;
+
+  // Extraction et validation des propriétés avec valeurs par défaut
+  const {
+    id,
+    productId,
+    productName = 'Product',
+    imageUrl,
+    stock = 0,
+    quantity = 0,
+    price = 0,
+    subtotal = 0,
+  } = cartItem;
+
   // Gestion d'erreur d'image avec image par défaut
   const handleImageError = (e) => {
     e.target.src = '/images/default_product.png';
+    e.target.onerror = null; // Éviter les boucles de rechargement
   };
 
   // Vérification que la quantité ne dépasse pas le stock
-  const canIncreaseQuantity = cartItem.quantity < cartItem.stock;
+  const canIncreaseQuantity = quantity < stock;
+  const canDecreaseQuantity = quantity > 1;
 
-  console.log('ItemCart', cartItem);
+  // Formater le prix avec 2 décimales de manière sécurisée
+  const formatPrice = (value) => {
+    const numValue = parseFloat(value);
+    return isNaN(numValue) ? '0.00' : numValue.toFixed(2);
+  };
 
   return (
-    <div className="cart-item">
-      <div className="flex flex-wrap lg:flex-row gap-5 mb-4">
-        <div className="w-full lg:w-2/5 xl:w-2/4">
-          <figure className="flex leading-5">
-            <div>
-              <div className="block w-16 h-16 rounded-sm border border-gray-200 overflow-hidden">
+    <div className="cart-item p-4 lg:p-5" data-testid={`cart-item-${id}`}>
+      <div className="flex flex-wrap md:flex-nowrap items-center gap-4">
+        {/* Section image et info du produit */}
+        <div className="w-full md:w-2/5 xl:w-2/4">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="w-16 h-16 rounded border border-gray-200 overflow-hidden relative bg-gray-50">
                 <Image
-                  src={cartItem.imageUrl || '/images/default_product.png'}
-                  alt={cartItem.productName}
-                  title={cartItem.productName}
+                  src={imageUrl || '/images/default_product.png'}
+                  alt={productName}
+                  title={productName}
                   width={64}
                   height={64}
                   className="object-cover w-full h-full"
                   onError={handleImageError}
+                  loading="lazy"
                 />
               </div>
             </div>
-            <figcaption className="ml-3">
-              <p>
+            <div className="ml-4">
+              <h3 className="font-medium text-gray-800 mb-1">
                 <Link
-                  href={`/product/${cartItem.productId}`}
-                  className="hover:text-blue-600 font-semibold"
-                  aria-label={`View details of ${cartItem.productName}`}
+                  href={`/product/${productId}`}
+                  className="hover:text-primary transition-colors"
+                  aria-label={`View details of ${productName}`}
                 >
-                  {cartItem.productName}
+                  {productName}
                 </Link>
-              </p>
-              <p
-                className="mt-1 text-gray-800"
-                aria-label={`${cartItem.stock} items in stock`}
-              >
-                Stock: {cartItem.stock} items
-              </p>
-            </figcaption>
-          </figure>
+              </h3>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                <span
+                  className="text-gray-600"
+                  aria-label={`${stock} items in stock`}
+                >
+                  Stock:{' '}
+                  <span
+                    className={
+                      stock < 10 ? 'text-danger-dark' : 'text-success-dark'
+                    }
+                  >
+                    {stock}
+                  </span>
+                </span>
+                <span className="text-gray-600 md:hidden">
+                  Price:{' '}
+                  <span className="font-medium">${formatPrice(price)}</span>
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="w-24">
-          <div className="flex flex-row h-10 w-full rounded-lg relative bg-transparent mt-1">
+
+        {/* Contrôles de quantité */}
+        <div className="w-32 sm:w-36">
+          <div className="flex h-10 rounded-lg relative bg-gray-50 border border-gray-200">
             <button
-              aria-label="Reduce quantity"
-              title="Reduce quantity"
-              data-action="decrement"
+              type="button"
+              aria-label={
+                canDecreaseQuantity
+                  ? 'Decrease quantity'
+                  : 'Minimum quantity reached'
+              }
+              title={
+                canDecreaseQuantity
+                  ? 'Decrease quantity'
+                  : 'Minimum quantity reached'
+              }
+              className={`flex-1 flex items-center justify-center text-gray-600 rounded-l-lg ${
+                canDecreaseQuantity
+                  ? 'hover:bg-gray-200 active:bg-gray-300'
+                  : 'opacity-50 cursor-not-allowed'
+              }`}
+              onClick={() => canDecreaseQuantity && decreaseQty(cartItem)}
+              disabled={!canDecreaseQuantity}
               data-testid="decrement"
-              className="bg-gray-300 text-gray-600 hover:text-gray-700 hover:bg-gray-400 h-full w-20 rounded-l cursor-pointer outline-none"
-              onClick={() => decreaseQty(cartItem)}
             >
-              <span className="m-auto text-2xl font-thin">−</span>
+              <span className="text-xl">−</span>
             </button>
             <input
-              type="number"
-              className="outline-none focus:outline-none text-center w-full bg-gray-300 font-semibold text-md hover:text-black focus:text-black md:text-base cursor-default flex items-center text-gray-900"
-              name="custom-input-number"
-              value={cartItem.quantity}
+              type="text"
+              className="outline-none focus:outline-none text-center w-full bg-transparent font-medium text-gray-800"
+              name="quantity"
+              value={quantity}
               readOnly
-              aria-label={`Quantity: ${cartItem.quantity}`}
-              title="Item quantity"
+              aria-label={`Quantity: ${quantity}`}
             />
             <button
-              aria-label="Increase quantity"
+              type="button"
+              aria-label={
+                canIncreaseQuantity
+                  ? 'Increase quantity'
+                  : 'Maximum stock reached'
+              }
               title={
                 canIncreaseQuantity
                   ? 'Increase quantity'
                   : 'Maximum stock reached'
               }
-              data-action="increment"
-              className={`bg-gray-300 text-gray-600 hover:text-gray-700 hover:bg-gray-400 h-full w-20 rounded-r cursor-pointer ${!canIncreaseQuantity ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`flex-1 flex items-center justify-center text-gray-600 rounded-r-lg ${
+                canIncreaseQuantity
+                  ? 'hover:bg-gray-200 active:bg-gray-300'
+                  : 'opacity-50 cursor-not-allowed'
+              }`}
               onClick={() => canIncreaseQuantity && increaseQty(cartItem)}
               disabled={!canIncreaseQuantity}
+              data-testid="increment"
             >
-              <span className="m-auto text-2xl font-thin">+</span>
+              <span className="text-xl">+</span>
             </button>
           </div>
         </div>
-        <div>
-          <div className="leading-5">
+
+        {/* Prix */}
+        <div className="w-28 hidden md:block">
+          <div>
             <p
-              className="font-semibold not-italic"
-              aria-label={`Total: $${cartItem.subtotal?.toFixed(2)}`}
-              title="Total price for this item"
+              className="font-medium text-gray-800"
+              aria-label={`Total: $${formatPrice(subtotal)}`}
             >
-              ${cartItem.subtotal?.toFixed(2)}
+              ${formatPrice(subtotal)}
             </p>
-            <small className="text-gray-800" data-testid="unit price per item">
-              ${cartItem.price?.toFixed(2)} / per item
-            </small>
+            <p className="text-sm text-gray-500">
+              ${formatPrice(price)} / each
+            </p>
           </div>
         </div>
-        <div className="flex-auto">
-          <div className="float-right">
-            <button
-              className="px-4 py-2 inline-block text-red-600 bg-white shadow-xs border border-gray-200 rounded-md hover:bg-gray-100 cursor-pointer"
-              onClick={() => deleteItemFromCart(cartItem.id)}
-              aria-label={`Remove ${cartItem.productName} from cart`}
-              title="Remove from cart"
-            >
-              Remove
-            </button>
-          </div>
+
+        {/* Prix pour mobile */}
+        <div className="w-full sm:w-auto md:hidden">
+          <p
+            className="font-medium text-gray-800"
+            aria-label={`Total: $${formatPrice(subtotal)}`}
+          >
+            Total: ${formatPrice(subtotal)}
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex-auto flex justify-end">
+          <button
+            type="button"
+            className="px-3 py-1.5 text-sm text-danger border border-danger-light rounded hover:bg-danger-light transition-colors focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
+            onClick={() => deleteItemFromCart(id)}
+            aria-label={`Remove ${productName} from cart`}
+            title="Remove from cart"
+            data-testid="remove-item"
+          >
+            Remove
+          </button>
         </div>
       </div>
-
-      <hr className="my-4" />
     </div>
   );
-};
+});
+
+// Définir displayName pour aider au débuggage
+ItemCart.displayName = 'ItemCart';
 
 export default ItemCart;
