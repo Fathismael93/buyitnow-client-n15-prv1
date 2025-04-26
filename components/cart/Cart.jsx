@@ -38,6 +38,8 @@ const Cart = () => {
       console.error('Failed to load cart data:', err);
       setError('Unable to load your cart. Please try again later.');
       return false;
+    } finally {
+      setIsInitialized(false);
     }
   }, []);
 
@@ -209,7 +211,7 @@ const Cart = () => {
               ? 'bg-green-400 text-black'
               : feedback.type === 'warning'
                 ? 'bg-yellow-100 text-yellow-800'
-                : 'bg-danger-light text-danger'
+                : 'bg-red-500 text-black'
           }`}
           role="status"
           aria-live="polite"
@@ -219,7 +221,7 @@ const Cart = () => {
       )}
 
       {/* En-tête du panier */}
-      <section className="py-5 sm:py-7 bg-blue-200 text-black shadow-md">
+      <section className="py-5 sm:py-7 bg-blue-100 text-black shadow-md">
         <div className="container max-w-6xl mx-auto px-4">
           <h1
             className="text-2xl md:text-3xl font-semibold mb-1"
@@ -242,8 +244,8 @@ const Cart = () => {
                 <article className="border border-gray-200 bg-white shadow-md rounded-lg mb-5 overflow-hidden">
                   {/* Bannière de mise à jour */}
                   {loading && isInitialized && (
-                    <div className="bg-primary-light bg-opacity-20 text-center p-3 border-b border-primary-light">
-                      <p className="text-primary-dark flex items-center justify-center">
+                    <div className="bg-blue-50 bg-opacity-20 text-center p-3 border-b border-primary-light">
+                      <p className="text-blue-400 flex items-center justify-center">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           className="h-5 w-5 inline-block animate-spin mr-2"
@@ -294,7 +296,7 @@ const Cart = () => {
 
               {/* Résumé du panier */}
               <aside className="w-full lg:w-1/4">
-                <article className="border border-gray-200 bg-white shadow-md rounded-lg p-5 sticky top-6">
+                <article className="border border-gray-200 bg-blue-300 shadow-md rounded-lg p-5 sticky top-6">
                   <h2 className="text-lg font-semibold text-gray-800 mb-4">
                     Order Summary
                   </h2>

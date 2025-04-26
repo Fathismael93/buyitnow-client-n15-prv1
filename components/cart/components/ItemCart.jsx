@@ -97,7 +97,7 @@ const ItemCart = memo(function ItemCart({
 
         {/* Contrôles de quantité */}
         <div className="w-32 sm:w-36">
-          <div className="flex h-10 rounded-md relative bg-white border border-gray-200 shadow-sm overflow-hidden">
+          <div className="flex h-10 rounded-md relative bg-blue-100 border border-gray-200 shadow-sm overflow-hidden">
             <button
               type="button"
               aria-label={
