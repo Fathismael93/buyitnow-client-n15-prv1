@@ -165,8 +165,6 @@ export const CartProvider = ({ children }) => {
         return;
       }
 
-      console.log('Cart data fetched successfully', data);
-
       if (data.data && Array.isArray(data.data.cart)) {
         setCart(data.data.cart);
         setCartCount(data.data.cartCount || data.data.cart.length);
@@ -248,7 +246,8 @@ export const CartProvider = ({ children }) => {
       }
 
       if (data?.data) {
-        setCartToState();
+        console.log('Data', data);
+        // setCartToState();
         toast.success('Product added to cart');
       }
     } catch (error) {
