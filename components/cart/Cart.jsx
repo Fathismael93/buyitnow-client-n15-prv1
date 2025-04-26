@@ -296,7 +296,7 @@ const Cart = () => {
 
               {/* Résumé du panier */}
               <aside className="w-full lg:w-1/4">
-                <article className="border border-gray-200 bg-blue-300 shadow-md rounded-lg p-5 sticky top-6">
+                <article className="border border-gray-200 bg-blue-100 shadow-md rounded-lg p-5 sticky top-6">
                   <h2 className="text-lg font-semibold text-gray-800 mb-4">
                     Order Summary
                   </h2>
@@ -346,7 +346,7 @@ const Cart = () => {
 
                   <div className="space-y-3">
                     <Link
-                      className="block w-full px-4 py-3 text-center text-white bg-success hover:bg-success-dark rounded-md transition-colors duration-300 font-medium focus:outline-none focus:ring-2 focus:ring-success focus:ring-offset-2 shadow-sm"
+                      className="block w-full px-4 py-3 text-center bg-blue-400 text-white bg-success hover:bg-success-dark rounded-md transition-colors duration-300 font-medium focus:outline-none focus:ring-2 focus:ring-success focus:ring-offset-2 shadow-sm"
                       onClick={checkoutHandler}
                       aria-label="Proceed to checkout"
                       href="/shipping-choice"
@@ -357,7 +357,7 @@ const Cart = () => {
                     <Link
                       aria-label="Continue shopping"
                       href="/"
-                      className="block w-full px-4 py-3 text-center text-primary border border-primary hover:bg-primary-light hover:text-primary-dark rounded-md transition-colors duration-300 font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                      className="block w-full px-4 py-3 text-center text-blue-500 border border-blue-500 hover:bg-primary-light hover:text-primary-dark rounded-md transition-colors duration-300 font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                     >
                       Continue Shopping
                     </Link>

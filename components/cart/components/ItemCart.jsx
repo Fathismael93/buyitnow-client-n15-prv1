@@ -97,7 +97,7 @@ const ItemCart = memo(function ItemCart({
 
         {/* Contrôles de quantité */}
         <div className="w-32 sm:w-36">
-          <div className="flex h-10 rounded-md relative bg-blue-100 border border-gray-200 shadow-sm overflow-hidden">
+          <div className="flex h-10 rounded-md relative bg-white border border-gray-200 shadow-sm overflow-hidden">
             <button
               type="button"
               aria-label={
@@ -112,7 +112,7 @@ const ItemCart = memo(function ItemCart({
               }
               className={`flex-1 flex items-center justify-center text-gray-700 ${
                 canDecreaseQuantity
-                  ? 'hover:bg-secondary active:bg-secondary-dark'
+                  ? 'bg-blue-100'
                   : 'opacity-50 cursor-not-allowed bg-gray-50'
               }`}
               onClick={() => canDecreaseQuantity && decreaseQty(cartItem)}
@@ -143,7 +143,7 @@ const ItemCart = memo(function ItemCart({
               }
               className={`flex-1 flex items-center justify-center text-gray-700 ${
                 canIncreaseQuantity
-                  ? 'hover:bg-secondary active:bg-secondary-dark'
+                  ? 'g-blue-100'
                   : 'opacity-50 cursor-not-allowed bg-gray-50'
               }`}
               onClick={() => canIncreaseQuantity && increaseQty(cartItem)}
@@ -184,7 +184,7 @@ const ItemCart = memo(function ItemCart({
         <div className="flex-auto flex justify-end">
           <button
             type="button"
-            className="px-3 py-1.5 text-sm text-danger border border-danger-light rounded-md hover:bg-danger-light hover:text-danger-dark transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1 shadow-sm"
+            className="px-3 py-1.5 text-sm bg-red-500 border border-danger-light rounded-md hover:bg-danger-light hover:text-danger-dark transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1 shadow-sm"
             onClick={() => deleteItemFromCart(id)}
             aria-label={`Remove ${productName} from cart`}
             title="Remove from cart"
