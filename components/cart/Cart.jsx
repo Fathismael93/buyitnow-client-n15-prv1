@@ -137,7 +137,7 @@ const Cart = () => {
       );
 
     return { totalUnits, totalAmount };
-  }, []);
+  }, [cart, cartCount, cartTotal]);
 
   const checkoutHandler = useCallback(() => {
     // Valider le panier avant de procéder au checkout
@@ -175,18 +175,18 @@ const Cart = () => {
     return (
       <div className="container mx-auto px-4 py-10 text-center">
         <div
-          className="bg-danger-light p-4 rounded-md mb-4 max-w-md mx-auto"
+          className="bg-danger-light p-4 rounded-md mb-4 max-w-md mx-auto shadow-md"
           role="alert"
           aria-live="assertive"
         >
-          <p className="text-danger-dark">{error}</p>
+          <p className="text-danger font-medium">{error}</p>
         </div>
         <button
           onClick={() => {
             setError(null);
             loadCartData();
           }}
-          className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+          className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
         >
           Try Again
         </button>
@@ -204,12 +204,12 @@ const Cart = () => {
       {/* Notification de feedback */}
       {feedback && (
         <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-md transition-opacity duration-300 ${
+          className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-md transition-all duration-300 ${
             feedback.type === 'success'
               ? 'bg-success-light text-success-dark'
               : feedback.type === 'warning'
                 ? 'bg-yellow-100 text-yellow-800'
-                : 'bg-danger-light text-danger-dark'
+                : 'bg-danger-light text-danger'
           }`}
           role="status"
           aria-live="polite"
@@ -219,7 +219,7 @@ const Cart = () => {
       )}
 
       {/* En-tête du panier */}
-      <section className="py-5 sm:py-7 bg-primary-light text-white">
+      <section className="py-5 sm:py-7 bg-primary text-white shadow-md">
         <div className="container max-w-6xl mx-auto px-4">
           <h1
             className="text-2xl md:text-3xl font-semibold mb-1"
@@ -227,7 +227,7 @@ const Cart = () => {
           >
             {cartCount || 0} Item{cartCount !== 1 ? 's' : ''} in Cart
           </h1>
-          <p className="text-sm md:text-base opacity-80">
+          <p className="text-sm md:text-base opacity-90">
             Review your items and proceed to checkout
           </p>
         </div>
@@ -239,11 +239,11 @@ const Cart = () => {
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Contenu principal du panier */}
               <main className="w-full lg:w-3/4">
-                <article className="border border-gray-200 bg-white shadow-sm rounded-lg mb-5 overflow-hidden">
+                <article className="border border-gray-200 bg-white shadow-md rounded-lg mb-5 overflow-hidden">
                   {/* Bannière de mise à jour */}
                   {loading && isInitialized && (
-                    <div className="bg-primary-light bg-opacity-10 text-center p-3 border-b border-primary-light">
-                      <p className="text-primary-dark">
+                    <div className="bg-primary-light bg-opacity-20 text-center p-3 border-b border-primary-light">
+                      <p className="text-primary-dark flex items-center justify-center">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           className="h-5 w-5 inline-block animate-spin mr-2"
@@ -264,13 +264,15 @@ const Cart = () => {
                   )}
 
                   {/* En-têtes des colonnes sur les plus grands écrans */}
-                  <div className="hidden md:flex bg-gray-50 p-4 border-b border-gray-200">
-                    <div className="w-full md:w-2/5 xl:w-2/4 font-medium">
+                  <div className="hidden md:flex bg-secondary p-4 border-b border-gray-200">
+                    <div className="w-full md:w-2/5 xl:w-2/4 font-medium text-gray-700">
                       Product
                     </div>
-                    <div className="w-24 font-medium">Quantity</div>
-                    <div className="w-28 font-medium">Price</div>
-                    <div className="flex-auto text-right font-medium">
+                    <div className="w-24 font-medium text-gray-700">
+                      Quantity
+                    </div>
+                    <div className="w-28 font-medium text-gray-700">Price</div>
+                    <div className="flex-auto text-right font-medium text-gray-700">
                       Action
                     </div>
                   </div>
@@ -292,16 +294,18 @@ const Cart = () => {
 
               {/* Résumé du panier */}
               <aside className="w-full lg:w-1/4">
-                <article className="border border-gray-200 bg-white shadow-sm rounded-lg p-5 sticky top-6">
-                  <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
+                <article className="border border-gray-200 bg-white shadow-md rounded-lg p-5 sticky top-6">
+                  <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                    Order Summary
+                  </h2>
 
-                  <ul className="mb-5 divide-y divide-gray-200">
+                  <ul className="mb-6 divide-y divide-gray-200">
                     <li
                       className="flex justify-between py-3 text-gray-600"
                       aria-label={`Total units: ${cartSummary.totalUnits}`}
                     >
                       <span>Total Units:</span>
-                      <span className="text-success-dark font-medium">
+                      <span className="text-success font-medium">
                         {cartSummary.totalUnits}{' '}
                         {cartSummary.totalUnits !== 1 ? 'items' : 'item'}
                       </span>
@@ -340,7 +344,7 @@ const Cart = () => {
 
                   <div className="space-y-3">
                     <Link
-                      className="block w-full px-4 py-3 text-center text-white bg-success hover:bg-success-dark rounded-md transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-success focus:ring-offset-2"
+                      className="block w-full px-4 py-3 text-center text-white bg-success hover:bg-success-dark rounded-md transition-colors duration-300 font-medium focus:outline-none focus:ring-2 focus:ring-success focus:ring-offset-2 shadow-sm"
                       onClick={checkoutHandler}
                       aria-label="Proceed to checkout"
                       href="/shipping-choice"
@@ -351,7 +355,7 @@ const Cart = () => {
                     <Link
                       aria-label="Continue shopping"
                       href="/"
-                      className="block w-full px-4 py-3 text-center text-success-dark bg-white border border-success hover:bg-success-light hover:text-success-dark rounded-md transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-success focus:ring-offset-2"
+                      className="block w-full px-4 py-3 text-center text-primary border border-primary hover:bg-primary-light hover:text-primary-dark rounded-md transition-colors duration-300 font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                     >
                       Continue Shopping
                     </Link>
@@ -367,7 +371,7 @@ const Cart = () => {
             <div className="mb-6 text-gray-400">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-16 w-16 mx-auto"
+                className="h-20 w-20 mx-auto"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -380,13 +384,15 @@ const Cart = () => {
                 />
               </svg>
             </div>
-            <h2 className="font-bold text-2xl mb-4">Your Cart is Empty</h2>
+            <h2 className="font-bold text-2xl mb-4 text-gray-800">
+              Your Cart is Empty
+            </h2>
             <p className="text-gray-600 mb-8">
               Looks like you haven&apos;t added any items to your cart yet.
             </p>
             <Link
               href="/"
-              className="inline-block px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              className="inline-block px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors duration-300 font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 shadow-sm"
             >
               Start Shopping
             </Link>

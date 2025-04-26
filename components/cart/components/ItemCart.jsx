@@ -38,14 +38,25 @@ const ItemCart = memo(function ItemCart({
     return isNaN(numValue) ? '0.00' : numValue.toFixed(2);
   };
 
+  // Déterminer la classe de couleur pour le stock
+  const getStockColorClass = () => {
+    if (stock === 0) return 'text-danger font-medium';
+    if (stock < 5) return 'text-danger-dark font-medium';
+    if (stock < 10) return 'text-yellow-600 font-medium';
+    return 'text-success font-medium';
+  };
+
   return (
-    <div className="cart-item p-4 lg:p-5" data-testid={`cart-item-${id}`}>
+    <div
+      className="cart-item p-4 lg:p-5 hover:bg-secondary-light transition-colors duration-200"
+      data-testid={`cart-item-${id}`}
+    >
       <div className="flex flex-wrap md:flex-nowrap items-center gap-4">
         {/* Section image et info du produit */}
         <div className="w-full md:w-2/5 xl:w-2/4">
           <div className="flex items-start">
             <div className="flex-shrink-0">
-              <div className="w-16 h-16 rounded border border-gray-200 overflow-hidden relative bg-gray-50">
+              <div className="w-16 h-16 rounded-md border border-gray-200 overflow-hidden relative bg-white shadow-sm">
                 <Image
                   src={imageUrl || '/images/default_product.png'}
                   alt={productName}
@@ -59,10 +70,10 @@ const ItemCart = memo(function ItemCart({
               </div>
             </div>
             <div className="ml-4">
-              <h3 className="font-medium text-gray-800 mb-1">
+              <h3 className="font-medium text-gray-800 mb-1 line-clamp-1">
                 <Link
                   href={`/product/${productId}`}
-                  className="hover:text-primary transition-colors"
+                  className="hover:text-primary transition-colors duration-200"
                   aria-label={`View details of ${productName}`}
                 >
                   {productName}
@@ -73,14 +84,7 @@ const ItemCart = memo(function ItemCart({
                   className="text-gray-600"
                   aria-label={`${stock} items in stock`}
                 >
-                  Stock:{' '}
-                  <span
-                    className={
-                      stock < 10 ? 'text-danger-dark' : 'text-success-dark'
-                    }
-                  >
-                    {stock}
-                  </span>
+                  Stock: <span className={getStockColorClass()}>{stock}</span>
                 </span>
                 <span className="text-gray-600 md:hidden">
                   Price:{' '}
@@ -93,7 +97,7 @@ const ItemCart = memo(function ItemCart({
 
         {/* Contrôles de quantité */}
         <div className="w-32 sm:w-36">
-          <div className="flex h-10 rounded-lg relative bg-gray-50 border border-gray-200">
+          <div className="flex h-10 rounded-md relative bg-white border border-gray-200 shadow-sm overflow-hidden">
             <button
               type="button"
               aria-label={
@@ -106,10 +110,10 @@ const ItemCart = memo(function ItemCart({
                   ? 'Decrease quantity'
                   : 'Minimum quantity reached'
               }
-              className={`flex-1 flex items-center justify-center text-gray-600 rounded-l-lg ${
+              className={`flex-1 flex items-center justify-center text-gray-700 ${
                 canDecreaseQuantity
-                  ? 'hover:bg-gray-200 active:bg-gray-300'
-                  : 'opacity-50 cursor-not-allowed'
+                  ? 'hover:bg-secondary active:bg-secondary-dark'
+                  : 'opacity-50 cursor-not-allowed bg-gray-50'
               }`}
               onClick={() => canDecreaseQuantity && decreaseQty(cartItem)}
               disabled={!canDecreaseQuantity}
@@ -137,10 +141,10 @@ const ItemCart = memo(function ItemCart({
                   ? 'Increase quantity'
                   : 'Maximum stock reached'
               }
-              className={`flex-1 flex items-center justify-center text-gray-600 rounded-r-lg ${
+              className={`flex-1 flex items-center justify-center text-gray-700 ${
                 canIncreaseQuantity
-                  ? 'hover:bg-gray-200 active:bg-gray-300'
-                  : 'opacity-50 cursor-not-allowed'
+                  ? 'hover:bg-secondary active:bg-secondary-dark'
+                  : 'opacity-50 cursor-not-allowed bg-gray-50'
               }`}
               onClick={() => canIncreaseQuantity && increaseQty(cartItem)}
               disabled={!canIncreaseQuantity}
@@ -151,11 +155,11 @@ const ItemCart = memo(function ItemCart({
           </div>
         </div>
 
-        {/* Prix */}
+        {/* Prix - visible uniquement sur desktop */}
         <div className="w-28 hidden md:block">
           <div>
             <p
-              className="font-medium text-gray-800"
+              className="font-semibold text-gray-800"
               aria-label={`Total: $${formatPrice(subtotal)}`}
             >
               ${formatPrice(subtotal)}
@@ -166,10 +170,10 @@ const ItemCart = memo(function ItemCart({
           </div>
         </div>
 
-        {/* Prix pour mobile */}
+        {/* Prix - visible uniquement sur mobile */}
         <div className="w-full sm:w-auto md:hidden">
           <p
-            className="font-medium text-gray-800"
+            className="font-semibold text-gray-800"
             aria-label={`Total: $${formatPrice(subtotal)}`}
           >
             Total: ${formatPrice(subtotal)}
@@ -180,7 +184,7 @@ const ItemCart = memo(function ItemCart({
         <div className="flex-auto flex justify-end">
           <button
             type="button"
-            className="px-3 py-1.5 text-sm text-danger border border-danger-light rounded hover:bg-danger-light transition-colors focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
+            className="px-3 py-1.5 text-sm text-danger border border-danger-light rounded-md hover:bg-danger-light hover:text-danger-dark transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1 shadow-sm"
             onClick={() => deleteItemFromCart(id)}
             aria-label={`Remove ${productName} from cart`}
             title="Remove from cart"
