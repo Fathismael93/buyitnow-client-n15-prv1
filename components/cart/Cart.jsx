@@ -206,7 +206,7 @@ const Cart = () => {
         <div
           className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-md transition-all duration-300 ${
             feedback.type === 'success'
-              ? 'bg-success-light text-success-dark'
+              ? 'bg-green-400 text-black'
               : feedback.type === 'warning'
                 ? 'bg-yellow-100 text-yellow-800'
                 : 'bg-danger-light text-danger'
@@ -219,7 +219,7 @@ const Cart = () => {
       )}
 
       {/* En-tête du panier */}
-      <section className="py-5 sm:py-7 bg-primary text-white shadow-md">
+      <section className="py-5 sm:py-7 bg-blue-200 text-black shadow-md">
         <div className="container max-w-6xl mx-auto px-4">
           <h1
             className="text-2xl md:text-3xl font-semibold mb-1"
