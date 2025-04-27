@@ -19,33 +19,34 @@ const Cart = () => {
     cartTotal,
     setLoading,
     saveOnCheckout,
-    setCartToState,
+    // setCartToState,
   } = useContext(CartContext);
 
   const [error, setError] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [isInitialized, setIsInitialized] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
   const router = useRouter();
 
   // Mémoriser le chargement du panier pour éviter des re-renders inutiles
-  const loadCartData = useCallback(async () => {
-    try {
-      setIsInitialized(true);
-      await setCartToState();
-      return true;
-    } catch (err) {
-      console.error('Failed to load cart data:', err);
-      setError('Unable to load your cart. Please try again later.');
-      return false;
-    } finally {
-      setIsInitialized(false);
-    }
-  }, []);
+  // const loadCartData = useCallback(async () => {
+  //   try {
+  //     setIsInitialized(true);
+  //     await setCartToState();
+  //     return true;
+  //   } catch (err) {
+  //     console.error('Failed to load cart data:', err);
+  //     setError('Unable to load your cart. Please try again later.');
+  //     return false;
+  //   } finally {
+  //     setIsInitialized(false);
+  //   }
+  // }, []);
 
   // Effectuer le chargement initial des données
   useEffect(() => {
-    loadCartData();
+    // loadCartData();
     // Précharger les pages suivantes
     router.prefetch('/shipping');
     router.prefetch('/shipping-choice');
@@ -187,7 +188,7 @@ const Cart = () => {
         <button
           onClick={() => {
             setError(null);
-            loadCartData();
+            // loadCartData();
           }}
           className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
         >
@@ -401,9 +402,4 @@ const Cart = () => {
             </Link>
           </div>
         </div>
-      )}
-    </div>
-  );
-};
-
-export default Cart;
+  
