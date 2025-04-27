@@ -440,6 +440,9 @@ const Cart = () => {
   const { loading, cart, cartCount, setCartToState, cartTotal } =
     useContext(CartContext);
 
+  console.log('Cart items in Cart.jsx', cart);
+  console.log('Cart items count in Cart.jsx', cartCount);
+
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const router = useRouter();
 
