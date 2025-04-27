@@ -45,11 +45,11 @@ const Cart = () => {
 
   // Effectuer le chargement initial des données
   useEffect(() => {
-    // loadCartData();
+    loadCartData();
     // Précharger les pages suivantes
     router.prefetch('/shipping');
     router.prefetch('/shipping-choice');
-  }, []);
+  }, [cart]);
 
   // Fonction pour afficher temporairement un feedback
   const showFeedback = useCallback((message, type = 'success') => {
