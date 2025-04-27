@@ -236,10 +236,8 @@ const ItemCart = memo(
         ? '/images/default_product.png'
         : cartItem?.imageUrl;
 
-    console.log('CartITEM', cartItem);
-
     // Calculs pour l'affichage
-    const totalPrice = cartItem?.subTotal;
+    const totalPrice = cartItem?.subtotal;
     const isStockLow = cartItem?.stock <= 5 && cartItem?.stock > 0;
     const isOutOfStock = cartItem?.stock === 0;
 
