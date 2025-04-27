@@ -225,7 +225,7 @@ const ItemCart = memo(
       if (deleteInProgress) return;
 
       setIsDeleting(true);
-      await deleteItemFromCart(cartItem._id);
+      await deleteItemFromCart(cartItem.id);
       setIsDeleting(false);
       setShowDeleteConfirm(false);
     };
