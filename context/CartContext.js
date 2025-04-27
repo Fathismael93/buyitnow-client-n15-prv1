@@ -277,8 +277,10 @@ export const CartProvider = ({ children }) => {
         }
 
         if (data?.success) {
-          console.log('Data updated', data);
-          toast.success(data?.message);
+          setCart(data.data.cart);
+          setCartCount(data.data.cartCount);
+          setCartTotal(data.data.cartTotal);
+          // toast.success(data?.message);
           setLoading(false);
         }
       } catch (error) {
