@@ -101,30 +101,27 @@ const Cart = () => {
     [cart],
   );
 
-  const handleDeleteItem = useCallback(
-    async (itemId) => {
-      if (
-        !window.confirm(
-          'Are you sure you want to remove this item from your cart?',
-        )
-      ) {
-        return;
-      }
+  const handleDeleteItem = useCallback(async (itemId) => {
+    if (
+      !window.confirm(
+        'Are you sure you want to remove this item from your cart?',
+      )
+    ) {
+      return;
+    }
 
-      setLoading(true);
-      console.log('Item to delete from cart Id', itemId);
-      try {
-        await deleteItemFromCart(itemId);
-        showFeedback('Item removed from cart');
-      } catch (err) {
-        console.error('Failed to remove item:', err);
-        setError('Unable to remove item. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [cart],
-  );
+    setLoading(true);
+    console.log('Item to delete from cart Id', itemId);
+    try {
+      await deleteItemFromCart(itemId);
+      showFeedback('Item removed from cart');
+    } catch (err) {
+      console.error('Failed to remove item:', err);
+      setError('Unable to remove item. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Calculer les totaux avec useMemo pour éviter des recalculs inutiles
   const cartSummary = useMemo(() => {
