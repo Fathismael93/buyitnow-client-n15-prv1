@@ -16,8 +16,6 @@ export async function DELETE(req, { params }) {
     cartItemId: params.id,
   });
 
-  console.log('params', params);
-
   try {
     // Vérifier l'authentification
     await isAuthenticatedUser(req, NextResponse);
