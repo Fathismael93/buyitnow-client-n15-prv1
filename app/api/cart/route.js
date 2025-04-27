@@ -366,25 +366,10 @@ export async function POST(req) {
     }
 
     // Connecter à la base de données avec timeout
-    const connectionPromise = new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error('Database connection timeout'));
-      }, 3000); // 3 secondes timeout
-
-      try {
-        const result = dbConnect();
-        clearTimeout(timeoutId);
-        resolve(result);
-      } catch (error) {
-        clearTimeout(timeoutId);
-        reject(error);
-      }
-    });
-
-    const connectionInstance = await connectionPromise;
+    const connectionInstance = await dbConnect();
 
     if (!connectionInstance.connection) {
-      logger.error('Database connection failed for cart POST request', {
+      logger.error('Database connection failed for cart request', {
         user: req.user?.email,
       });
 
@@ -751,25 +736,10 @@ export async function PUT(req) {
     }
 
     // Connecter à la base de données avec timeout
-    const connectionPromise = new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error('Database connection timeout'));
-      }, 3000); // 3 secondes timeout
-
-      try {
-        const result = dbConnect();
-        clearTimeout(timeoutId);
-        resolve(result);
-      } catch (error) {
-        clearTimeout(timeoutId);
-        reject(error);
-      }
-    });
-
-    const connectionInstance = await connectionPromise;
+    const connectionInstance = await dbConnect();
 
     if (!connectionInstance.connection) {
-      logger.error('Database connection failed for cart PUT request', {
+      logger.error('Database connection failed for cart request', {
         user: req.user?.email,
       });
 
