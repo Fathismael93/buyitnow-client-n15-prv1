@@ -492,27 +492,9 @@ export const CartProvider = ({ children }) => {
         },
       );
 
-      console.log('response', response);
-
-      if (response) {
+      if (response.success) {
         // Normaliser les données du panier
-        const normalizedCart =
-          response.cart?.map((item) => ({
-            ...item,
-            // S'assurer que la quantité est un nombre
-            quantity: parseInt(item.quantity, 10) || 1,
-          })) || [];
-
-        setCart(normalizedCart);
-        setCartCount(response.cartCount || 0);
-        setCartTotal(response.cartTotal);
-
-        // Mettre à jour le localStorage avec timestamp
-        setLocalCart({
-          count: response.cartCount || 0,
-          items: normalizedCart,
-          lastUpdated: Date.now(),
-        });
+        remoteDataInState(response);
       }
     } catch (error) {
       console.error('Erreur lors de la récupération du panier:', error);
@@ -524,8 +506,7 @@ export const CartProvider = ({ children }) => {
 
       // En cas d'erreur, utiliser les données du localStorage comme fallback
       if (localCart.items.length > 0) {
-        setCart(localCart.items);
-        setCartCount(localCart.count);
+        localDataInState();
         toast.info('Utilisation des données de panier locales', {
           autoClose: 3000,
         });
@@ -560,8 +541,7 @@ export const CartProvider = ({ children }) => {
         );
 
         if (response?.success) {
-          await setCartToState();
-
+          remoteDataInState(response);
           toast.success('Produit ajouté au panier', {
             position: 'bottom-right',
             autoClose: 3000,
@@ -575,6 +555,14 @@ export const CartProvider = ({ children }) => {
         }
       } catch (error) {
         console.error("Erreur lors de l'ajout au panier:", error);
+
+        // En cas d'erreur, utiliser les données du localStorage comme fallback
+        if (localCart.items.length > 0) {
+          localDataInState();
+          toast.info('Utilisation des données de panier locales', {
+            autoClose: 3000,
+          });
+        }
 
         captureException(error, {
           tags: { action: 'add_to_cart' },
@@ -614,21 +602,6 @@ export const CartProvider = ({ children }) => {
         setLoading(true);
         setError(null);
 
-        // Mise à jour optimiste côté client
-        const updatedCart = cart.map((item) => {
-          if (item._id === product._id) {
-            const newQuantity =
-              action === INCREASE
-                ? Math.min(item.quantity + 1, product.product.stock)
-                : Math.max(item.quantity - 1, 1);
-
-            return { ...item, quantity: newQuantity };
-          }
-          return item;
-        });
-
-        setCart(updatedCart);
-
         // Mise à jour côté serveur
         const response = await fetchWithRetry(
           `${process.env.NEXT_PUBLIC_API_URL}/api/cart`,
@@ -641,9 +614,9 @@ export const CartProvider = ({ children }) => {
           },
         );
 
-        if (response) {
+        if (response.success) {
           // Rafraîchir le panier après la mise à jour
-          await setCartToState();
+          remoteDataInState(response);
 
           if (action === INCREASE) {
             toast.success('Quantité augmentée', {
@@ -698,18 +671,6 @@ export const CartProvider = ({ children }) => {
         setLoading(true);
         setError(null);
 
-        // Mise à jour optimiste - Supprimer l'élément de l'UI immédiatement
-        const updatedCart = cart.filter((item) => item._id !== id);
-        setCart(updatedCart);
-        setCartCount((prev) => Math.max(0, prev - 1));
-
-        // Mettre à jour le cache local
-        setLocalCart({
-          count: updatedCart.length,
-          items: updatedCart,
-          lastUpdated: Date.now(),
-        });
-
         // Requête API pour supprimer du serveur
         const response = await fetchWithRetry(
           `${process.env.NEXT_PUBLIC_API_URL}/api/cart/${id}`,
@@ -717,9 +678,7 @@ export const CartProvider = ({ children }) => {
         );
 
         if (response?.success) {
-          // Mettre à jour le panier après la suppression
-          await setCartToState();
-
+          remoteDataInState();
           toast.success('Article supprimé du panier', {
             position: 'bottom-right',
             autoClose: 3000,
@@ -803,6 +762,7 @@ export const CartProvider = ({ children }) => {
     setCart([]);
     setLoading(false);
     setCartCount(0);
+    setCartTotal(0);
     // Supprimer le panier du localStorage
     if (typeof window !== 'undefined') {
       localStorage.removeItem('buyitnow_cart');
@@ -817,7 +777,7 @@ export const CartProvider = ({ children }) => {
       // Supprimer chaque élément du panier
       for (const item of cart) {
         await fetchWithRetry(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/cart/${item._id}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/api/cart/${item.id}`,
           { method: 'DELETE' },
         );
       }
@@ -825,6 +785,7 @@ export const CartProvider = ({ children }) => {
       // Réinitialiser l'état local
       setCart([]);
       setCartCount(0);
+      setCartTotal(0);
       setLocalCart({
         count: 0,
         items: [],
@@ -848,6 +809,34 @@ export const CartProvider = ({ children }) => {
       setLoading(false);
     }
   }, [cart, fetchWithRetry, setLocalCart]);
+
+  const localDataInState = () => {
+    setCart(localCart.items);
+    setCartCount(localCart.count);
+    setCartTotal(localCart.totalAmount);
+  };
+
+  const remoteDataInState = (response) => {
+    // Normaliser les données du panier
+    const normalizedCart =
+      response.data.cart?.map((item) => ({
+        ...item,
+        // S'assurer que la quantité est un nombre
+        quantity: parseInt(item.quantity, 10) || 1,
+      })) || [];
+
+    setCart(normalizedCart);
+    setCartCount(response.data.cartCount || 0);
+    setCartTotal(response.data.cartTotal);
+
+    // Mettre à jour le localStorage avec timestamp
+    setLocalCart({
+      count: response.data.cartCount || 0,
+      items: normalizedCart,
+      totalAmount: response.data.cartTotal,
+      lastUpdated: Date.now(),
+    });
+  };
 
   // Valeur du contexte avec mémorisation pour éviter les re-renders inutiles
   const contextValue = useMemo(
