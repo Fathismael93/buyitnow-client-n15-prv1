@@ -471,7 +471,8 @@ function ProductDetails({ product, sameCategoryProducts }) {
     setIsAddingToCart(true);
 
     try {
-      console.log('Product', product);
+      console.log('Product in ProductDetails', product);
+      console.log('Cart in ProductDetails', cart);
       const isProductInCart = cart.find((i) => i?.productId === product._id);
 
       if (isProductInCart) {

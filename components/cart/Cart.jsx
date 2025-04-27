@@ -31,8 +31,8 @@ const Cart = () => {
   // Mémoriser le chargement du panier pour éviter des re-renders inutiles
   const loadCartData = useCallback(async () => {
     try {
-      await setCartToState();
       setIsInitialized(true);
+      await setCartToState();
       return true;
     } catch (err) {
       console.error('Failed to load cart data:', err);

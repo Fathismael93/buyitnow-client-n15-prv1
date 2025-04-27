@@ -38,18 +38,11 @@ const ProductItem = memo(({ product }) => {
           );
         }
 
-        console.log('cart', cart);
-        console.log('product', product);
-
         const isProductInCart = cart.find((i) => i?.productId === productId);
 
-        console.log('isProductInCart', isProductInCart);
-
         if (isProductInCart) {
-          console.log('Updating Product');
           updateCart(isProductInCart, INCREASE);
         } else {
-          console.log('Adding Product');
           addItemToCart({
             product: productId,
           });
@@ -59,7 +52,7 @@ const ProductItem = memo(({ product }) => {
         console.error("Erreur d'ajout au panier:", error);
       }
     },
-    [user, cart, productId, addItemToCart, updateCart],
+    [user, cart, productId],
   );
 
   return (
