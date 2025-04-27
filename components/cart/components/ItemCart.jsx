@@ -236,6 +236,8 @@ const ItemCart = memo(
         ? '/images/default_product.png'
         : cartItem?.imageUrl;
 
+    console.log('CartITEM', cartItem);
+
     // Calculs pour l'affichage
     const totalPrice = cartItem?.subTotal;
     const isStockLow = cartItem?.stock <= 5 && cartItem?.stock > 0;
