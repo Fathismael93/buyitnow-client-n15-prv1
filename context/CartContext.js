@@ -677,10 +677,8 @@ export const CartProvider = ({ children }) => {
           { method: 'DELETE' },
         );
 
-        console.log('data from response in delete', response);
-
         if (response?.success) {
-          remoteDataInState();
+          remoteDataInState(response);
           toast.success('Article supprimé du panier', {
             position: 'bottom-right',
             autoClose: 3000,
