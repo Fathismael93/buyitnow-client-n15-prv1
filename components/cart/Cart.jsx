@@ -440,9 +440,6 @@ const Cart = () => {
   const { loading, cart, cartCount, setCartToState, cartTotal } =
     useContext(CartContext);
 
-  console.log('Cart items in Cart.jsx', cart);
-  console.log('Cart items count in Cart.jsx', cartCount);
-
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const router = useRouter();
 
@@ -577,9 +574,9 @@ const CartItemsList = memo(
         {!loading &&
           cart?.map((cartItem) => (
             <div
-              key={cartItem._id}
+              key={cartItem.id}
               className={`transition-all duration-300 ease-in-out transform ${
-                itemBeingRemoved === cartItem._id
+                itemBeingRemoved === cartItem.id
                   ? 'opacity-0 -translate-x-3 h-0 overflow-hidden'
                   : 'opacity-100 translate-x-0'
               }`}

@@ -232,17 +232,14 @@ const ItemCart = memo(
 
     // Source de l'image avec fallback
     const imageSource =
-      isImageError ||
-      !cartItem?.product?.images ||
-      !cartItem?.product?.images[0]?.url
+      isImageError || !cartItem?.imageUrl
         ? '/images/default_product.png'
-        : cartItem?.product?.images[0].url;
+        : cartItem?.imageUrl;
 
     // Calculs pour l'affichage
-    const totalPrice = cartItem?.product?.price * cartItem?.quantity;
-    const isStockLow =
-      cartItem?.product?.stock <= 5 && cartItem?.product?.stock > 0;
-    const isOutOfStock = cartItem?.product?.stock === 0;
+    const totalPrice = cartItem?.subTotal;
+    const isStockLow = cartItem?.stock <= 5 && cartItem?.stock > 0;
+    const isOutOfStock = cartItem?.stock === 0;
 
     return (
       <div className="group relative">
@@ -250,12 +247,12 @@ const ItemCart = memo(
           <div className="w-full sm:w-2/5 flex">
             <div className="flex-shrink-0">
               <Link
-                href={`/product/${cartItem?.product?._id}`}
+                href={`/product/${cartItem?.productId}`}
                 className="block relative h-24 w-24 rounded border overflow-hidden transition-shadow hover:shadow-md"
               >
                 <Image
                   src={imageSource}
-                  alt={cartItem?.product?.name || 'Produit'}
+                  alt={cartItem?.productName || 'Produit'}
                   fill
                   className="object-contain"
                   sizes="(max-width: 768px) 96px, 96px"
@@ -267,10 +264,10 @@ const ItemCart = memo(
 
             <div className="ml-4 flex flex-col">
               <Link
-                href={`/product/${cartItem?.product?._id}`}
+                href={`/product/${cartItem?.productId}`}
                 className="text-gray-800 font-semibold text-sm sm:text-base hover:text-blue-600 line-clamp-2 transition-colors"
               >
-                {cartItem?.product?.name}
+                {cartItem?.productName}
               </Link>
 
               <div className="flex items-center mt-1">
@@ -280,7 +277,7 @@ const ItemCart = memo(
                   </span>
                 ) : isStockLow ? (
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
-                    Stock limité: {cartItem?.product?.stock}
+                    Stock limité: {cartItem?.stock}
                   </span>
                 ) : (
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800">
@@ -328,9 +325,7 @@ const ItemCart = memo(
                 type="button"
                 className="w-10 h-full flex items-center justify-center rounded-r-lg text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => increaseQty(cartItem)}
-                disabled={
-                  cartItem.quantity >= cartItem?.product?.stock || isOutOfStock
-                }
+                disabled={cartItem.quantity >= cartItem?.stock || isOutOfStock}
                 aria-label="Augmenter la quantité"
               >
                 <svg
@@ -356,7 +351,7 @@ const ItemCart = memo(
               {formatPrice(totalPrice)}
             </div>
             <div className="text-gray-500 text-sm">
-              {formatPrice(cartItem?.product?.price)} l&apos;unité
+              {formatPrice(cartItem?.price)} l&apos;unité
             </div>
 
             <div className="mt-3 relative">
