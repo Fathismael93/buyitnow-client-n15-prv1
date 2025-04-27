@@ -38,3 +38,18 @@ export function cloudinaryLoader({ src, width, quality }) {
 export const arrayHasData = (array) => {
   return array === undefined || !Array.isArray(array) || array?.length === 0;
 };
+
+/**
+ * Formater un prix
+ * @param {number} price - Prix à formater
+ * @param {string} [currency='EUR'] - Devise
+ * @returns {string} - Prix formaté
+ */
+export const formatPrice = (price, currency = 'EUR') => {
+  if (price === undefined || price === null) return '0,00 €';
+
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: currency,
+  }).format(price);
+};
