@@ -5,17 +5,17 @@ import { createContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 
 // Fonction utilitaire de debounce (à mettre à l'extérieur de votre composant)
-const debounce = (func, wait) => {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-};
+// const debounce = (func, wait) => {
+//   let timeout;
+//   return function executedFunction(...args) {
+//     const later = () => {
+//       clearTimeout(timeout);
+//       func(...args);
+//     };
+//     clearTimeout(timeout);
+//     timeout = setTimeout(later, wait);
+//   };
+// };
 
 const CartContext = createContext();
 
@@ -227,7 +227,7 @@ export const CartProvider = ({ children }) => {
   };
 
   // Créer une version avec debounce pour éviter les appels multiples rapides
-  const debouncedSetCartToState = debounce(setCartToState, 300);
+  // const debouncedSetCartToState = debounce(setCartToState, 300);
 
   const addItemToCart = async ({ product }) => {
     try {
@@ -280,7 +280,7 @@ export const CartProvider = ({ children }) => {
           setCart(data.data.cart);
           setCartCount(data.data.cartCount);
           setCartTotal(data.data.cartTotal);
-          // toast.success(data?.message);
+          toast.success(data?.message);
           setLoading(false);
         }
       } catch (error) {
@@ -347,7 +347,7 @@ export const CartProvider = ({ children }) => {
         checkoutInfo,
         orderInfo,
         setLoading,
-        setCartToState: debouncedSetCartToState, // Utiliser la version debounced
+        setCartToState /*: debouncedSetCartToState*/, // Utiliser la version debounced
         setOrderInfo,
         addItemToCart,
         updateCart,
