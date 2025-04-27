@@ -41,7 +41,7 @@ const Cart = () => {
     } finally {
       setIsInitialized(false);
     }
-  }, []);
+  }, [cart]);
 
   // Effectuer le chargement initial des données
   useEffect(() => {
@@ -58,63 +58,72 @@ const Cart = () => {
   }, []);
 
   // Gestionnaires d'événements optimisés avec feedback
-  const increaseQty = useCallback(async (cartItem) => {
-    if (cartItem.quantity >= cartItem.stock) {
-      showFeedback('Maximum stock quantity reached', 'warning');
-      return;
-    }
+  const increaseQty = useCallback(
+    async (cartItem) => {
+      if (cartItem.quantity >= cartItem.stock) {
+        showFeedback('Maximum stock quantity reached', 'warning');
+        return;
+      }
 
-    setLoading(true);
-    try {
-      await updateCart(cartItem, INCREASE);
-      showFeedback('Quantity increased');
-    } catch (err) {
-      console.error('Failed to increase quantity:', err);
-      setError('Unable to update quantity. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      setLoading(true);
+      try {
+        await updateCart(cartItem, INCREASE);
+        showFeedback('Quantity increased');
+      } catch (err) {
+        console.error('Failed to increase quantity:', err);
+        setError('Unable to update quantity. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [cart],
+  );
 
-  const decreaseQty = useCallback(async (cartItem) => {
-    if (cartItem.quantity <= 1) {
-      showFeedback('Minimum quantity reached', 'warning');
-      return;
-    }
+  const decreaseQty = useCallback(
+    async (cartItem) => {
+      if (cartItem.quantity <= 1) {
+        showFeedback('Minimum quantity reached', 'warning');
+        return;
+      }
 
-    setLoading(true);
-    try {
-      await updateCart(cartItem, DECREASE);
-      showFeedback('Quantity decreased');
-    } catch (err) {
-      console.error('Failed to decrease quantity:', err);
-      setError('Unable to update quantity. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      setLoading(true);
+      try {
+        await updateCart(cartItem, DECREASE);
+        showFeedback('Quantity decreased');
+      } catch (err) {
+        console.error('Failed to decrease quantity:', err);
+        setError('Unable to update quantity. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [cart],
+  );
 
-  const handleDeleteItem = useCallback(async (itemId) => {
-    if (
-      !window.confirm(
-        'Are you sure you want to remove this item from your cart?',
-      )
-    ) {
-      return;
-    }
+  const handleDeleteItem = useCallback(
+    async (itemId) => {
+      if (
+        !window.confirm(
+          'Are you sure you want to remove this item from your cart?',
+        )
+      ) {
+        return;
+      }
 
-    setLoading(true);
-    console.log('Item to delete from cart Id', itemId);
-    try {
-      await deleteItemFromCart(itemId);
-      showFeedback('Item removed from cart');
-    } catch (err) {
-      console.error('Failed to remove item:', err);
-      setError('Unable to remove item. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      setLoading(true);
+      console.log('Item to delete from cart Id', itemId);
+      try {
+        await deleteItemFromCart(itemId);
+        showFeedback('Item removed from cart');
+      } catch (err) {
+        console.error('Failed to remove item:', err);
+        setError('Unable to remove item. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [cart],
+  );
 
   // Calculer les totaux avec useMemo pour éviter des recalculs inutiles
   const cartSummary = useMemo(() => {
@@ -171,7 +180,7 @@ const Cart = () => {
       console.error('Checkout error:', err);
       setError('Unable to proceed to checkout. Please try again.');
     }
-  }, []);
+  }, [cart]);
 
   // Afficher un message d'erreur si une erreur s'est produite
   if (error) {
