@@ -54,6 +54,7 @@ const useCartOperations = () => {
   const handleDeleteItem = useCallback(
     async (itemId) => {
       try {
+        console.log('In the handleDeleteItem method', itemId);
         setDeleteInProgress(true);
         setItemBeingRemoved(itemId);
         await deleteItemFromCart(itemId);
