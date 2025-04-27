@@ -81,6 +81,7 @@ const Cart = () => {
 
   const decreaseQty = useCallback(
     async (cartItem) => {
+      console.log('DECREASING QUANTITY', cartItem);
       if (cartItem.quantity <= 1) {
         showFeedback('Minimum quantity reached', 'warning');
         return;

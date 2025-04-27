@@ -975,6 +975,7 @@ export async function PUT(req) {
     }
     // Gérer la diminution de la quantité
     else if (action === DECREASE) {
+      console.log('ACTION IN DECREASING QUANTITY', action);
       operation = 'decrease';
       const neededQuantity = cartItem.quantity - 1;
 
@@ -999,6 +1000,7 @@ export async function PUT(req) {
         updatedCart = null; // Indiquer que l'élément a été supprimé
         operation = 'remove';
       } else {
+        console.log('neededQuantity', neededQuantity);
         // Utiliser la méthode du modèle Cart avec timeout
         const updatePromise = new Promise((resolve, reject) => {
           const timeoutId = setTimeout(() => {
