@@ -22,8 +22,9 @@ const NewAddress = () => {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zipCode, setZipCode] = useState('');
-  const [phoneNo, setPhonoNo] = useState('');
+  const [additionalInfo, setAdditionalInfo] = useState('');
   const [country, setCountry] = useState('');
+  const [isDefault, setIsDefault] = useState(false);
 
   useEffect(() => {
     if (error) {
@@ -38,20 +39,22 @@ const NewAddress = () => {
     try {
       const newAddress = {
         street,
+        additionalInfo,
         city,
         state,
         zipCode,
-        phoneNo,
         country,
+        isDefault,
       };
 
       const result = await addressSchema.validate({
         street,
+        additionalInfo,
         city,
         state,
         zipCode,
-        phoneNo,
         country,
+        isDefault,
       });
 
       if (result) {
@@ -79,20 +82,34 @@ const NewAddress = () => {
                   </h2>
 
                   <div className="mb-4 md:col-span-2">
-                    <label className="block mb-1"> Street* </label>
-                    <input
-                      className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
-                      type="text"
-                      placeholder="Type your address"
-                      value={street}
-                      onChange={(e) => setStreet(e.target.value)}
-                    />
+                    <div className="mb-4">
+                      <label className="block mb-1"> Street* </label>
+                      <input
+                        required
+                        className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
+                        type="text"
+                        placeholder="Type your address"
+                        value={street}
+                        onChange={(e) => setStreet(e.target.value)}
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <label className="block mb-1"> Additional Info </label>
+                      <input
+                        className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
+                        type="text"
+                        placeholder="Add additional address"
+                        value={additionalInfo}
+                        onChange={(e) => setAdditionalInfo(e.target.value)}
+                      />
+                    </div>
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-x-3">
                     <div className="mb-4 md:col-span-1">
-                      <label className="block mb-1"> City </label>
+                      <label className="block mb-1"> City* </label>
                       <input
+                        required
                         className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
                         type="text"
                         placeholder="Type your city"
@@ -102,8 +119,9 @@ const NewAddress = () => {
                     </div>
 
                     <div className="mb-4 md:col-span-1">
-                      <label className="block mb-1"> State </label>
+                      <label className="block mb-1"> State* </label>
                       <input
+                        required
                         className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
                         type="text"
                         placeholder="Type state here"
@@ -115,8 +133,9 @@ const NewAddress = () => {
 
                   <div className="grid md:grid-cols-2 gap-x-2">
                     <div className="mb-4 md:col-span-1">
-                      <label className="block mb-1"> ZIP code </label>
+                      <label className="block mb-1"> ZIP code* </label>
                       <input
+                        required
                         className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
                         type="number"
                         placeholder="Type zip code here"
@@ -126,20 +145,22 @@ const NewAddress = () => {
                     </div>
 
                     <div className="mb-4 md:col-span-1">
-                      <label className="block mb-1"> Phone No </label>
+                      <label className="block mb-1"> Default Address ?* </label>
                       <input
+                        required
                         className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
-                        type="tel"
+                        type="checkbox"
                         placeholder="Type phone no here"
-                        value={phoneNo}
-                        onChange={(e) => setPhonoNo(e.target.value)}
+                        checked={isDefault}
+                        onChange={() => setIsDefault(!isDefault)}
                       />
                     </div>
                   </div>
 
                   <div className="mb-4 md:col-span-2">
-                    <label className="block mb-1"> Country </label>
+                    <label className="block mb-1"> Country* </label>
                     <select
+                      required
                       className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
