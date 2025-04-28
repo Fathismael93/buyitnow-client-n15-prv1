@@ -446,14 +446,137 @@ export const profileSchema = yup.object().shape({
   phone: yup.number().positive().integer().required().min(6),
 });
 
-export const addressSchema = yup.object().shape({
-  street: yup.string().required().min(3),
-  city: yup.string().required().min(3),
-  state: yup.string().required().min(2),
-  zipCode: yup.number().positive().required().min(3),
-  phoneNo: yup.number().positive().integer().required().min(6),
-  country: yup.string().required().min(3),
-});
+/**
+ * Schéma de validation d'adresse optimisé avec validation stricte et protection contre les injections
+ * Aligné avec le modèle Address de MongoDB pour une validation cohérente
+ */
+export const addressSchema = yup
+  .object()
+  .shape({
+    street: yup
+      .string()
+      .trim()
+      .required("L'adresse est obligatoire")
+      .min(3, "L'adresse doit contenir au moins 3 caractères")
+      .max(100, "L'adresse ne peut pas dépasser 100 caractères")
+      .matches(
+        /^[a-zA-Z0-9\s,.'°-]+$/,
+        "L'adresse contient des caractères non autorisés",
+      )
+      .test(
+        'no-sql-injection',
+        "Format d'adresse non autorisé",
+        utils.noSqlInjection,
+      )
+      .test(
+        'no-nosql-injection',
+        "Format d'adresse non autorisé",
+        utils.noNoSqlInjection,
+      ),
+
+    additionalInfo: yup
+      .string()
+      .trim()
+      .nullable()
+      .max(
+        100,
+        'Les informations complémentaires ne peuvent pas dépasser 100 caractères',
+      )
+      .test(
+        'no-sql-injection',
+        "Format d'informations complémentaires non autorisé",
+        utils.noSqlInjection,
+      )
+      .test(
+        'no-nosql-injection',
+        "Format d'informations complémentaires non autorisé",
+        utils.noNoSqlInjection,
+      ),
+
+    city: yup
+      .string()
+      .trim()
+      .required('La ville est obligatoire')
+      .min(2, 'Le nom de la ville doit contenir au moins 2 caractères')
+      .max(50, 'Le nom de la ville ne peut pas dépasser 50 caractères')
+      .matches(
+        /^[a-zA-Z\s'-]+$/,
+        'Le nom de la ville contient des caractères non autorisés',
+      )
+      .test(
+        'no-sql-injection',
+        'Format de ville non autorisé',
+        utils.noSqlInjection,
+      )
+      .test(
+        'no-nosql-injection',
+        'Format de ville non autorisé',
+        utils.noNoSqlInjection,
+      ),
+
+    state: yup
+      .string()
+      .trim()
+      .required('La région/département est obligatoire')
+      .min(2, 'Le nom de la région doit contenir au moins 2 caractères')
+      .max(50, 'Le nom de la région ne peut pas dépasser 50 caractères')
+      .test(
+        'no-sql-injection',
+        'Format de région non autorisé',
+        utils.noSqlInjection,
+      )
+      .test(
+        'no-nosql-injection',
+        'Format de région non autorisé',
+        utils.noNoSqlInjection,
+      ),
+
+    zipCode: yup
+      .string()
+      .trim()
+      .required('Le code postal est obligatoire')
+      .test('is-valid-zip', 'Format de code postal invalide', (value) => {
+        if (!value) return false;
+        // Validation de code postal adaptée aux formats internationaux
+        // Supprime les espaces avant validation
+        return /^[0-9A-Z]{2,10}$/.test(value.replace(/\s/g, ''));
+      })
+      .test(
+        'no-sql-injection',
+        'Format de code postal non autorisé',
+        utils.noSqlInjection,
+      ),
+
+    country: yup
+      .string()
+      .trim()
+      .required('Le pays est obligatoire')
+      .min(2, 'Le nom du pays doit contenir au moins 2 caractères')
+      .max(50, 'Le nom du pays ne peut pas dépasser 50 caractères')
+      .test(
+        'no-sql-injection',
+        'Format de pays non autorisé',
+        utils.noSqlInjection,
+      )
+      .test(
+        'no-nosql-injection',
+        'Format de pays non autorisé',
+        utils.noNoSqlInjection,
+      ),
+
+    addressType: yup
+      .string()
+      .trim()
+      .oneOf(
+        ['shipping', 'billing', 'both'],
+        "Le type d'adresse doit être shipping, billing ou both",
+      )
+      .default('both'),
+
+    isDefault: yup.boolean().default(false),
+  })
+  .noUnknown(true, 'Champs inconnus non autorisés')
+  .strict();
 
 export const paymentSchema = yup.object().shape({
   paymentType: yup.string().required(),
