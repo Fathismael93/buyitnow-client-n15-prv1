@@ -564,15 +564,6 @@ export const addressSchema = yup
         utils.noNoSqlInjection,
       ),
 
-    addressType: yup
-      .string()
-      .trim()
-      .oneOf(
-        ['shipping', 'billing', 'both'],
-        "Le type d'adresse doit être shipping, billing ou both",
-      )
-      .default('both'),
-
     isDefault: yup.boolean().default(false),
   })
   .noUnknown(true, 'Champs inconnus non autorisés')

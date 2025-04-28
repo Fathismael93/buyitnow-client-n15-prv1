@@ -71,14 +71,6 @@ const addressSchema = new mongoose.Schema(
       default: false,
       index: true, // Indexation pour trouver rapidement l'adresse par défaut
     },
-    addressType: {
-      type: String,
-      enum: {
-        message: "Le type d'adresse doit être shipping, billing ou both",
-      },
-      default: 'shipping',
-      index: true,
-    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       required: [true, "L'utilisateur est obligatoire"],
@@ -115,7 +107,6 @@ const addressSchema = new mongoose.Schema(
 
 // Indexes composés pour optimiser les performances
 addressSchema.index({ user: 1, isDefault: 1 });
-addressSchema.index({ user: 1, addressType: 1 });
 
 // Middleware avant la sauvegarde pour mettre à jour updatedAt
 addressSchema.pre('save', function (next) {
