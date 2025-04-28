@@ -847,7 +847,7 @@ export const getAllAddresses = async (
 
     // Utiliser les headers de cache optimisés pour les données utilisateur
     const cacheControl = getCacheHeaders('userData');
-    const apiUrl = `${process.env.API_URL}/api/address`;
+    const apiUrl = `${process.env.API_URL}/api/address?context=${page}`;
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
@@ -953,6 +953,8 @@ export const getAllAddresses = async (
     // Traitement de la réponse avec gestion des erreurs de parsing
     try {
       const data = await res.json();
+
+      console.log('data in getAllAddresses methode', data);
 
       // Vérifier les erreurs business
       if (data?.success === false) {

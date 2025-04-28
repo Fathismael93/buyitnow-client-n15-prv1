@@ -15,10 +15,15 @@ import { validateWithLogging } from '@/helpers/schemas';
 import { appCache, getCacheKey } from '@/utils/cache';
 
 export async function GET(req) {
+  // Récupérer le contexte depuis l'URL
+  const { searchParams } = new URL(req.url);
+  const context = searchParams.get('context') || 'shipping';
+
   // Journalisation structurée de la requête
   logger.info('Address API GET request received', {
     route: 'api/address/GET',
     user: req.user?.email || 'unauthenticated',
+    context,
   });
 
   try {
@@ -170,53 +175,55 @@ export async function GET(req) {
     let paymentTypes = [];
     let deliveryPrice = [];
 
-    try {
-      const paymentPromise = new Promise((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          reject(new Error('Payment types query timeout'));
-        }, 3000);
+    if (context === 'shipping') {
+      try {
+        const paymentPromise = new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            reject(new Error('Payment types query timeout'));
+          }, 3000);
 
-        try {
-          const result = PaymentType.find();
-          clearTimeout(timeoutId);
-          resolve(result);
-        } catch (error) {
-          clearTimeout(timeoutId);
-          reject(error);
-        }
-      });
+          try {
+            const result = PaymentType.find();
+            clearTimeout(timeoutId);
+            resolve(result);
+          } catch (error) {
+            clearTimeout(timeoutId);
+            reject(error);
+          }
+        });
 
-      const deliveryPromise = new Promise((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          reject(new Error('Delivery price query timeout'));
-        }, 3000);
+        const deliveryPromise = new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            reject(new Error('Delivery price query timeout'));
+          }, 3000);
 
-        try {
-          const result = DeliveryPrice.find();
-          clearTimeout(timeoutId);
-          resolve(result);
-        } catch (error) {
-          clearTimeout(timeoutId);
-          reject(error);
-        }
-      });
+          try {
+            const result = DeliveryPrice.find();
+            clearTimeout(timeoutId);
+            resolve(result);
+          } catch (error) {
+            clearTimeout(timeoutId);
+            reject(error);
+          }
+        });
 
-      // Exécuter les requêtes en parallèle
-      [paymentTypes, deliveryPrice] = await Promise.allSettled([
-        paymentPromise,
-        deliveryPromise,
-      ]);
+        // Exécuter les requêtes en parallèle
+        [paymentTypes, deliveryPrice] = await Promise.allSettled([
+          paymentPromise,
+          deliveryPromise,
+        ]);
 
-      // Transformer les résultats pour gérer les rejets
-      paymentTypes =
-        paymentTypes.status === 'fulfilled' ? paymentTypes.value : [];
-      deliveryPrice =
-        deliveryPrice.status === 'fulfilled' ? deliveryPrice.value : [];
-    } catch (error) {
-      // En cas d'erreur, continuer avec des tableaux vides
-      logger.warn('Error fetching payment or delivery data', {
-        error: error.message,
-      });
+        // Transformer les résultats pour gérer les rejets
+        paymentTypes =
+          paymentTypes.status === 'fulfilled' ? paymentTypes.value : [];
+        deliveryPrice =
+          deliveryPrice.status === 'fulfilled' ? deliveryPrice.value : [];
+      } catch (error) {
+        // En cas d'erreur, continuer avec des tableaux vides
+        logger.warn('Error fetching payment or delivery data', {
+          error: error.message,
+        });
+      }
     }
 
     // Limitation de taille des résultats
@@ -250,8 +257,7 @@ export async function GET(req) {
         success: true,
         data: {
           addresses,
-          paymentTypes,
-          deliveryPrice,
+          ...(context === 'shipping' ? { paymentTypes, deliveryPrice } : {}),
         },
       },
       {
