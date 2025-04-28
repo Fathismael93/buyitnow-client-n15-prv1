@@ -421,11 +421,6 @@ export const AuthProvider = ({ children }) => {
           },
         );
 
-        console.log(
-          'Response from api after sending ADD NEW ADDRESS REQUEST',
-          res,
-        );
-
         clearTimeout(timeoutId);
 
         // Vérifier le rate limiting côté serveur
@@ -512,11 +507,6 @@ export const AuthProvider = ({ children }) => {
           setLoading(false);
           return;
         }
-
-        console.log(
-          'Data got from response after sending ADD NEW ADDRESS REQUEST',
-          data,
-        );
 
         // Vérification de la structure de la réponse
         if (!data || data.success === false) {

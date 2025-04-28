@@ -15,6 +15,8 @@ import { validateWithLogging } from '@/helpers/schemas';
 import { appCache, getCacheKey } from '@/utils/cache';
 
 export async function GET(req) {
+  console.log('Request in GET ADDRESS');
+  console.log(req);
   // Journalisation structurée de la requête
   logger.info('Address API GET request received', {
     route: 'api/address/GET',
