@@ -792,39 +792,311 @@ export const getProductDetails = async (
   }
 };
 
-export const getAllAddresses = async (page) => {
-  try {
-    const nextCookies = await cookies();
-    const nextAuthSessionToken = nextCookies.get(
-      '__Secure-next-auth.session-token',
-    );
+export const getAllAddresses = async (
+  page,
+  retryAttempt = 0,
+  maxRetries = 3,
+) => {
+  const controller = new AbortController();
+  const requestId = `addresses-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-    const res = await fetch(`${process.env.API_URL}/api/address`, {
+  // Timeout de 5 secondes pour éviter les requêtes bloquées
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+    logger.warn('Request timeout in getAllAddresses', {
+      requestId,
+      page,
+      timeoutMs: 5000,
+      action: 'request_timeout',
+    });
+  }, 5000);
+
+  logger.info('Starting getAllAddresses request', {
+    requestId,
+    page,
+    retryAttempt,
+    action: 'get_all_addresses',
+  });
+
+  try {
+    // Obtenir les cookies pour l'authentification
+    const nextCookies = await cookies();
+
+    // Obtenir le nom de cookie dynamiquement selon l'environnement
+    const cookieName = getCookieName();
+    const nextAuthSessionToken = nextCookies.get(cookieName);
+
+    if (!nextAuthSessionToken) {
+      logger.warn('No authentication token found', {
+        requestId,
+        page,
+        action: 'missing_auth_token',
+      });
+
+      if (page === 'profile') return { addresses: [] };
+      else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
+    }
+
+    // Avant l'appel API
+    logger.debug('Fetching addresses from API', {
+      requestId,
+      page,
+      retryAttempt,
+      action: 'api_request_start',
+    });
+
+    // Utiliser les headers de cache optimisés pour les données utilisateur
+    const cacheControl = getCacheHeaders('userData');
+    const apiUrl = `${process.env.API_URL}/api/address`;
+
+    const res = await fetch(apiUrl, {
+      signal: controller.signal,
       headers: {
         Cookie: `${nextAuthSessionToken?.name}=${nextAuthSessionToken?.value}`,
+        'Cache-Control': cacheControl['Cache-Control'],
+        'X-Request-ID': requestId,
+      },
+      next: {
+        // Les données d'adresse sont des données utilisateur, donc pas de mise en cache côté serveur
+        revalidate: 0,
+        tags: ['user-addresses'],
       },
     });
 
-    const data = await res.json();
+    // Après l'appel API
+    logger.debug('API response received', {
+      requestId,
+      page,
+      status: res.status,
+      retryAttempt,
+      action: 'api_request_complete',
+    });
 
-    if (data?.success === false) {
-      toast.info(data?.message);
-      return [];
+    // Gestion des erreurs HTTP
+    if (!res.ok) {
+      const errorStatus = res.status;
+      let errorText;
+
+      try {
+        errorText = await res.text();
+        // eslint-disable-next-line no-unused-vars
+      } catch (textError) {
+        errorText = 'Failed to read error response';
+      }
+
+      logger.error('API request failed', {
+        requestId,
+        page,
+        status: errorStatus,
+        error: errorText,
+        retryAttempt,
+        action: 'api_request_error',
+      });
+
+      // Déterminer si l'erreur est récupérable (5xx ou certaines 4xx)
+      const isRetryable =
+        errorStatus >= 500 || [408, 429].includes(errorStatus);
+
+      if (isRetryable && retryAttempt < maxRetries) {
+        // Calculer le délai de retry avec backoff exponentiel
+        const retryDelay = Math.min(
+          1000 * Math.pow(2, retryAttempt), // 1s, 2s, 4s, ...
+          15000, // Maximum 15 secondes
+        );
+
+        logger.warn(`Retrying addresses request after ${retryDelay}ms`, {
+          requestId,
+          page,
+          retryAttempt: retryAttempt + 1,
+          maxRetries,
+          action: 'retry_scheduled',
+        });
+
+        // Nettoyer le timeout actuel
+        clearTimeout(timeoutId);
+
+        // Attendre avant de réessayer
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+
+        // Réessayer avec le compteur incrémenté
+        return getAllAddresses(page, retryAttempt + 1, maxRetries);
+      }
+
+      // Gérer les cas d'erreur spécifiques
+      if (errorStatus === 401 || errorStatus === 403) {
+        logger.warn('Authentication error in getAllAddresses', {
+          requestId,
+          page,
+          status: errorStatus,
+          action: 'auth_error',
+        });
+        toast.error('Veuillez vous reconnecter pour accéder à vos adresses');
+
+        if (page === 'profile') return { addresses: [] };
+        else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
+      }
+
+      if (errorStatus === 404) {
+        logger.info('No addresses found', {
+          requestId,
+          page,
+          action: 'addresses_not_found',
+        });
+
+        if (page === 'profile') return { addresses: [] };
+        else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
+      }
+
+      // Erreur générique pour les autres cas
+      toast.error(
+        'Impossible de charger vos adresses. Veuillez réessayer plus tard.',
+      );
+
+      if (page === 'profile') return { addresses: [] };
+      else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
     }
 
-    if (data?.error !== undefined) {
-      ///////
-      return [];
+    // Traitement de la réponse avec gestion des erreurs de parsing
+    try {
+      const data = await res.json();
+
+      // Vérifier les erreurs business
+      if (data?.success === false) {
+        logger.warn('API returned success: false', {
+          requestId,
+          page,
+          message: data?.message,
+          action: 'api_business_error',
+        });
+
+        toast.info(data?.message || 'Erreur lors du chargement des adresses');
+
+        if (page === 'profile') return { addresses: [] };
+        else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
+      }
+
+      // Vérifier que les données existent dans la réponse
+      if (!data?.data) {
+        logger.error('Address data missing in response', {
+          requestId,
+          page,
+          action: 'address_data_missing',
+        });
+
+        if (page === 'profile') return { addresses: [] };
+        else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
+      }
+
+      // Si on est sur la page de profil, supprimer les types de paiement
+      let responseData = data.data;
+
+      if (page === 'profile') {
+        delete responseData.paymentTypes;
+        delete responseData.deliveryPrice;
+      }
+
+      logger.info('Successfully fetched addresses', {
+        requestId,
+        page,
+        addressCount: responseData?.addresses?.length || 0,
+        hasPaymentTypes: !!responseData?.paymentTypes,
+        hasDeliveryPrice: !!responseData?.deliveryPrice,
+        action: 'api_success',
+        duration: Date.now() - parseInt(requestId.split('-')[1]), // Calcul approximatif de la durée
+      });
+
+      return responseData;
+    } catch (parseError) {
+      logger.error('JSON parsing error in getAllAddresses', {
+        requestId,
+        page,
+        error: parseError.message,
+        retryAttempt,
+        action: 'parse_error',
+      });
+
+      // Si erreur de parsing et retries disponibles
+      if (retryAttempt < maxRetries) {
+        const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
+        logger.warn(`Retrying after parse error (${retryDelay}ms)`, {
+          requestId,
+          page,
+          retryAttempt: retryAttempt + 1,
+          action: 'retry_scheduled',
+        });
+
+        clearTimeout(timeoutId);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        return getAllAddresses(page, retryAttempt + 1, maxRetries);
+      }
+
+      try {
+        const rawText = await res.clone().text();
+
+        logger.error('Raw response text', {
+          requestId,
+          page,
+          text: rawText.substring(0, 200) + '...',
+          action: 'raw_response',
+        });
+      } catch (textError) {
+        logger.error('Failed to get raw response text', {
+          requestId,
+          page,
+          error: textError.message,
+          action: 'raw_response_failed',
+        });
+      }
+
+      toast.error('Erreur lors de la récupération de vos adresses');
+
+      if (page === 'profile') return { addresses: [] };
+      else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
+    }
+  } catch (error) {
+    logger.error('Exception in getAllAddresses', {
+      requestId,
+      page,
+      error: error.message,
+      stack: error.stack,
+      retryAttempt,
+      action: 'get_all_addresses_error',
+    });
+
+    // Déterminer si l'erreur est récupérable
+    const isRetryable =
+      error.name === 'AbortError' ||
+      error.name === 'TimeoutError' ||
+      error.message.includes('network') ||
+      error.message.includes('connection');
+
+    if (isRetryable && retryAttempt < maxRetries) {
+      const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
+      logger.warn(`Retrying after exception (${retryDelay}ms)`, {
+        requestId,
+        page,
+        retryAttempt: retryAttempt + 1,
+        maxRetries,
+        action: 'retry_scheduled',
+      });
+
+      clearTimeout(timeoutId);
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      return getAllAddresses(page, retryAttempt + 1, maxRetries);
     }
 
-    if (page === 'profile') {
-      delete data?.data?.paymentTypes;
-      delete data?.data?.deliveryPrice;
-    }
+    captureException(error, {
+      tags: { action: 'get_all_addresses' },
+      extra: { page, requestId, retryAttempt },
+    });
 
-    return data?.data;
-    // eslint-disable-next-line no-unused-vars, no-empty
-  } catch (error) {}
+    toast.error('Impossible de charger vos adresses pour le moment');
+
+    if (page === 'profile') return { addresses: [] };
+    else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 };
 
 export const getSingleAddress = async (id) => {
