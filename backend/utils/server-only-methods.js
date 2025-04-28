@@ -819,6 +819,7 @@ export const getAllAddresses = async (page) => {
 
     if (page === 'profile') {
       delete data?.data?.paymentTypes;
+      delete data?.data?.deliveryPrice;
     }
 
     return data?.data;
