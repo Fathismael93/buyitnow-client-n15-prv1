@@ -930,7 +930,6 @@ export const getAllAddresses = async (
           status: errorStatus,
           action: 'auth_error',
         });
-        toast.error('Veuillez vous reconnecter pour accéder à vos adresses');
 
         if (page === 'profile') return { addresses: [] };
         else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
@@ -946,11 +945,6 @@ export const getAllAddresses = async (
         if (page === 'profile') return { addresses: [] };
         else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
       }
-
-      // Erreur générique pour les autres cas
-      toast.error(
-        'Impossible de charger vos adresses. Veuillez réessayer plus tard.',
-      );
 
       if (page === 'profile') return { addresses: [] };
       else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
@@ -968,8 +962,6 @@ export const getAllAddresses = async (
           message: data?.message,
           action: 'api_business_error',
         });
-
-        toast.info(data?.message || 'Erreur lors du chargement des adresses');
 
         if (page === 'profile') return { addresses: [] };
         else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
@@ -1048,8 +1040,6 @@ export const getAllAddresses = async (
         });
       }
 
-      toast.error('Erreur lors de la récupération de vos adresses');
-
       if (page === 'profile') return { addresses: [] };
       else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
     }
@@ -1090,8 +1080,6 @@ export const getAllAddresses = async (
       extra: { page, requestId, retryAttempt },
     });
 
-    toast.error('Impossible de charger vos adresses pour le moment');
-
     if (page === 'profile') return { addresses: [] };
     else return { addresses: [], paymentTypes: [], deliveryPrice: [] };
   } finally {
@@ -1118,7 +1106,6 @@ export const getSingleAddress = async (id) => {
   const data = await res.json();
 
   if (data?.success === false) {
-    toast.info(data?.message);
     return [];
   }
 
