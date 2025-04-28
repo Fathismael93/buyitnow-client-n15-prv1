@@ -147,7 +147,6 @@ const NewAddress = () => {
                     <div className="mb-4 md:col-span-1">
                       <label className="block mb-1"> Default Address ?* </label>
                       <input
-                        required
                         className="border border-gray-200 bg-gray-100 rounded-md hover:border-gray-400 focus:outline-hidden focus:border-gray-400"
                         type="checkbox"
                         placeholder="Type phone no here"
