@@ -46,14 +46,18 @@ const PaymentPage = async () => {
 
     if (!sessionCookie) {
       // Rediriger vers la page de connexion avec retour après authentification
-      return redirect('/login?callbackUrl=/payment');
+      // return redirect('/login?callbackUrl=/payment');
+      console.log('Vous etes pas connecte');
+      return;
     }
 
     // Vérifier si l'utilisateur a un panier actif (optionnel, via cookie)
     const cartCookie = cookieStore.get('buyitnow_cart');
     if (!cartCookie || cartCookie.value === '{}') {
       // Si l'utilisateur n'a pas de panier actif, rediriger vers la page principale
-      return redirect('/?error=empty-cart');
+      // return redirect('/?error=empty-cart');
+      console.log('Panier inexistant');
+      return;
     }
 
     return (
