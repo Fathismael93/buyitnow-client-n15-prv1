@@ -155,12 +155,11 @@ const ShippingChoice = ({
       cartId: item?.id,
       product: item?.productId,
       name: item?.productName || 'Produit sans nom',
-      category: item?.product?.category || 'Non catégorisé',
+      category: 'Non catégorisé',
       quantity: item?.quantity || 1,
+      price: item?.price,
       image: item?.imageUrl || '/images/default_product.png',
-      price: Number(
-        ((item?.quantity || 1) * (item?.product?.price || 0)).toFixed(2),
-      ),
+      subtotal: Number(item?.subtotal),
     }));
   }, [cart]);
 
