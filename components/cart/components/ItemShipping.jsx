@@ -8,9 +8,7 @@ const ItemShipping = ({ item }) => {
         <div className="block relative w-20 h-20 rounded-sm p-1 border border-gray-200">
           <Image
             src={
-              item?.product?.images[0]?.url
-                ? item?.product?.images[0]?.url
-                : '/images/default_product.png'
+              item?.imageUrl ? item?.imageUrl : '/images/default_product.png'
             }
             alt="Title"
             title="Product Image"
@@ -23,9 +21,13 @@ const ItemShipping = ({ item }) => {
         </div>
       </div>
       <figcaption className="ml-3">
-        <p>{item?.product?.name?.substring(0, 50)}</p>
+        <p>{item?.productName?.substring(0, 50)}</p>
         <p className="mt-1 text-gray-400">
-          Total: ${(item?.quantity * item?.product?.price).toFixed(2)}
+          Total: $
+          {(item?.subtotal
+            ? item?.subtotal
+            : item?.quantity * item?.price
+          ).toFixed(2)}
         </p>
       </figcaption>
     </figure>
