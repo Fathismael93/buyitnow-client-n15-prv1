@@ -44,7 +44,7 @@ CartItemSkeleton.displayName = 'CartItemSkeleton';
 
 /**
  * Composant de paiement
- * Permet à l'utilisateur de sélectionner un moyen de paiement et finaliser sa commande
+ * Permet à l'utilisateur de sélectionner un moyen de paiement local et finaliser sa commande
  */
 const Payment = () => {
   // États locaux
@@ -57,7 +57,7 @@ const Payment = () => {
   const [isFormValid, setIsFormValid] = useState(false);
   const [dataInitialized, setDataInitialized] = useState(false);
 
-  // Références
+  // Référence pour limiter les soumissions multiples
   const submitAttempts = useRef(0);
 
   // Contextes

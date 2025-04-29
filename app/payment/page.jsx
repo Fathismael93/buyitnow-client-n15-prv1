@@ -74,9 +74,6 @@ const PaymentPage = async () => {
     captureException(error, {
       tags: { component: 'PaymentPage' },
     });
-
-    // Redirection en cas d'erreur fatale
-    redirect('/cart?error=payment-error');
   }
 };
 
