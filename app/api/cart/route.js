@@ -214,6 +214,8 @@ export async function GET(req) {
       }
     }
 
+    console.log('cartItems', cartItems);
+
     // Formatter les données pour la réponse
     const formattedCart = cartItems.map((item) => ({
       id: item._id,
