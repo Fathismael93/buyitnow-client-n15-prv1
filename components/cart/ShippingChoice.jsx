@@ -21,12 +21,6 @@ const ShippingChoice = ({ addresses, payments, deliveryPrice }) => {
   const router = useRouter();
 
   useEffect(() => {
-    console.log('Addresses : ', addresses);
-    console.log('Payments : ', payments);
-    console.log('DeliveryPrice : ', deliveryPrice);
-    console.log('Cart : ', cart);
-    console.log('CheckoutInfo : ', checkoutInfo);
-
     if (arrayHasData(payments)) {
       toast.error("We didn't find any payment method! Please try again later.");
       router.push('/cart');
