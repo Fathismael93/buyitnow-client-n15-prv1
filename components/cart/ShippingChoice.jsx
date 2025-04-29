@@ -1,127 +1,223 @@
 'use client';
 
+import {
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  memo,
+} from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useContext, useEffect } from 'react';
-
-const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
+import { captureException } from '@/monitoring/sentry';
 
-import ItemShipping from './components/ItemShipping';
-
+// Imports optimisés
+import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
 import { arrayHasData } from '@/helpers/helpers';
-import CartContext from '@/context/CartContext';
+import Loading from '@/app/loading';
 
-const ShippingChoice = ({ addresses, payments, deliveryPrice }) => {
+// Chargement dynamique des composants
+const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
+  loading: () => <div className="h-12 animate-pulse bg-gray-200 rounded"></div>,
+  ssr: true,
+});
+const ItemShipping = dynamic(() => import('./components/ItemShipping'), {
+  loading: () => <CartItemSkeleton />,
+  ssr: true,
+});
+
+// Squelette pour chargement des items
+const CartItemSkeleton = memo(() => (
+  <div className="animate-pulse">
+    <div className="flex items-center mb-4">
+      <div className="w-20 h-20 rounded bg-gray-200"></div>
+      <div className="ml-4 space-y-2">
+        <div className="h-4 bg-gray-200 rounded w-32"></div>
+        <div className="h-3 bg-gray-200 rounded w-20"></div>
+      </div>
+    </div>
+  </div>
+));
+CartItemSkeleton.displayName = 'CartItemSkeleton';
+
+/**
+ * Composant de choix de livraison
+ *
+ * @param {Object} props
+ * @param {Array} props.addresses - Adresses disponibles pour la livraison
+ * @param {Array} props.payments - Méthodes de paiement disponibles
+ * @param {Array} props.deliveryPrice - Prix de livraison
+ */
+const ShippingChoice = ({
+  addresses = [],
+  payments = [],
+  deliveryPrice = [],
+}) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [dataInitialized, setDataInitialized] = useState(false);
+
   const { cart, checkoutInfo, setOrderInfo } = useContext(CartContext);
   const { setAddresses, setPaymentTypes, setShippingStatus, setDeliveryPrice } =
     useContext(OrderContext);
+
   const router = useRouter();
 
+  // Chemins de fil d'Ariane
+  const breadCrumbs = useMemo(
+    () => [
+      { name: 'Accueil', url: '/' },
+      { name: 'Panier', url: '/cart' },
+      { name: 'Mode de livraison', url: '' },
+    ],
+    [],
+  );
+
+  // Vérification et configuration des données au montage du composant
   useEffect(() => {
-    if (arrayHasData(payments)) {
-      toast.error("We didn't find any payment method! Please try again later.");
-      router.push('/cart');
+    const initializeData = async () => {
+      try {
+        setIsLoading(true);
+
+        // Préchargement des pages pour navigation rapide
+        router.prefetch('/payment');
+        router.prefetch('/shipping');
+
+        // Validation des données
+        if (!arrayHasData(addresses) && addresses.length === 0) {
+          toast.error(
+            'Vous devez compléter votre profil et ajouter une adresse',
+          );
+          return router.push('/me');
+        }
+
+        if (!arrayHasData(payments) && payments.length === 0) {
+          toast.error(
+            "Aucun moyen de paiement n'est disponible pour le moment. Veuillez réessayer plus tard.",
+          );
+          return router.push('/cart');
+        }
+
+        // Stockage des données dans le contexte de commande
+        setAddresses(addresses);
+        setPaymentTypes(payments);
+
+        // Récupérer le prix de livraison avec sécurité
+        const price = deliveryPrice?.[0]?.deliveryPrice || 0;
+        setDeliveryPrice(price);
+
+        // Préparation des éléments de commande
+        const orderItems = prepareOrderItems();
+        setOrderInfo({ orderItems });
+
+        setDataInitialized(true);
+      } catch (error) {
+        console.error(
+          "Erreur lors de l'initialisation des données de livraison:",
+          error,
+        );
+        captureException(error, {
+          tags: { component: 'ShippingChoice', action: 'initializeData' },
+        });
+        toast.error(
+          'Une erreur est survenue lors du chargement des options de livraison',
+        );
+        router.push('/cart');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (!dataInitialized) {
+      initializeData();
     }
+  }, [
+    addresses,
+    payments,
+    deliveryPrice,
+    cart,
+    router,
+    setAddresses,
+    setPaymentTypes,
+    setDeliveryPrice,
+    setOrderInfo,
+    dataInitialized,
+  ]);
 
-    if (arrayHasData(addresses)) {
-      toast.error('You have to complete your profile and add an address');
-      router.push('/me');
-    }
+  // Fonction pour préparer les éléments de commande
+  const prepareOrderItems = useCallback(() => {
+    if (!Array.isArray(cart)) return [];
 
-    setAddresses(addresses);
-    setPaymentTypes(payments);
-    setDeliveryPrice(deliveryPrice[0]?.deliveryPrice);
+    return cart.map((item) => ({
+      cartId: item?.id,
+      product: item?.productId,
+      name: item?.productName || 'Produit sans nom',
+      category: item?.product?.category || 'Non catégorisé',
+      quantity: item?.quantity || 1,
+      image: item?.imageUrl || '/images/default_product.png',
+      price: Number(
+        ((item?.quantity || 1) * (item?.product?.price || 0)).toFixed(2),
+      ),
+    }));
+  }, [cart]);
 
-    let orderItems = [];
+  // Gestion des clics sur les options de livraison
+  const handleYesClick = useCallback(() => {
+    setShippingStatus(true);
+  }, [setShippingStatus]);
 
-    for (let index = 0; index < cart?.length; index++) {
-      const element = cart[index];
+  const handleNoClick = useCallback(() => {
+    setShippingStatus(false);
+  }, [setShippingStatus]);
 
-      const itemPaymentInfo = {
-        cartId: element?.id,
-        product: element?.productId,
-        name: element?.productName,
-        category: element?.product?.category,
-        quantity: element?.quantity,
-        image:
-          element?.imageUrl ||
-          'http://localhost:3000/images/default_product.png',
-        price: Number(
-          (element?.quantity * element?.product?.price)?.toFixed(2),
-        ),
-      };
-
-      orderItems.push(itemPaymentInfo);
-    }
-
-    setOrderInfo({
-      orderItems,
-    });
-
-    router.prefetch('/payment');
-  }, []);
-
-  const breadCrumbs = [
-    { name: 'Home', url: '/' },
-    { name: 'Cart', url: '/cart' },
-    { name: 'Choice', url: '' },
-  ];
+  // Si en cours de chargement, afficher un indicateur
+  if (isLoading) {
+    return <Loading />;
+  }
 
   return (
-    <div>
+    <div className="shipping-choice min-h-screen bg-gray-50">
       <BreadCrumbs breadCrumbs={breadCrumbs} />
-      <section className="py-10 bg-gray-50">
-        <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
-          <div className="flex flex-col md:flex-row gap-4 lg:gap-8">
+
+      <section className="py-8 md:py-10">
+        <div className="container max-w-6xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row gap-6">
             <main className="md:w-2/3">
-              <article className="border border-gray-200 bg-white shadow-xs rounded-sm p-4 lg:p-6 mb-5">
-                <h2 className="text-xl text-center font-semibold mb-5">
-                  Would you like delivery to your home ?
+              <div className="bg-white shadow rounded-lg p-6 transition-all duration-300">
+                <h2 className="text-xl font-semibold text-center mb-8">
+                  Souhaitez-vous être livré à domicile ?
                 </h2>
 
-                <div className="flex justify-evenly space-x-2 mt-10">
-                  <Link
+                <div className="flex flex-col sm:flex-row justify-evenly gap-4 mt-8 mb-4">
+                  <DeliveryOption
                     href="/shipping"
-                    onClick={() => setShippingStatus(true)}
-                  >
-                    <div className="p-10 border border-green-400 rounded-md hover:bg-blue-300 hover:border-blue-400">
-                      <p className="text-xl font-bold">YES</p>
-                    </div>
-                  </Link>
-                  <Link
+                    onClick={handleYesClick}
+                    text="Oui, je souhaite être livré"
+                    color="blue"
+                    icon="home"
+                  />
+
+                  <DeliveryOption
                     href="/payment"
-                    onClick={() => setShippingStatus(false)}
-                  >
-                    <div className="p-10 border border-red-400 rounded-md hover:bg-red-400">
-                      <p className="text-xl font-bold">No</p>
-                    </div>
-                  </Link>
+                    onClick={handleNoClick}
+                    text="Non, je récupérerai mes articles en magasin"
+                    color="red"
+                    icon="store"
+                  />
                 </div>
-              </article>
+
+                <p className="text-sm text-gray-500 mt-6 text-center">
+                  En choisissant la livraison à domicile, des frais
+                  supplémentaires peuvent s&apos;appliquer selon votre adresse.
+                </p>
+              </div>
             </main>
+
             <aside className="md:w-1/3">
-              <article className="text-gray-600" style={{ maxWidth: '350px' }}>
-                <h2 className="text-lg font-semibold mb-3">Summary</h2>
-                <ul>
-                  <li className="border-t flex justify-between mt-3 pt-3">
-                    <span>Total Amount:</span>
-                    <span className="text-gray-900 font-bold">
-                      $ {checkoutInfo?.amount}
-                    </span>
-                  </li>
-                </ul>
-
-                <hr className="my-4" />
-
-                <h2 className="text-lg font-semibold mb-3">Items in cart</h2>
-
-                {cart?.map((item) => (
-                  <ItemShipping key={item.id} item={item} />
-                ))}
-              </article>
+              <OrderSummary checkoutInfo={checkoutInfo} cart={cart} />
             </aside>
           </div>
         </div>
@@ -129,5 +225,121 @@ const ShippingChoice = ({ addresses, payments, deliveryPrice }) => {
     </div>
   );
 };
+
+// Composant d'option de livraison
+const DeliveryOption = memo(({ href, onClick, text, color, icon }) => {
+  const getColorClasses = () => {
+    if (color === 'blue') {
+      return {
+        border: 'border-blue-300',
+        hover: 'hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700',
+        text: 'text-blue-800',
+      };
+    }
+    return {
+      border: 'border-red-300',
+      hover: 'hover:bg-red-50 hover:border-red-400 hover:text-red-700',
+      text: 'text-red-800',
+    };
+  };
+
+  const colors = getColorClasses();
+
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center p-6 border-2 ${colors.border} rounded-lg ${colors.hover} transition-colors duration-200 group flex-1`}
+    >
+      <div className="mb-3">
+        {icon === 'home' ? (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-8 w-8 text-gray-400 group-hover:text-blue-500 transition-colors"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+            />
+          </svg>
+        ) : (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-8 w-8 text-gray-400 group-hover:text-red-500 transition-colors"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+            />
+          </svg>
+        )}
+      </div>
+      <p className={`font-medium ${colors.text}`}>{text}</p>
+    </Link>
+  );
+});
+DeliveryOption.displayName = 'DeliveryOption';
+
+// Composant de résumé de commande
+const OrderSummary = memo(({ checkoutInfo, cart = [] }) => {
+  const formattedAmount = useMemo(() => {
+    const amount = checkoutInfo?.amount || 0;
+    return typeof amount === 'number' ? amount.toFixed(2) : '0.00';
+  }, [checkoutInfo]);
+
+  return (
+    <div className="bg-white shadow rounded-lg p-6 sticky top-24">
+      <h2 className="font-semibold text-lg mb-4 pb-4 border-b border-gray-200">
+        Récapitulatif de commande
+      </h2>
+
+      <ul className="space-y-1 mb-6">
+        <li className="flex justify-between font-medium text-gray-600">
+          <span>Sous-total:</span>
+          <span>$ {formattedAmount}</span>
+        </li>
+
+        {checkoutInfo?.tax > 0 && (
+          <li className="flex justify-between text-gray-600">
+            <span>Taxes:</span>
+            <span>$ {Number(checkoutInfo.tax).toFixed(2)}</span>
+          </li>
+        )}
+
+        <li className="flex justify-between text-lg font-bold text-gray-800 border-t pt-4 mt-3">
+          <span>Total:</span>
+          <span>$ {formattedAmount}</span>
+        </li>
+      </ul>
+
+      <div className="border-t border-gray-200 pt-4">
+        <h3 className="font-medium text-gray-800 mb-3">
+          Articles dans votre panier
+        </h3>
+
+        <div className="space-y-3 max-h-80 overflow-auto pr-2 hide-scrollbar">
+          {Array.isArray(cart) && cart.length > 0 ? (
+            cart.map((item) => <ItemShipping key={item.id} item={item} />)
+          ) : (
+            <p className="text-gray-500 text-sm italic py-2">
+              Aucun article dans votre panier
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+OrderSummary.displayName = 'OrderSummary';
 
 export default ShippingChoice;
