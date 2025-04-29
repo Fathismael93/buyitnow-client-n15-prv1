@@ -47,13 +47,13 @@ const ShippingChoice = ({ addresses, payments, deliveryPrice }) => {
       const element = cart[index];
 
       const itemPaymentInfo = {
-        cartId: element?._id,
-        product: element?.product?._id,
-        name: element?.product?.name,
+        cartId: element?.id,
+        product: element?.productId,
+        name: element?.productName,
         category: element?.product?.category,
         quantity: element?.quantity,
         image:
-          element?.product?.images[0]?.url ||
+          element?.imageUrl ||
           'http://localhost:3000/images/default_product.png',
         price: Number(
           (element?.quantity * element?.product?.price)?.toFixed(2),
@@ -125,7 +125,7 @@ const ShippingChoice = ({ addresses, payments, deliveryPrice }) => {
                 <h2 className="text-lg font-semibold mb-3">Items in cart</h2>
 
                 {cart?.map((item) => (
-                  <ItemShipping key={item._id} item={item} />
+                  <ItemShipping key={item.id} item={item} />
                 ))}
               </article>
             </aside>
