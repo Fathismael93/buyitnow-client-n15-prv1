@@ -1,7 +1,7 @@
 import Image from 'next/image';
-import React from 'react';
 
 const ItemShipping = ({ item }) => {
+  console.log('Item in ItemShipping', item);
   return (
     <figure className="flex items-center mb-4 leading-5">
       <div>
