@@ -119,6 +119,10 @@ const Payment = () => {
           return router.push('/cart');
         }
 
+        console.log('orderInfo', orderInfo);
+        console.log('checkoutInfo', checkoutInfo);
+        console.log('shippingInfo', shippingInfo);
+
         // Mettre à jour les informations de commande avec l'adresse de livraison
         setOrderInfo({
           ...orderInfo,
