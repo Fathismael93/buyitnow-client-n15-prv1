@@ -18,6 +18,15 @@ export async function GET(req) {
   // Récupérer le contexte depuis l'URL
   const { searchParams } = new URL(req.url);
   const context = searchParams.get('context') || 'shipping';
+  const validContexts = ['profile', 'shipping'];
+
+  if (!validContexts.includes(context)) {
+    logger.warn('Invalid context parameter in address request', {
+      providedContext: context,
+      validContexts,
+    });
+    // On utilise quand même la valeur par défaut plutôt que de rejeter la requête
+  }
 
   // Journalisation structurée de la requête
   logger.info('Address API GET request received', {
@@ -131,8 +140,11 @@ export async function GET(req) {
       );
     }
 
-    // Génération de la clé de cache
-    const cacheKey = getCacheKey('addresses', { userId: user._id.toString() });
+    // Clé de cache incluant le contexte
+    const cacheKey = getCacheKey('addresses', {
+      userId: user._id.toString(),
+      context, // Ajouter le contexte à la clé de cache
+    });
 
     // Essayer de récupérer les données du cache
     let addresses = appCache.products.get(cacheKey);

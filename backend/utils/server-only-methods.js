@@ -797,6 +797,11 @@ export const getAllAddresses = async (
   retryAttempt = 0,
   maxRetries = 3,
 ) => {
+  if (page && !['profile', 'shipping'].includes(page)) {
+    logger.warn('Invalid page parameter', { page });
+    page = 'shipping'; // Valeur par défaut
+  }
+
   const controller = new AbortController();
   const requestId = `addresses-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
@@ -953,8 +958,6 @@ export const getAllAddresses = async (
     // Traitement de la réponse avec gestion des erreurs de parsing
     try {
       const data = await res.json();
-
-      console.log('data in getAllAddresses methode', data);
 
       // Vérifier les erreurs business
       if (data?.success === false) {
