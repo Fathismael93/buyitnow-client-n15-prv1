@@ -724,9 +724,31 @@ export const CartProvider = ({ children }) => {
       const validTotal = parseFloat(totalAmount) || validAmount + validTax;
 
       setCheckoutInfo({
+        amount: validAmount,
+        tax: validTax,
         totalAmount: validTotal,
         items: cart,
+        timestamp: Date.now(),
       });
+
+      // Enregistrer dans localStorage pour une reprise ultérieure si nécessaire
+      try {
+        localStorage.setItem(
+          'buyitnow_checkout',
+          JSON.stringify({
+            amount: validAmount,
+            tax: validTax,
+            totalAmount: validTotal,
+            timestamp: Date.now(),
+          }),
+        );
+        // eslint-disable-next-line no-unused-vars
+      } catch (e) {
+        // Ignorer les erreurs de localStorage
+        console.warn(
+          'Impossible de sauvegarder les infos de checkout dans localStorage',
+        );
+      }
     },
     [cart],
   );
