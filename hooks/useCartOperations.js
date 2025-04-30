@@ -74,6 +74,8 @@ const useCartOperations = () => {
   // Préparation au paiement
   const checkoutHandler = useCallback(() => {
     const checkoutData = {
+      amount: cartTotal.toFixed(2),
+      tax: 0, // À ajuster selon les besoins
       totalAmount: cartTotal.toFixed(2),
     };
 
