@@ -358,8 +358,7 @@ const Shipping = ({ initialData }) => {
             <aside className="md:w-1/3">
               <OrderSummary
                 cart={cart}
-                baseAmount={safeValue(checkoutInfo?.amount, 0)}
-                deliveryPrice={deliveryPrice}
+                baseAmount={safeValue(totalAmount, 0)}
                 totalAmount={totalAmount}
               />
             </aside>
