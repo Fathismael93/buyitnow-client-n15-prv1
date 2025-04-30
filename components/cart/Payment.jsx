@@ -458,9 +458,7 @@ const Payment = () => {
                           : 'border-gray-300 bg-gray-50 hover:border-gray-400'
                       }`}
                       type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      placeholder="Numéro de compte (chiffres uniquement)"
+                      placeholder="Numéro de compte"
                       value={accountNumber}
                       onChange={handleAccountNumberChange}
                       aria-invalid={errors.accountNumber ? 'true' : 'false'}

@@ -231,20 +231,7 @@ const Shipping = ({ initialData }) => {
       return;
     }
 
-    try {
-      // Sauvegarder l'adresse de livraison dans localStorage pour récupération si besoin
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('selected_shipping_address', selectedAddress);
-      }
-
-      router.push('/payment');
-    } catch (error) {
-      console.error('Erreur lors de la redirection vers le paiement:', error);
-      captureException(error, {
-        tags: { component: 'Shipping', action: 'handleCheckout' },
-      });
-      toast.error('Une erreur est survenue. Veuillez réessayer.');
-    }
+    router.push('/payment');
   }, [selectedAddress, router]);
 
   // Rendu pour le cas où aucun panier n'existe
