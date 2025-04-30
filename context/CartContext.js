@@ -725,6 +725,7 @@ export const CartProvider = ({ children }) => {
 
       setCheckoutInfo({
         totalAmount: validTotal,
+        items: cart,
       });
     },
     [cart],
