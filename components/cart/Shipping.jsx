@@ -20,6 +20,7 @@ import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
 import { arrayHasData, formatPrice, safeValue } from '@/helpers/helpers';
 import { useOnlineStatus } from '@/hooks/useCustomHooks';
+import { validateShippingAddressSelection } from '@/helpers/schemas';
 
 // Chargement dynamique des composants
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
@@ -178,13 +179,47 @@ const Shipping = ({ initialData }) => {
     isOnline,
   ]);
 
-  // Gérer la sélection d'adresse
+  // Gérer la sélection d'adresse avec validation
   const handleAddressSelection = useCallback(
-    (addressId) => {
-      setSelectedAddress(addressId);
-      setShippinInfo(addressId);
+    async (addressId) => {
+      try {
+        // Valider la sélection d'adresse
+        const { isValid, error } = await validateShippingAddressSelection(
+          addressId,
+          addressList,
+        );
+
+        if (isValid) {
+          setSelectedAddress(addressId);
+          setShippinInfo(addressId);
+
+          // Feedback positif (optionnel)
+          toast.success('Adresse de livraison sélectionnée', {
+            position: 'bottom-right',
+            autoClose: 2000,
+          });
+        } else {
+          // Afficher l'erreur de validation
+          toast.error(error || 'Adresse de livraison invalide', {
+            position: 'bottom-right',
+          });
+
+          // Ne pas mettre à jour la sélection
+          console.warn("Sélection d'adresse non valide:", error);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la validation d'adresse:", error);
+        captureException(error, {
+          tags: { component: 'Shipping', action: 'handleAddressSelection' },
+        });
+
+        // Comportement dégradé: accepter la sélection même en cas d'erreur de validation
+        // pour ne pas bloquer l'utilisateur, mais logger l'erreur
+        setSelectedAddress(addressId);
+        setShippinInfo(addressId);
+      }
     },
-    [setShippinInfo],
+    [addressList, setShippinInfo],
   );
 
   // Gérer le passage au paiement

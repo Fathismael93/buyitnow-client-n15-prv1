@@ -579,3 +579,80 @@ export const emailSchema = yup.object().shape({
   subject: yup.string().required().min(5),
   message: yup.string().required().min(3),
 });
+
+/**
+ * Schéma de validation pour la sélection d'adresse dans le processus de livraison
+ * Vérifie qu'une adresse valide a été sélectionnée
+ */
+export const shippingAddressSelectionSchema = yup.object().shape({
+  shippingAddress: yup
+    .string()
+    .trim()
+    .required('Veuillez sélectionner une adresse de livraison')
+    .test(
+      'is-valid-object-id',
+      "Format d'identifiant d'adresse non valide",
+      (value) => {
+        if (!value) return false;
+        // Validation selon les règles d'un ObjectId MongoDB/Mongoose
+        return /^[0-9a-fA-F]{24}$/.test(value);
+      },
+    )
+    .test(
+      'no-sql-injection',
+      "Format d'identifiant non autorisé",
+      utils.noSqlInjection,
+    )
+    .test(
+      'no-nosql-injection',
+      "Format d'identifiant non autorisé",
+      utils.noNoSqlInjection,
+    ),
+});
+
+/**
+ * Valide la sélection d'une adresse avec prise en compte du contexte de livraison
+ * @param {string} addressId - L'identifiant de l'adresse sélectionnée
+ * @param {Array} availableAddresses - Liste des adresses disponibles
+ * @returns {Promise<Object>} - Résultat de la validation
+ */
+export const validateShippingAddressSelection = async (
+  addressId,
+  availableAddresses = [],
+) => {
+  try {
+    // Valider le format de l'ID d'adresse
+    await shippingAddressSelectionSchema.validate({
+      shippingAddress: addressId,
+    });
+
+    // Vérifier que l'adresse existe dans la liste des adresses disponibles
+    if (!availableAddresses.some((address) => address._id === addressId)) {
+      throw new yup.ValidationError(
+        "L'adresse sélectionnée n'existe pas dans votre liste d'adresses",
+        addressId,
+        'shippingAddress',
+      );
+    }
+
+    return { isValid: true, addressId };
+  } catch (error) {
+    console.warn("Validation de sélection d'adresse échouée", {
+      error: error.message,
+      addressId,
+    });
+
+    // Capturer l'erreur pour monitoring si nécessaire (hors erreurs de validation standards)
+    if (error.name !== 'ValidationError') {
+      captureException(error, {
+        tags: { component: 'Shipping', action: 'validateAddress' },
+        extra: { addressId },
+      });
+    }
+
+    return {
+      isValid: false,
+      error: error.message || 'Adresse de livraison non valide',
+    };
+  }
+};
