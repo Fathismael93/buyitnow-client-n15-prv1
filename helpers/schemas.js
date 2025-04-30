@@ -570,10 +570,187 @@ export const addressSchema = yup
   .strict();
 
 export const paymentSchema = yup.object().shape({
-  paymentType: yup.string().required(),
-  accountName: yup.string().required().min(3),
-  accountNumber: yup.number().positive().integer().required().min(4),
+  paymentType: yup
+    .string()
+    .trim()
+    .required('Veuillez sélectionner un moyen de paiement')
+    .max(100, 'Le nom du moyen de paiement est trop long')
+    .test(
+      'no-sql-injection',
+      'Format de moyen de paiement non autorisé',
+      utils.noSqlInjection,
+    )
+    .test(
+      'no-nosql-injection',
+      'Format de moyen de paiement non autorisé',
+      utils.noNoSqlInjection,
+    )
+    .test(
+      'only-alphanumeric-and-spaces',
+      'Le moyen de paiement contient des caractères non autorisés',
+      (value) => {
+        if (!value) return true;
+        // N'autoriser que les caractères alphanumériques, espaces et quelques caractères spéciaux
+        return /^[a-zA-Z0-9\u00C0-\u017F\s._'-]+$/.test(value);
+      },
+    ),
+  accountName: yup
+    .string()
+    .trim()
+    .required('Le nom du compte est obligatoire')
+    .min(3, 'Le nom du compte doit contenir au moins 3 caractères')
+    .max(100, 'Le nom du compte ne peut pas dépasser 100 caractères')
+    .matches(
+      /^[a-zA-Z\u00C0-\u017F\s'-]+$/,
+      'Le nom du compte ne doit contenir que des lettres, espaces et tirets',
+    )
+    .test(
+      'no-sql-injection',
+      'Format de nom de compte non autorisé',
+      utils.noSqlInjection,
+    )
+    .test(
+      'no-nosql-injection',
+      'Format de nom de compte non autorisé',
+      utils.noNoSqlInjection,
+    )
+    .test(
+      'no-consecutive-special-chars',
+      'Le nom du compte contient trop de caractères spéciaux consécutifs',
+      (value) => {
+        if (!value) return true;
+        return !/[^\w\s]{2,}/.test(value);
+      },
+    ),
+  accountNumber: yup
+    .string()
+    .trim()
+    .required('Le numéro de compte est obligatoire')
+    .matches(
+      /^[0-9]{4,}$/,
+      'Le numéro de compte doit contenir uniquement des chiffres (minimum 4)',
+    )
+    .min(4, 'Le numéro de compte doit contenir au moins 4 chiffres')
+    .max(30, 'Le numéro de compte ne peut pas dépasser 30 chiffres')
+    .test(
+      'no-common-patterns',
+      'Le numéro de compte ne doit pas contenir de séquences trop simples',
+      (value) => {
+        if (!value) return true;
+        // Vérifier qu'il n'y a pas de séquences trop simples (1111, 1234, etc.)
+        return !/(0000|1111|2222|3333|4444|5555|6666|7777|8888|9999|1234|4321|0123)/.test(
+          value,
+        );
+      },
+    )
+    .test(
+      'not-all-zeros',
+      'Le numéro de compte ne peut pas être composé uniquement de zéros',
+      (value) => {
+        if (!value) return true;
+        return !/^0+$/.test(value);
+      },
+    )
+    .transform((value) => (value ? value.replace(/\s/g, '') : value)), // Supprimer les espaces
 });
+
+/**
+ * Schéma de validation de paiement renforcé avec vérification de contexte
+ * Permet de valider un paiement en vérifiant aussi la cohérence avec les types de paiement disponibles
+ */
+export const validatePaymentDetails = async (
+  paymentData,
+  availablePaymentTypes = [],
+) => {
+  try {
+    // Première validation structurelle avec le schéma
+    const validatedData = await paymentSchema.validate(paymentData, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
+
+    // Vérification supplémentaire: le type de paiement doit exister dans la liste des types disponibles
+    if (availablePaymentTypes && availablePaymentTypes.length > 0) {
+      const paymentTypeExists = availablePaymentTypes.some(
+        (pt) => pt.paymentName === validatedData.paymentType,
+      );
+
+      if (!paymentTypeExists) {
+        throw new yup.ValidationError(
+          "Le moyen de paiement sélectionné n'est pas disponible",
+          validatedData.paymentType,
+          'paymentType',
+        );
+      }
+    }
+
+    // Analyse heuristique du numéro de compte pour détecter des patterns suspects
+    // (adapté selon le système de paiement spécifique à votre pays)
+    const accountNumber = validatedData.accountNumber;
+    const suspiciousPatterns = [
+      /^12345/, // Commence par 12345
+      /98765$/, // Termine par 98765
+      /(\d)\1{5,}/, // Plus de 5 chiffres identiques consécutifs
+    ];
+
+    if (suspiciousPatterns.some((pattern) => pattern.test(accountNumber))) {
+      console.warn('Numéro de compte potentiellement suspect détecté', {
+        // Ne pas logger le numéro complet pour des raisons de sécurité
+        accountNumberPrefix: accountNumber.substring(0, 2) + '****',
+      });
+
+      // Plutôt qu'échouer, on pourrait ajouter un flag pour une vérification supplémentaire
+      return {
+        isValid: true,
+        data: validatedData,
+        warnings: ['pattern_warning'],
+        message: 'Vérification additionnelle du numéro de compte recommandée',
+      };
+    }
+
+    return {
+      isValid: true,
+      data: validatedData,
+    };
+  } catch (error) {
+    // Formatage des erreurs pour un retour utilisateur clair
+    const formattedErrors = {};
+
+    if (error.inner && error.inner.length) {
+      error.inner.forEach((err) => {
+        formattedErrors[err.path] = err.message;
+      });
+    } else if (error.path && error.message) {
+      formattedErrors[error.path] = error.message;
+    } else {
+      formattedErrors.general =
+        error.message || 'Erreur de validation du paiement';
+    }
+
+    // Journalisation sécurisée (sans données sensibles)
+    console.warn('Validation de paiement échouée', {
+      errorCount: Object.keys(formattedErrors).length,
+      fields: Object.keys(formattedErrors),
+    });
+
+    // Capture sélective pour Sentry (seulement si ce n'est pas une erreur de validation standard)
+    if (error.name !== 'ValidationError') {
+      captureException(error, {
+        tags: { component: 'Payment', action: 'validatePayment' },
+        // Ne PAS inclure les données de paiement complètes pour des raisons de sécurité
+        extra: {
+          fields: Object.keys(formattedErrors),
+          paymentTypeProvided: !!paymentData.paymentType,
+        },
+      });
+    }
+
+    return {
+      isValid: false,
+      errors: formattedErrors,
+    };
+  }
+};
 
 export const emailSchema = yup.object().shape({
   subject: yup.string().required().min(5),

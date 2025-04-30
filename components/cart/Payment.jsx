@@ -20,7 +20,7 @@ import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
 import { arrayHasData, formatPrice, safeValue } from '@/helpers/helpers';
 import { useOnlineStatus } from '@/hooks/useCustomHooks';
-import { paymentSchema } from '@/helpers/schemas';
+import { paymentSchema, validatePaymentDetails } from '@/helpers/schemas';
 
 // Chargement dynamique des composants
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
@@ -185,35 +185,55 @@ const Payment = () => {
           return;
         }
 
-        await paymentSchema.validate(
+        const validationResult = await validatePaymentDetails(
           {
             paymentType,
             accountName,
             accountNumber,
           },
-          { abortEarly: false },
+          paymentTypes, // Passer les types de paiement disponibles pour une validation contextuelle
         );
 
-        setErrors({});
-        setIsFormValid(true);
-      } catch (validationError) {
-        // Mettre à jour les erreurs de validation
-        const newErrors = {};
-        if (validationError.inner) {
-          validationError.inner.forEach((err) => {
-            newErrors[err.path] = err.message;
-          });
-        } else {
-          newErrors.general = validationError.message;
-        }
+        if (validationResult.isValid) {
+          setErrors({});
+          setIsFormValid(true);
 
-        setErrors(newErrors);
+          // Afficher un avertissement si détecté
+          if (
+            validationResult.warnings &&
+            validationResult.warnings.includes('pattern_warning')
+          ) {
+            console.warn(
+              'Avertissement de validation:',
+              validationResult.message,
+            );
+          }
+        } else {
+          setErrors(validationResult.errors || {});
+          setIsFormValid(false);
+        }
+      } catch (validationError) {
+        // Fallback en cas d'erreur lors de l'import dynamique
+        console.error(
+          'Erreur lors de la validation du formulaire:',
+          validationError,
+        );
+
+        // Capture l'exception pour le monitoring
+        captureException(validationError, {
+          tags: { component: 'Payment', action: 'validateForm' },
+        });
+
+        setErrors({
+          general:
+            'Une erreur est survenue lors de la validation du formulaire',
+        });
         setIsFormValid(false);
       }
     };
 
     validateForm();
-  }, [paymentType, accountName, accountNumber]);
+  }, [paymentType, accountName, accountNumber, paymentTypes]);
 
   // Handlers pour les changements de champs
   const handlePaymentTypeChange = useCallback((value) => {
@@ -225,9 +245,14 @@ const Payment = () => {
   }, []);
 
   const handleAccountNumberChange = useCallback((e) => {
-    // Permettre seulement les chiffres
-    const value = e.target.value.replace(/[^\d]/g, '');
-    setAccountNumber(value);
+    // Permettre seulement les chiffres et formater pour une meilleure lisibilité
+    const rawValue = e.target.value.replace(/[^\d]/g, '');
+
+    // Formater le numéro pour une meilleure lisibilité (groupes de 4 chiffres)
+    // mais uniquement pour l'affichage, la validation utilisera la valeur brute
+    // const formattedValue = rawValue.replace(/(\d{4})(?=\d)/g, '$1 ');
+
+    setAccountNumber(rawValue); // Stocke la valeur sans espaces pour le traitement
   }, []);
 
   // Handler pour la soumission du paiement
@@ -246,7 +271,7 @@ const Payment = () => {
     try {
       setIsSubmitting(true);
 
-      // Vérification finale du formulaire
+      // Vérification finale du formulaire avec la nouvelle fonction de validation
       if (!isFormValid) {
         const missingFields = [];
         if (!paymentType) missingFields.push('type de paiement');
@@ -264,6 +289,27 @@ const Payment = () => {
         return;
       }
 
+      const validationResult = await validatePaymentDetails(
+        {
+          paymentType,
+          accountName,
+          accountNumber,
+        },
+        paymentTypes,
+      );
+
+      if (!validationResult.isValid) {
+        // Afficher les erreurs de validation
+        const errorMessages = Object.values(validationResult.errors);
+        errorMessages.forEach((msg) => {
+          toast.error(msg, { position: 'bottom-right' });
+        });
+
+        setIsSubmitting(false);
+        submitAttempts.current = 0;
+        return;
+      }
+
       // Création des informations de paiement
       const paymentInfo = {
         amountPaid: parseFloat(totalAmount),
@@ -271,6 +317,8 @@ const Payment = () => {
         paymentAccountNumber: accountNumber,
         paymentAccountName: accountName,
         paymentDate: new Date().toISOString(),
+        paymentReference: `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`, // Référence unique
+        securityHash: await generatePaymentHash(accountNumber, totalAmount), // Protection supplémentaire
       };
 
       // Préparation des données de commande
@@ -297,7 +345,11 @@ const Payment = () => {
       console.error('Erreur lors du traitement du paiement:', error);
       captureException(error, {
         tags: { component: 'Payment', action: 'handlePayment' },
-        extra: { orderInfo },
+        extra: {
+          hasOrderInfo: !!orderInfo,
+          hasPaymentType: !!paymentType,
+          // Ne pas inclure les données sensibles
+        },
       });
 
       toast.error(
@@ -321,7 +373,36 @@ const Payment = () => {
     addOrder,
     shippingStatus,
     totalAmount,
+    paymentTypes,
   ]);
+
+  // Fonction utilitaire pour générer un hash de sécurité pour le paiement
+  const generatePaymentHash = async (accountNumber, amount) => {
+    try {
+      // Utiliser uniquement les 4 derniers chiffres du numéro de compte pour la sécurité
+      const lastFourDigits = accountNumber.slice(-4);
+      const timestamp = Date.now().toString();
+      const dataToHash = `${lastFourDigits}-${amount}-${timestamp}`;
+
+      // Utiliser l'API SubtleCrypto si disponible
+      if (window.crypto && window.crypto.subtle) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(dataToHash);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      // Fallback simple si l'API SubtleCrypto n'est pas disponible
+      return btoa(
+        `${dataToHash}-${Math.random().toString(36).substring(2, 10)}`,
+      );
+    } catch (error) {
+      console.warn('Erreur lors de la génération du hash de sécurité:', error);
+      // Ne jamais bloquer le processus si le hash échoue, utiliser une alternative simple
+      return `secure-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    }
+  };
 
   // Rendu conditionnel pour le cas de chargement
   if (isLoading) {
@@ -458,10 +539,14 @@ const Payment = () => {
                           : 'border-gray-300 bg-gray-50 hover:border-gray-400'
                       }`}
                       type="text"
-                      placeholder="Numéro de compte"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      placeholder="Numéro de compte (chiffres uniquement)"
                       value={accountNumber}
                       onChange={handleAccountNumberChange}
                       aria-invalid={errors.accountNumber ? 'true' : 'false'}
+                      autoComplete="off"
+                      maxLength="30"
                       required
                     />
                     {errors.accountNumber && (
@@ -469,6 +554,11 @@ const Payment = () => {
                         {errors.accountNumber}
                       </p>
                     )}
+                    <div className="mt-1 text-xs text-gray-500">
+                      <p>
+                        Saisissez uniquement les chiffres, minimum 4 caractères
+                      </p>
+                    </div>
                   </div>
                 </div>
 
