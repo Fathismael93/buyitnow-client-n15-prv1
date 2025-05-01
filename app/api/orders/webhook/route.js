@@ -131,15 +131,21 @@ export async function POST(req) {
       }
 
       console.log('Creating order');
-      const order = await Order.create(orderData);
+      await Order.create(orderData)
+        .then((result) => {
+          console.log('Order created', result);
+        })
+        .catch((err) => {
+          console.log('Error creating order', err);
+        });
 
       // Après la création réussie, invalider le cache des produits
-      appCache.products.invalidatePattern(/^products:/);
+      // appCache.products.invalidatePattern(/^products:/);
 
-      return NextResponse.json(
-        { success: true, id: order?._id },
-        { status: 201 },
-      );
+      // return NextResponse.json(
+      //   { success: true, id: order?._id },
+      //   { status: 201 },
+      // );
     } else {
       return NextResponse.json({
         success: false,
