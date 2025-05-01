@@ -174,7 +174,7 @@ const Header = () => {
         });
       }
     }
-  }, [data]);
+  }, [data?.user]);
 
   const handleSignOut = async () => {
     try {
