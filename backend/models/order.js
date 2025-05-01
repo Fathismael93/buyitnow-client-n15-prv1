@@ -65,7 +65,7 @@ const paymentInfoSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Type de paiement obligatoire'],
     enum: {
-      values: ['waafi', 'dmoney', 'cacpay', 'bcipay'],
+      values: ['WAAFI', 'D-MONEY', 'CAC-PAY', 'BCI-PAY'],
       message: 'Type de paiement non supporté: {VALUE}',
     },
   },
