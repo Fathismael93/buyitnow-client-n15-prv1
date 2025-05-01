@@ -20,6 +20,7 @@ export const OrderProvider = ({ children }) => {
   const router = useRouter();
 
   const addOrder = async (orderInfo) => {
+    console.log('orderInfo', orderInfo);
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/orders/webhook`,

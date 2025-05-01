@@ -20,7 +20,7 @@ import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
 import { arrayHasData, formatPrice, safeValue } from '@/helpers/helpers';
 import { useOnlineStatus } from '@/hooks/useCustomHooks';
-import { paymentSchema, validatePaymentDetails } from '@/helpers/schemas';
+import { validatePaymentDetails } from '@/helpers/schemas';
 
 // Chargement dynamique des composants
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
