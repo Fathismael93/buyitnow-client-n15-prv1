@@ -107,7 +107,6 @@ const orderSchema = new mongoose.Schema(
     shippingInfo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Address',
-      required: [true, 'Information de livraison obligatoire'],
       index: true,
     },
     user: {
