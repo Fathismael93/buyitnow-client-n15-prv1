@@ -53,7 +53,6 @@ const Payment = () => {
   const [paymentType, setPaymentType] = useState(null);
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
-  const [errors, setErrors] = useState({});
   const [isFormValid, setIsFormValid] = useState(false);
   const [dataInitialized, setDataInitialized] = useState(false);
 
@@ -74,6 +73,8 @@ const Payment = () => {
 
   const router = useRouter();
   const isOnline = useOnlineStatus();
+
+  let errors;
 
   // Calcul du montant total
   const totalAmount = useMemo(() => {
@@ -119,10 +120,6 @@ const Payment = () => {
           return router.push('/cart');
         }
 
-        console.log('orderInfo', orderInfo);
-        console.log('checkoutInfo', checkoutInfo);
-        console.log('shippingInfo', shippingInfo);
-
         // Mettre à jour les informations de commande avec l'adresse de livraison
         setOrderInfo({
           ...orderInfo,
@@ -164,75 +161,15 @@ const Payment = () => {
     if (!dataInitialized) {
       initializePaymentPage();
     }
-  }, [
-    router,
-    checkoutInfo,
-    orderInfo,
-    setOrderInfo,
-    shippingInfo,
-    paymentTypes,
-    dataInitialized,
-    isOnline,
-  ]);
+  }, [dataInitialized]);
 
   // Validation du formulaire à chaque changement
   useEffect(() => {
-    const validateForm = async () => {
-      try {
-        // Ne pas valider si des champs requis sont vides
-        if (!paymentType || !accountName || !accountNumber) {
-          setIsFormValid(false);
-          return;
-        }
-
-        const validationResult = await validatePaymentDetails(
-          {
-            paymentType,
-            accountName,
-            accountNumber,
-          },
-          paymentTypes, // Passer les types de paiement disponibles pour une validation contextuelle
-        );
-
-        if (validationResult.isValid) {
-          setErrors({});
-          setIsFormValid(true);
-
-          // Afficher un avertissement si détecté
-          if (
-            validationResult.warnings &&
-            validationResult.warnings.includes('pattern_warning')
-          ) {
-            console.warn(
-              'Avertissement de validation:',
-              validationResult.message,
-            );
-          }
-        } else {
-          setErrors(validationResult.errors || {});
-          setIsFormValid(false);
-        }
-      } catch (validationError) {
-        // Fallback en cas d'erreur lors de l'import dynamique
-        console.error(
-          'Erreur lors de la validation du formulaire:',
-          validationError,
-        );
-
-        // Capture l'exception pour le monitoring
-        captureException(validationError, {
-          tags: { component: 'Payment', action: 'validateForm' },
-        });
-
-        setErrors({
-          general:
-            'Une erreur est survenue lors de la validation du formulaire',
-        });
-        setIsFormValid(false);
-      }
-    };
-
-    validateForm();
+    // Ne pas valider si des champs requis sont vides
+    if (!paymentType || !accountName || !accountNumber) {
+      setIsFormValid(false);
+      return;
+    }
   }, [paymentType, accountName, accountNumber, paymentTypes]);
 
   // Handlers pour les changements de champs

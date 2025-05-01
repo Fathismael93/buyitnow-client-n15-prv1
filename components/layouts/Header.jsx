@@ -132,8 +132,10 @@ const Header = () => {
     setUser,
     clearUser,
   } = useContext(AuthContext);
+
   const { setCartToState, cartCount, clearCartOnLogout } =
     useContext(CartContext);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoadingCart, setIsLoadingCart] = useState(false);
   const { data } = useSession();
@@ -159,7 +161,8 @@ const Header = () => {
 
   // Effet pour charger les données utilisateur et panier
   useEffect(() => {
-    if (data) {
+    if (user !== null) {
+      console.log('user', user);
       try {
         setUser(data?.user);
         loadCart();
@@ -171,7 +174,7 @@ const Header = () => {
         });
       }
     }
-  }, [data]);
+  }, [data, user]);
 
   const handleSignOut = async () => {
     try {
