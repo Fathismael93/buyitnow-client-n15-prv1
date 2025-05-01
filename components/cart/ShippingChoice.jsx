@@ -152,7 +152,6 @@ const ShippingChoice = ({
     if (!Array.isArray(cart)) return [];
 
     return cart.map((item) => ({
-      cartId: item?.id,
       product: item?.productId,
       name: item?.productName || 'Produit sans nom',
       category: 'Non catégorisé',

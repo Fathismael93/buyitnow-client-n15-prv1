@@ -9,12 +9,28 @@ import Cart from '@/backend/models/cart';
 // eslint-disable-next-line no-unused-vars
 import Category from '@/backend/models/category';
 import { appCache } from '@/utils/cache';
+import logger from '@/utils/logger';
 
 export async function POST(req) {
   try {
     await isAuthenticatedUser(req, NextResponse);
 
-    dbConnect();
+    // Connecter à la base de données avec timeout
+    const connectionInstance = await dbConnect();
+
+    if (!connectionInstance.connection) {
+      logger.error('Database connection failed for cart request', {
+        user: req.user?.email,
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Database connection failed',
+        },
+        { status: 500 },
+      );
+    }
 
     const user = await User.findOne({ email: req.user.email }).select('_id');
 
@@ -32,6 +48,8 @@ export async function POST(req) {
     const orderData = await req.json();
 
     orderData.user = user?._id;
+
+    console.log('orderData', orderData);
 
     // GETTING THE IDs AND THE QUANTITES OF THE PRODUCTS ORDERED BY USER
     let productsIdsQuantities = [];

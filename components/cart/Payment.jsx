@@ -313,14 +313,15 @@ const Payment = () => {
         paymentAccountNumber: accountNumber,
         paymentAccountName: accountName,
         paymentDate: new Date().toISOString(),
-        paymentReference: `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`, // Référence unique
-        securityHash: await generatePaymentHash(accountNumber, totalAmount), // Protection supplémentaire
       };
 
       // Préparation des données de commande
       const finalOrderInfo = {
         ...orderInfo,
         paymentInfo,
+        taxAmount: checkoutInfo?.taxAmount,
+        totalAmount: checkoutInfo?.totalAmount,
+        shippingAmount: shippingStatus ? deliveryPrice : 0,
       };
 
       // Supprimer les infos de livraison si pas de livraison
@@ -371,34 +372,6 @@ const Payment = () => {
     totalAmount,
     paymentTypes,
   ]);
-
-  // Fonction utilitaire pour générer un hash de sécurité pour le paiement
-  const generatePaymentHash = async (accountNumber, amount) => {
-    try {
-      // Utiliser uniquement les 4 derniers chiffres du numéro de compte pour la sécurité
-      const lastFourDigits = accountNumber.slice(-4);
-      const timestamp = Date.now().toString();
-      const dataToHash = `${lastFourDigits}-${amount}-${timestamp}`;
-
-      // Utiliser l'API SubtleCrypto si disponible
-      if (window.crypto && window.crypto.subtle) {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(dataToHash);
-        const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-      }
-
-      // Fallback simple si l'API SubtleCrypto n'est pas disponible
-      return btoa(
-        `${dataToHash}-${Math.random().toString(36).substring(2, 10)}`,
-      );
-    } catch (error) {
-      console.warn('Erreur lors de la génération du hash de sécurité:', error);
-      // Ne jamais bloquer le processus si le hash échoue, utiliser une alternative simple
-      return `secure-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
-    }
-  };
 
   // Rendu conditionnel pour le cas de chargement
   if (isLoading) {

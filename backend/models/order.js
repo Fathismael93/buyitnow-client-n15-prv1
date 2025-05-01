@@ -87,11 +87,6 @@ const paymentInfoSchema = new mongoose.Schema({
     trim: true,
     maxlength: [100, 'Le nom ne peut pas dépasser 100 caractères'],
   },
-  transactionId: {
-    type: String,
-    trim: true,
-    index: true,
-  },
   paymentDate: {
     type: Date,
     default: Date.now,
@@ -155,11 +150,6 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: [0, 'Les frais de port ne peuvent pas être négatifs'],
-    },
-    notes: {
-      type: String,
-      trim: true,
-      maxlength: [500, 'Les notes ne peuvent pas dépasser 500 caractères'],
     },
     cancelReason: {
       type: String,
