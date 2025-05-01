@@ -319,7 +319,7 @@ const Payment = () => {
       const finalOrderInfo = {
         ...orderInfo,
         paymentInfo,
-        taxAmount: checkoutInfo?.taxAmount,
+        taxAmount: checkoutInfo?.tax,
         totalAmount: checkoutInfo?.totalAmount,
         shippingAmount: shippingStatus ? deliveryPrice : 0,
       };
