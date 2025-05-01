@@ -49,13 +49,10 @@ export async function POST(req) {
 
     orderData.user = user?._id;
 
-    console.log('orderData', orderData);
-
     let productsIdsQuantities = [];
 
     // GETTING THE IDs AND THE QUANTITES OF THE PRODUCTS ORDERED BY USER FROM ORDERITEMS IN ORDERDATA
     if (Array.isArray(orderData?.orderItems) && orderData?.orderItems[0]) {
-      console.log('Getting products ids and quantities');
       const orderItems = orderData?.orderItems;
 
       for (let index = 0; index < orderItems?.length; index++) {
@@ -77,7 +74,6 @@ export async function POST(req) {
     // CHECKING IF THE PRODUCTS ORDERED BY USER ARE STILL IN STOCK
     for (let index = 0; index < productsIdsQuantities?.length; index++) {
       // GETTING THE PRODUCT ORDERED BY USER
-      console.log('Getting product');
       const element = productsIdsQuantities[index];
       const itemInOrder = orderData?.orderItems[index];
       const product = await Product.findById(element.id).populate(
@@ -93,7 +89,6 @@ export async function POST(req) {
       // IF PRODUCT STOCK IS MORE THAN QUANTITY IN CART...
       if (isProductLeft) {
         // ...THEN UPDATE THE PRODUCT STOCK
-        console.log('Updating product stock');
         const newStock = product.stock - element.quantity;
 
         const productUpdated = await Product.findByIdAndUpdate(product._id, {
@@ -124,13 +119,11 @@ export async function POST(req) {
     // IF THE DIFFERENCE IS 0, THEN THE OPERATION IS SUCCESSFUL
     // AND WE CAN CREATE THE ORDER
     if (difference === 0) {
-      console.log('Deleting cart items');
       for (let index = 0; index < productsIdsQuantities.length; index++) {
         const element = productsIdsQuantities[index];
         await Cart.findByIdAndDelete(element.cartId);
       }
 
-      console.log('Creating order');
       const order = await Order.create(orderData);
 
       // Après la création réussie, invalider le cache des produits

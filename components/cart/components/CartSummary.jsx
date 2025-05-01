@@ -20,15 +20,6 @@ const CartSummary = memo(({ cartItems, amount, onCheckout }) => {
             <span className="font-medium">{totalUnits}</span>
           </li>
 
-          {totalUnits > 0 && (
-            <li className="flex justify-between text-gray-600">
-              <span>Prix unitaire moyen:</span>
-              <span className="font-medium">
-                {formatPrice(amount / totalUnits)}
-              </span>
-            </li>
-          )}
-
           <li
             className="text-lg font-bold border-t flex justify-between mt-3 pt-4"
             title="Prix total"

@@ -303,11 +303,6 @@ const OrderSummary = memo(({ checkoutInfo, cart = [] }) => {
       </h2>
 
       <ul className="space-y-1 mb-6">
-        <li className="flex justify-between font-medium text-gray-600">
-          <span>Sous-total:</span>
-          <span>$ {formattedAmount}</span>
-        </li>
-
         {checkoutInfo?.tax > 0 && (
           <li className="flex justify-between text-gray-600">
             <span>Taxes:</span>
