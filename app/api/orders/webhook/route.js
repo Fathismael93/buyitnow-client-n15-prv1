@@ -51,10 +51,11 @@ export async function POST(req) {
 
     console.log('orderData', orderData);
 
-    // GETTING THE IDs AND THE QUANTITES OF THE PRODUCTS ORDERED BY USER
     let productsIdsQuantities = [];
 
+    // GETTING THE IDs AND THE QUANTITES OF THE PRODUCTS ORDERED BY USER FROM ORDERITEMS IN ORDERDATA
     if (Array.isArray(orderData?.orderItems) && orderData?.orderItems[0]) {
+      console.log('Getting products ids and quantities');
       const orderItems = orderData?.orderItems;
 
       for (let index = 0; index < orderItems?.length; index++) {
@@ -70,12 +71,13 @@ export async function POST(req) {
       }
     }
 
-    // STARTING THE OPERATION OF ORDER
     let updatedProductsReturned = [];
     let inavailableStockProducts = [];
 
+    // CHECKING IF THE PRODUCTS ORDERED BY USER ARE STILL IN STOCK
     for (let index = 0; index < productsIdsQuantities?.length; index++) {
       // GETTING THE PRODUCT ORDERED BY USER
+      console.log('Getting product');
       const element = productsIdsQuantities[index];
       const itemInOrder = orderData?.orderItems[index];
       const product = await Product.findById(element.id).populate(
@@ -88,17 +90,20 @@ export async function POST(req) {
       // CHECKING IF THE QUANTITY ASKED BY USER IS LESS THAN PRODUCT STOCK
       const isProductLeft = product.stock >= element.quantity;
 
-      // IF STOCK IS MORE THAN QUANTITY THAN...
+      // IF PRODUCT STOCK IS MORE THAN QUANTITY IN CART...
       if (isProductLeft) {
+        // ...THEN UPDATE THE PRODUCT STOCK
+        console.log('Updating product stock');
         const newStock = product.stock - element.quantity;
 
         const productUpdated = await Product.findByIdAndUpdate(product._id, {
           stock: newStock,
         });
 
+        // ADDING THE PRODUCT TO THE UPDATED PRODUCTS ARRAY
         updatedProductsReturned.push(productUpdated);
       } else {
-        // ...ELSE
+        // ...ELSE ADD THE PRODUCT TO THE INAVAILABLE STOCK PRODUCTS ARRAY
         const rejectedProduct = {
           id: product._id,
           name: product.name,
@@ -111,17 +116,21 @@ export async function POST(req) {
       }
     }
 
-    // CHECKING IF THE OPERATION IS SUCCESSFUL WITH EVERY PRODUCT ORDERED BY USER
+    // CHECKING IF THE OPERATION IS SUCCESSFUL WITH EVERY PRODUCT ORDERED BY USER BY COMPARING
+    // THE LENGTH OF THE PRODUCTS ORDERED BY USER AND THE LENGTH OF THE UPDATED PRODUCTS
     const difference =
       productsIdsQuantities.length - updatedProductsReturned.length;
 
-    // IF THE OPERATION IS SUCCESSFUL THEN ADD THE ORDER TO THE DATABASE
+    // IF THE DIFFERENCE IS 0, THEN THE OPERATION IS SUCCESSFUL
+    // AND WE CAN CREATE THE ORDER
     if (difference === 0) {
+      console.log('Deleting cart items');
       for (let index = 0; index < productsIdsQuantities.length; index++) {
         const element = productsIdsQuantities[index];
         await Cart.findByIdAndDelete(element.cartId);
       }
 
+      console.log('Creating order');
       const order = await Order.create(orderData);
 
       // Après la création réussie, invalider le cache des produits
