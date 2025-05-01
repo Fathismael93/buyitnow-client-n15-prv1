@@ -532,11 +532,6 @@ const Payment = () => {
                 </div>
 
                 <div className="space-y-3 mb-6">
-                  <div className="flex justify-between text-gray-600">
-                    <span>Sous-total:</span>
-                    <span>{formatPrice(checkoutInfo?.amount || 0)}</span>
-                  </div>
-
                   {shippingStatus && (
                     <div className="flex justify-between text-gray-600">
                       <span>Frais de livraison:</span>
