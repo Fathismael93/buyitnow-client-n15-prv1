@@ -218,7 +218,7 @@ const Header = () => {
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
-            {user && (
+            {data?.user && (
               <Link
                 href="/cart"
                 className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md mr-2 relative"
@@ -253,7 +253,7 @@ const Header = () => {
 
           {/* User navigation - Desktop */}
           <div className="hidden md:flex items-center space-x-3">
-            {user && <CartButton cartCount={cartCount} />}
+            {data?.user && <CartButton cartCount={cartCount} />}
 
             {!user ? (
               <Link
@@ -281,7 +281,7 @@ const Header = () => {
           <div className="mb-4">
             <Search setLoading={setAuthLoading} />
           </div>
-          {user ? (
+          {data?.user ? (
             <div className="space-y-3">
               <Link
                 href="/me"
