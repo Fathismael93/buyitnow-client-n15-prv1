@@ -161,7 +161,7 @@ const Header = () => {
 
   // Effet pour charger les données utilisateur et panier
   useEffect(() => {
-    if (user !== null) {
+    if (data?.user) {
       console.log('user', user);
       try {
         setUser(data?.user);
@@ -174,7 +174,7 @@ const Header = () => {
         });
       }
     }
-  }, [data, user]);
+  }, [data]);
 
   const handleSignOut = async () => {
     try {
