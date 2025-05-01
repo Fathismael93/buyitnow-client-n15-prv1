@@ -159,6 +159,12 @@ const Header = () => {
     }
   }, [setCartToState]);
 
+  useEffect(() => {
+    router.prefetch('/cart');
+    router.prefetch('/me');
+    router.prefetch('/login');
+  }, []);
+
   // Effet pour charger les données utilisateur et panier
   useEffect(() => {
     if (data?.user) {
