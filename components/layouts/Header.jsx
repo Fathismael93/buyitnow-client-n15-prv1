@@ -51,6 +51,7 @@ const UserDropdown = memo(({ user }) => {
     () => [
       { href: '/me', label: 'Mon profil' },
       { href: '/me/orders', label: 'Mes commandes' },
+      { href: '/me/contact', label: 'Contacter le vendeur' },
     ],
     [],
   );
