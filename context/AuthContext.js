@@ -589,27 +589,260 @@ export const AuthProvider = ({ children }) => {
 
   const updateAddress = async (id, address) => {
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/address/${id}`,
-        {
-          method: 'PUT',
-          body: JSON.stringify(address),
-        },
-      );
+      // Update loading state
+      setLoading(true);
+      setError(null);
 
-      const data = await res.json();
+      // Client-side rate limiting check
+      const clientRateLimitKey = `address:update:${user?.email || 'anonymous'}:${id}`;
+      const maxClientAttempts = 3; // Maximum 3 attempts per minute
 
-      if (data?.success === false) {
-        toast.info(data?.message);
-        return;
+      // Use cache to track address update attempts
+      let updateAttempts = 0;
+
+      try {
+        // Use PersistentCache to store update attempts
+        if (appCache.ui) {
+          updateAttempts = appCache.ui.get(clientRateLimitKey) || 0;
+
+          // If too many attempts, temporarily block
+          if (updateAttempts >= maxClientAttempts) {
+            const retryAfter = 60; // 1 minute in seconds
+            setError(
+              `Too many address update attempts. Please try again in ${Math.ceil(retryAfter / 60)} minute.`,
+            );
+            toast.error(
+              `Rate limit reached. Please try again in ${Math.ceil(retryAfter / 60)} minute.`,
+            );
+            setLoading(false);
+            return;
+          }
+
+          // Increment attempt counter
+          appCache.ui.set(clientRateLimitKey, updateAttempts + 1, {
+            ttl: 60 * 1000, // 1 minute
+          });
+        }
+      } catch (cacheError) {
+        // If cache error, continue anyway (fail open)
+        console.warn(
+          'Cache error during address update attempt tracking:',
+          cacheError,
+        );
       }
 
-      if (data?.data) {
-        setUpdated(true);
-        router.replace(`/address/${id}`);
+      // Use AbortController to cancel the request if needed
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      // Configure headers with protection against attacks
+      const headers = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest', // Extra CSRF protection
+        'Cache-Control':
+          'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
+      };
+
+      try {
+        // Input validation - ensure ID is valid
+        if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
+          setError('Invalid address ID format');
+          toast.error('Invalid address format. Please try again.');
+          setLoading(false);
+          return;
+        }
+
+        // Check if address object is valid
+        if (
+          !address ||
+          typeof address !== 'object' ||
+          Object.keys(address).length === 0
+        ) {
+          setError('Address data is invalid');
+          toast.error('Address data is invalid. Please try again.');
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/address/${id}`,
+          {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(address),
+            signal: controller.signal,
+            credentials: 'include', // Include cookies for sessions
+          },
+        );
+
+        clearTimeout(timeoutId);
+
+        // Check server-side rate limiting
+        if (res.status === 429) {
+          // Extract wait time from headers
+          const retryAfter = parseInt(
+            res.headers.get('Retry-After') || '60',
+            10,
+          );
+          setError(
+            `Too many attempts. Please try again in ${Math.ceil(retryAfter / 60)} minute(s).`,
+          );
+          toast.error(
+            `Rate limit reached. Please try again in ${Math.ceil(retryAfter / 60)} minute(s).`,
+          );
+
+          // Update local attempt cache
+          if (appCache.ui) {
+            appCache.ui.set(clientRateLimitKey, maxClientAttempts, {
+              ttl: retryAfter * 1000,
+            });
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Handle HTTP errors
+        if (!res.ok) {
+          const statusCode = res.status;
+          let errorData;
+
+          try {
+            errorData = await res.json();
+          } catch (e) {
+            errorData = { message: `HTTP Error: ${res.status}` };
+          }
+
+          // Unified HTTP error handling
+          if (statusCode === 400) {
+            // Validation error
+            setError(errorData.message || 'Invalid data');
+            toast.error(
+              errorData.message || 'Please check the information entered',
+            );
+          } else if (statusCode === 401 || statusCode === 403) {
+            // Authentication error
+            setError('Session expired or unauthorized access');
+            toast.error(
+              'Your session has expired or you are not authorized to perform this action. Please login again.',
+            );
+            // Redirect to login page after a short delay
+            setTimeout(() => router.push('/login'), 2000);
+          } else if (statusCode === 404) {
+            // Address not found
+            setError('Address not found');
+            toast.error('The address you are trying to update does not exist.');
+            setTimeout(() => router.push('/me'), 2000);
+          } else if (statusCode === 413) {
+            // Request too large
+            setError('Data too large');
+            toast.error('The data sent is too large');
+          } else if (statusCode >= 400 && statusCode < 500) {
+            // Other client errors
+            setError(errorData.message || 'Request error');
+            toast.error(
+              errorData.message ||
+                'An error occurred while updating the address',
+            );
+          } else {
+            // Server errors
+            setError('Server error');
+            toast.error(
+              'The service is temporarily unavailable. Please try again later.',
+            );
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Process JSON response with error handling
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonError) {
+          setError('Invalid server response');
+          toast.error('Invalid server response. Please try again.');
+          setLoading(false);
+          return;
+        }
+
+        // Check response structure
+        if (!data || data.success === false) {
+          // Application error
+          setError(data?.message || 'Failed to update address');
+          toast.error(data?.message || 'Failed to update address');
+          setLoading(false);
+          return;
+        }
+
+        // Success
+        if (data.data) {
+          // Reset attempt counter on success
+          if (appCache.ui) {
+            appCache.ui.delete(clientRateLimitKey);
+          }
+
+          // Show success message
+          toast.success(data.message || 'Address updated successfully!');
+
+          // Update state and redirect
+          setUpdated(true);
+          setTimeout(() => router.replace(`/address/${id}`), 1000);
+        } else {
+          // Malformatted success
+          setError('Unexpected server response');
+          toast.warning('Operation completed, but the result is uncertain');
+          setLoading(false);
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+
+        // Network error categorization
+        const isAborted = fetchError.name === 'AbortError';
+        const isNetworkError =
+          fetchError.message.includes('network') ||
+          fetchError.message.includes('fetch') ||
+          !navigator.onLine;
+        const isTimeout = isAborted || fetchError.message.includes('timeout');
+
+        if (isTimeout) {
+          // Timeout
+          setError('Request took too long');
+          toast.error(
+            'The connection to the server is too slow. Please try again later.',
+          );
+        } else if (isNetworkError) {
+          // Network error
+          setError('Internet connection problem');
+          toast.error(
+            'Unable to connect to the server. Check your internet connection.',
+          );
+        } else {
+          // Other errors
+          setError('Error updating address');
+          toast.error('An unexpected error occurred. Please try again.');
+
+          // Log in dev only
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Address update error:', fetchError);
+          }
+        }
       }
     } catch (error) {
-      setError(error?.response?.data?.message);
+      // Unhandled general errors
+      setError('An unexpected error occurred');
+      toast.error('An unexpected error occurred. Please try again later.');
+
+      // Log in dev only
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Address update unexpected error:', error);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
