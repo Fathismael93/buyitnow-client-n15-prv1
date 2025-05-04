@@ -13,8 +13,11 @@ const UpdateAddress = ({ id, address }) => {
   const [city, setCity] = useState(address.city);
   const [state, setState] = useState(address.state);
   const [zipCode, setZipCode] = useState(address.zipCode);
-  const [phoneNo, setPhonoNo] = useState(address.phoneNo);
+  const [additionalInfo, setAdditionalInfo] = useState(
+    address.additionalInfo || '',
+  );
   const [country, setCountry] = useState(address.country);
+  const [isDefault, setIsDefault] = useState(address.isDefault || false);
 
   const {
     error,
@@ -45,20 +48,22 @@ const UpdateAddress = ({ id, address }) => {
     try {
       const newAddress = {
         street,
+        additionalInfo,
         city,
         state,
         zipCode,
-        phoneNo,
         country,
+        isDefault,
       };
 
       const result = await addressSchema.validate({
         street,
+        additionalInfo,
         city,
         state,
         zipCode,
-        phoneNo,
         country,
+        isDefault,
       });
 
       if (result) {
@@ -91,6 +96,7 @@ const UpdateAddress = ({ id, address }) => {
                   <div className="mb-4 md:col-span-2">
                     <label className="block mb-1"> Street* </label>
                     <input
+                      required
                       className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
                       type="text"
                       placeholder="Type your address"
@@ -99,10 +105,22 @@ const UpdateAddress = ({ id, address }) => {
                     />
                   </div>
 
+                  <div className="mb-4 md:col-span-2">
+                    <label className="block mb-1"> Additional Info </label>
+                    <input
+                      className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
+                      type="text"
+                      placeholder="Add additional address"
+                      value={additionalInfo}
+                      onChange={(e) => setAdditionalInfo(e.target.value)}
+                    />
+                  </div>
+
                   <div className="grid md:grid-cols-2 gap-x-3">
                     <div className="mb-4 md:col-span-1">
-                      <label className="block mb-1"> City </label>
+                      <label className="block mb-1"> City* </label>
                       <input
+                        required
                         className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
                         type="text"
                         placeholder="Type your city"
@@ -112,8 +130,9 @@ const UpdateAddress = ({ id, address }) => {
                     </div>
 
                     <div className="mb-4 md:col-span-1">
-                      <label className="block mb-1"> State </label>
+                      <label className="block mb-1"> State* </label>
                       <input
+                        required
                         className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
                         type="text"
                         placeholder="Type state here"
@@ -125,10 +144,11 @@ const UpdateAddress = ({ id, address }) => {
 
                   <div className="grid md:grid-cols-2 gap-x-2">
                     <div className="mb-4 md:col-span-1">
-                      <label className="block mb-1"> ZIP code </label>
+                      <label className="block mb-1"> ZIP code* </label>
                       <input
+                        required
                         className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
-                        type="number"
+                        type="text"
                         placeholder="Type zip code here"
                         value={zipCode}
                         onChange={(e) => setZipCode(e.target.value)}
@@ -136,20 +156,20 @@ const UpdateAddress = ({ id, address }) => {
                     </div>
 
                     <div className="mb-4 md:col-span-1">
-                      <label className="block mb-1"> Phone No </label>
+                      <label className="block mb-1"> Default Address ?* </label>
                       <input
-                        className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
-                        type="tel"
-                        placeholder="Type phone no here"
-                        value={phoneNo}
-                        onChange={(e) => setPhonoNo(e.target.value)}
+                        className="border border-gray-200 bg-gray-100 rounded-md hover:border-gray-400 focus:outline-hidden focus:border-gray-400"
+                        type="checkbox"
+                        checked={isDefault}
+                        onChange={() => setIsDefault(!isDefault)}
                       />
                     </div>
                   </div>
 
                   <div className="mb-4 md:col-span-2">
-                    <label className="block mb-1"> Country </label>
+                    <label className="block mb-1"> Country* </label>
                     <select
+                      required
                       className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-hidden focus:border-gray-400 w-full"
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
@@ -171,7 +191,7 @@ const UpdateAddress = ({ id, address }) => {
                     </button>
 
                     <button
-                      type="submit"
+                      type="button"
                       className="my-2 px-4 py-2 text-center w-full inline-block text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700"
                       onClick={deleteHandler}
                     >
