@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import queryString from 'query-string';
 import { getCookieName } from '@/helpers/helpers';
 import { toast } from 'react-toastify';
-import { CACHE_CONFIGS, getCacheHeaders } from '@/utils/cache';
+import { appCache, CACHE_CONFIGS, getCacheHeaders } from '@/utils/cache';
 import {
   categorySchema,
   maxPriceSchema,
@@ -1126,43 +1126,345 @@ export const getSingleAddress = async (id) => {
   return data?.data?.address;
 };
 
-export const getAllOrders = async (searchParams) => {
-  const nextCookies = await cookies();
+export const getAllOrders = async (
+  searchParams,
+  retryAttempt = 0,
+  maxRetries = 3,
+) => {
+  const controller = new AbortController();
+  const requestId = `orders-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-  const nextAuthSessionToken = nextCookies.get(
-    '__Secure-next-auth.session-token',
-  );
+  // Timeout pour éviter les requêtes bloquées
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+    logger.warn('Request timeout in getAllOrders', {
+      requestId,
+      timeoutMs: 8000,
+      action: 'request_timeout',
+    });
+  }, 8000); // 8 secondes pour les commandes
 
-  const urlParams = {
-    page: (await searchParams)?.page || 1,
-  };
+  logger.info('Starting getAllOrders request', {
+    requestId,
+    searchParams,
+    retryAttempt,
+    action: 'get_all_orders',
+  });
 
-  const searchQuery = queryString.stringify(urlParams);
+  try {
+    // Extraction et validation des paramètres
+    let page = 1;
 
-  const res = await fetch(
-    `${process.env.API_URL}/api/orders/me?${searchQuery}`,
-    {
+    if (searchParams?.page) {
+      // Valider que la page est un nombre
+      const parsedPage = parseInt(searchParams.page, 10);
+      if (!isNaN(parsedPage) && parsedPage > 0 && parsedPage <= 100) {
+        page = parsedPage;
+      } else {
+        logger.warn('Invalid page parameter in getAllOrders', {
+          requestId,
+          providedPage: searchParams.page,
+          action: 'invalid_page_param',
+        });
+        // Utiliser la valeur par défaut (1)
+      }
+    }
+
+    // Obtenir les cookies pour l'authentification
+    const nextCookies = await cookies();
+    const cookieName = getCookieName();
+    const nextAuthSessionToken = nextCookies.get(cookieName);
+
+    if (!nextAuthSessionToken) {
+      logger.warn('No authentication token found in getAllOrders', {
+        requestId,
+        action: 'missing_auth_token',
+      });
+      return { orders: [], totalPages: 0, deliveryPrice: [] };
+    }
+
+    // Clé de cache basée sur l'utilisateur et la page
+    const cacheKey = `orders_${nextAuthSessionToken.value.substring(0, 10)}_page_${page}`;
+
+    // Vérifier le cache
+    const cachedData = appCache.products.get(cacheKey);
+    if (cachedData && !retryAttempt) {
+      logger.debug('Orders cache hit', {
+        requestId,
+        page,
+        action: 'cache_hit',
+      });
+      return cachedData;
+    }
+
+    // Construction de l'URL avec paramètres validés
+    const urlParams = { page };
+    const searchQuery = queryString.stringify(urlParams);
+    const apiUrl = `${process.env.API_URL}/api/orders/me?${searchQuery}`;
+
+    // Avant l'appel API
+    logger.debug('Fetching orders from API', {
+      requestId,
+      page,
+      retryAttempt,
+      action: 'api_request_start',
+    });
+
+    // Appel API avec gestion du timeout
+    const res = await fetch(apiUrl, {
+      signal: controller.signal,
       headers: {
         Cookie: `${nextAuthSessionToken?.name}=${nextAuthSessionToken?.value}`,
+        'X-Request-ID': requestId,
+        'Cache-Control': 'no-store',
       },
-    },
-  );
+      next: {
+        revalidate: 0, // Ne pas mettre en cache côté serveur les données utilisateur
+        tags: ['user-orders'],
+      },
+    });
 
-  const data = await res.json();
+    // Après l'appel API
+    logger.debug('API response received', {
+      requestId,
+      status: res.status,
+      retryAttempt,
+      action: 'api_request_complete',
+    });
 
-  if (data?.success === false) {
-    toast.info(data?.message);
-    return [];
+    // Gestion des erreurs HTTP
+    if (!res.ok) {
+      const errorStatus = res.status;
+      let errorText;
+
+      try {
+        errorText = await res.text();
+        // eslint-disable-next-line no-unused-vars
+      } catch (textError) {
+        errorText = 'Failed to read error response';
+      }
+
+      logger.error('API request failed in getAllOrders', {
+        requestId,
+        status: errorStatus,
+        error: errorText,
+        retryAttempt,
+        action: 'api_request_error',
+      });
+
+      // Déterminer si l'erreur est récupérable
+      const isRetryable =
+        errorStatus >= 500 || [408, 429].includes(errorStatus);
+
+      if (isRetryable && retryAttempt < maxRetries) {
+        // Calculer le délai de retry avec backoff exponentiel
+        const retryDelay = Math.min(
+          1000 * Math.pow(2, retryAttempt), // 1s, 2s, 4s, ...
+          15000, // Maximum 15 secondes
+        );
+
+        logger.warn(`Retrying orders request after ${retryDelay}ms`, {
+          requestId,
+          retryAttempt: retryAttempt + 1,
+          maxRetries,
+          action: 'retry_scheduled',
+        });
+
+        // Nettoyer le timeout actuel
+        clearTimeout(timeoutId);
+
+        // Attendre avant de réessayer
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+
+        // Réessayer avec le compteur incrémenté
+        return getAllOrders(searchParams, retryAttempt + 1, maxRetries);
+      }
+
+      // Traitement selon le type d'erreur
+      if (errorStatus === 401 || errorStatus === 403) {
+        logger.warn('Authentication error in getAllOrders', {
+          requestId,
+          status: errorStatus,
+          action: 'auth_error',
+        });
+        // Ne pas afficher de message toast ici, la redirection sera gérée par le middleware d'authentification
+      } else if (errorStatus === 404) {
+        logger.info('No orders found', {
+          requestId,
+          action: 'orders_not_found',
+        });
+      } else {
+        // Autres erreurs
+        captureException(new Error(`API Error ${errorStatus}: ${errorText}`), {
+          tags: { action: 'get_all_orders', status: errorStatus },
+          extra: { requestId, retryAttempt },
+        });
+      }
+
+      return { orders: [], totalPages: 0, deliveryPrice: [] };
+    }
+
+    // Traitement de la réponse avec gestion des erreurs de parsing
+    try {
+      const data = await res.json();
+
+      console.log('Data from orders:', data);
+
+      // Vérifier les erreurs business
+      if (data?.success === false) {
+        logger.warn('API returned success: false in getAllOrders', {
+          requestId,
+          message: data?.message,
+          action: 'api_business_error',
+        });
+
+        // Ne pas afficher automatiquement le message d'erreur
+        // Laisser l'UI décider comment présenter l'erreur
+        return {
+          orders: [],
+          totalPages: 0,
+          deliveryPrice: [],
+          error: data?.message,
+        };
+      }
+
+      // Vérifier que les données existent
+      if (!data?.data) {
+        logger.error('Orders data missing in response', {
+          requestId,
+          action: 'orders_data_missing',
+        });
+        return { orders: [], totalPages: 0, deliveryPrice: [] };
+      }
+
+      // Valider et normaliser les données
+      const orders = Array.isArray(data.data.orders) ? data.data.orders : [];
+      const totalPages =
+        typeof data.data.totalPages === 'number' ? data.data.totalPages : 0;
+      const deliveryPrice = Array.isArray(data.data.deliveryPrice)
+        ? data.data.deliveryPrice
+        : [];
+
+      // Masquer les informations sensibles de paiement
+      const sanitizedOrders = orders.map((order) => ({
+        ...order,
+        // Sécurité : masquer les détails sensibles des informations de paiement
+        paymentInfo: order.paymentInfo
+          ? {
+              ...order.paymentInfo,
+              // Assurer que le numéro de compte est masqué
+              paymentAccountNumber:
+                order.paymentInfo.paymentAccountNumber?.includes('••••••')
+                  ? order.paymentInfo.paymentAccountNumber
+                  : '••••••' +
+                    (order.paymentInfo.paymentAccountNumber?.slice(-4) || ''),
+            }
+          : order.paymentInfo,
+      }));
+
+      const result = {
+        orders: sanitizedOrders,
+        totalPages,
+        deliveryPrice,
+        currentPage: page,
+      };
+
+      // Mettre en cache pour 2 minutes (historique de commandes change peu)
+      appCache.products.set(cacheKey, result, { ttl: 2 * 60 * 1000 });
+
+      logger.info('Successfully fetched orders', {
+        requestId,
+        page,
+        orderCount: orders.length,
+        totalPages,
+        action: 'api_success',
+        duration: Math.round(
+          performance.now() - parseInt(requestId.split('-')[1]),
+        ),
+      });
+
+      return result;
+    } catch (parseError) {
+      logger.error('JSON parsing error in getAllOrders', {
+        requestId,
+        error: parseError.message,
+        retryAttempt,
+        action: 'parse_error',
+      });
+
+      // Si erreur de parsing et retries disponibles
+      if (retryAttempt < maxRetries) {
+        const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
+        logger.warn(`Retrying after parse error (${retryDelay}ms)`, {
+          requestId,
+          retryAttempt: retryAttempt + 1,
+          action: 'retry_scheduled',
+        });
+
+        clearTimeout(timeoutId);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        return getAllOrders(searchParams, retryAttempt + 1, maxRetries);
+      }
+
+      try {
+        const rawText = await res.clone().text();
+        logger.error('Raw response text', {
+          requestId,
+          text: rawText.substring(0, 200) + '...',
+          action: 'raw_response',
+        });
+      } catch (textError) {
+        logger.error('Failed to get raw response text', {
+          requestId,
+          error: textError.message,
+          action: 'raw_response_failed',
+        });
+      }
+
+      captureException(parseError, {
+        tags: { action: 'get_all_orders', error: 'parse_error' },
+        extra: { requestId, retryAttempt },
+      });
+
+      return { orders: [], totalPages: 0, deliveryPrice: [] };
+    }
+  } catch (error) {
+    logger.error('Exception in getAllOrders', {
+      requestId,
+      error: error.message,
+      stack: error.stack,
+      retryAttempt,
+      action: 'get_all_orders_error',
+    });
+
+    // Déterminer si l'erreur est récupérable
+    const isRetryable =
+      error.name === 'AbortError' ||
+      error.name === 'TimeoutError' ||
+      error.message.includes('network') ||
+      error.message.includes('connection');
+
+    if (isRetryable && retryAttempt < maxRetries) {
+      const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
+      logger.warn(`Retrying after exception (${retryDelay}ms)`, {
+        requestId,
+        retryAttempt: retryAttempt + 1,
+        maxRetries,
+        action: 'retry_scheduled',
+      });
+
+      clearTimeout(timeoutId);
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      return getAllOrders(searchParams, retryAttempt + 1, maxRetries);
+    }
+
+    captureException(error, {
+      tags: { action: 'get_all_orders' },
+      extra: { searchParams, requestId, retryAttempt },
+    });
+
+    return { orders: [], totalPages: 0, deliveryPrice: [] };
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  if (data?.error !== undefined) {
-    ///////
-    return [];
-  }
-
-  if (data?.data === undefined) {
-    return notFound();
-  }
-
-  return data?.data;
 };
