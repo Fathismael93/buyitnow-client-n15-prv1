@@ -129,7 +129,9 @@ export async function GET(req) {
     let user;
     try {
       // Utiliser lean() pour optimiser la requête en retournant des objets JS simples
-      user = await User.findOne({ email: req.user.email }).select('_id').lean();
+      user = await User.findOne({ email: req.user.email })
+        .select('name phone email')
+        .lean();
 
       if (!user) {
         logger.warn('User not found for orders history', {
@@ -301,19 +303,9 @@ export async function GET(req) {
           perPage: resPerPage,
           orders: orders.map((order) => ({
             ...order,
+            user: user,
             // Sécurité : masquer les détails sensibles des informations de paiement
-            paymentInfo: order.paymentInfo
-              ? {
-                  ...order.paymentInfo,
-                  // Assurer que le numéro de compte est masqué
-                  paymentAccountNumber:
-                    order.paymentInfo.paymentAccountNumber?.includes('••••••')
-                      ? order.paymentInfo.paymentAccountNumber
-                      : '••••••' +
-                        (order.paymentInfo.paymentAccountNumber?.slice(-4) ||
-                          ''),
-                }
-              : order.paymentInfo,
+            paymentInfo: order.paymentInfo,
           })),
         };
 
