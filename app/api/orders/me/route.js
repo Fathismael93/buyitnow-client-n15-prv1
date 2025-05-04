@@ -235,7 +235,7 @@ export async function GET(req) {
           apiFilters.query
             .find()
             .select(
-              'orderNumber orderStatus paymentStatus totalAmount createdAt updatedAt deliveredAt orderItems',
+              'orderNumber orderStatus paymentInfo paymentStatus totalAmount createdAt updatedAt deliveredAt orderItems',
             )
             .populate({
               path: 'shippingInfo',
