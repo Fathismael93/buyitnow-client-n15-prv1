@@ -1,15 +1,10 @@
 'use client';
 
 import { useState, useContext, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { countries } from 'countries-list';
 import { toast } from 'react-toastify';
 
-import Loading from '@/app/loading';
 import AuthContext from '@/context/AuthContext';
-const Sidebar = dynamic(() => import('@/components/layouts/Sidebar'), {
-  loading: () => <Loading />,
-});
 
 import { addressSchema } from '@/helpers/schemas';
 
@@ -83,7 +78,6 @@ const UpdateAddress = ({ id, address }) => {
       <section className="py-10">
         <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
           <div className="flex flex-col md:flex-row -mx-4">
-            <Sidebar />
             <main className="md:w-2/3 lg:w-3/4 px-4">
               <div
                 style={{ maxWidth: '480px' }}
