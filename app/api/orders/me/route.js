@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/backend/config/dbConnect';
 import isAuthenticatedUser from '@/backend/middlewares/auth';
 import Order from '@/backend/models/order';
+// eslint-disable-next-line no-unused-vars
+import Address from '@/backend/models/address';
 import APIFilters from '@/backend/utils/APIFilters';
 import User from '@/backend/models/user';
 import DeliveryPrice from '@/backend/models/deliveryPrice';
