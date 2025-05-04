@@ -61,6 +61,9 @@ const OrderItem = memo(({ order }) => {
   // Calcul des montants
   const amountPaid = order.paymentInfo?.amountPaid || 0;
   const deliveryAmount = hasShippingInfo ? deliveryPrice || 0 : 0;
+  console.log('Delivery Amount:', deliveryAmount);
+  console.log('Amount Paid:', amountPaid);
+  console.log('Products Amount:', amountPaid - deliveryAmount);
   const productsAmount = amountPaid - deliveryAmount;
 
   // Déterminer les statuts pour l'affichage
