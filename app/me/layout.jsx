@@ -1,11 +1,17 @@
 // 'use client';
 
+import { getServerSession } from 'next-auth';
+import { auth } from '../api/auth/[...nextauth]/route';
+
 // import { useContext } from 'react';
 
 // import AuthContext from '@/context/AuthContext';
 
-export default function UserLayout({ children }) {
+export default async function UserLayout({ children }) {
   // const { user } = useContext(AuthContext);
+  const session = await getServerSession(auth);
+
+  console.log('UserLayout session:', session);
 
   return (
     <>
