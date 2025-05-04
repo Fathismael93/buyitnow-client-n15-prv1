@@ -5,8 +5,6 @@ import { redirect } from 'next/navigation';
 export default async function UserLayout({ children }) {
   const session = await getServerSession(auth);
 
-  console.log('Session:', session);
-
   if (!session) {
     // Rediriger vers la page de connexion si l'utilisateur n'est pas authentifié
     redirect('/login?callbackUrl=/me');

@@ -1308,8 +1308,6 @@ export const getAllOrders = async (
     try {
       const data = await res.json();
 
-      console.log('Data from orders:', data);
-
       // Vérifier les erreurs business
       if (data?.success === false) {
         logger.warn('API returned success: false in getAllOrders', {
