@@ -1092,38 +1092,321 @@ export const getAllAddresses = async (
   }
 };
 
-export const getSingleAddress = async (id) => {
-  if (id === undefined || id === null) {
-    return notFound();
-  }
+export const getSingleAddress = async (
+  id,
+  retryAttempt = 0,
+  maxRetries = 3,
+) => {
+  const controller = new AbortController();
+  const requestId = `address-${id}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-  const nextCookies = await cookies();
+  // Timeout of 5 seconds to avoid blocked requests
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+    logger.warn('Request timeout in getSingleAddress', {
+      requestId,
+      addressId: id,
+      timeoutMs: 5000,
+      action: 'request_timeout',
+    });
+  }, 5000);
 
-  const cookieName = getCookieName();
-  const nextAuthSessionToken = nextCookies.get(cookieName);
-
-  const res = await fetch(`${process.env.API_URL}/api/address/${id}`, {
-    headers: {
-      Cookie: `${nextAuthSessionToken?.name}=${nextAuthSessionToken?.value}`,
-    },
+  logger.info('Starting getSingleAddress request', {
+    requestId,
+    addressId: id,
+    retryAttempt,
+    action: 'get_single_address',
   });
 
-  const data = await res.json();
+  try {
+    // Enhanced ID validation
+    if (!id || typeof id !== 'string') {
+      logger.warn('Invalid address ID format (undefined or not string)', {
+        requestId,
+        addressId: id,
+        action: 'invalid_id_format',
+      });
+      return notFound();
+    }
 
-  if (data?.success === false) {
-    return [];
-  }
+    const isValidId = mongoose.isValidObjectId(id);
+    if (!isValidId) {
+      logger.warn('Invalid MongoDB ObjectId format', {
+        requestId,
+        addressId: id,
+        action: 'invalid_mongodb_id',
+      });
+      return notFound();
+    }
 
-  if (data?.error !== undefined) {
-    ///////
-    return [];
-  }
+    // Get cookies for authentication
+    const nextCookies = await cookies();
+    const cookieName = getCookieName();
+    const nextAuthSessionToken = nextCookies.get(cookieName);
 
-  if (data?.data === undefined) {
+    if (!nextAuthSessionToken) {
+      logger.warn('No authentication token found in getSingleAddress', {
+        requestId,
+        addressId: id,
+        action: 'missing_auth_token',
+      });
+      return notFound();
+    }
+
+    // Check cache first
+    const userIdentifier = nextAuthSessionToken.value.substring(0, 10); // Use part of token as user identifier
+    const cacheKey = `address_${id}_${userIdentifier}`;
+    const cachedAddress = appCache.products.get(cacheKey);
+
+    if (cachedAddress && !retryAttempt) {
+      logger.debug('Address cache hit', {
+        requestId,
+        addressId: id,
+        action: 'cache_hit',
+      });
+      return cachedAddress;
+    }
+
+    // Before API call
+    logger.debug('Fetching address from API', {
+      requestId,
+      addressId: id,
+      retryAttempt,
+      action: 'api_request_start',
+    });
+
+    // Use cache-control headers
+    const cacheControl = getCacheHeaders('userData');
+    const apiUrl = `${process.env.API_URL}/api/address/${id}`;
+
+    const res = await fetch(apiUrl, {
+      signal: controller.signal,
+      headers: {
+        Cookie: `${nextAuthSessionToken?.name}=${nextAuthSessionToken?.value}`,
+        'Cache-Control': cacheControl['Cache-Control'],
+        'X-Request-ID': requestId,
+      },
+      next: {
+        // Address data is user data, so no server-side caching
+        revalidate: 0,
+        tags: [`address-${id}`],
+      },
+    });
+
+    // After API call
+    logger.debug('API response received', {
+      requestId,
+      addressId: id,
+      status: res.status,
+      retryAttempt,
+      action: 'api_request_complete',
+    });
+
+    // HTTP error handling
+    if (!res.ok) {
+      const errorStatus = res.status;
+      let errorText;
+
+      try {
+        errorText = await res.text();
+        // eslint-disable-next-line no-unused-vars
+      } catch (textError) {
+        errorText = 'Failed to read error response';
+      }
+
+      logger.error('API request failed', {
+        requestId,
+        addressId: id,
+        status: errorStatus,
+        error: errorText,
+        retryAttempt,
+        action: 'api_request_error',
+      });
+
+      // Determine if the error is recoverable (5xx or certain 4xx)
+      const isRetryable =
+        errorStatus >= 500 || [408, 429].includes(errorStatus);
+
+      if (isRetryable && retryAttempt < maxRetries) {
+        // Calculate retry delay with exponential backoff
+        const retryDelay = Math.min(
+          1000 * Math.pow(2, retryAttempt), // 1s, 2s, 4s, ...
+          15000, // Maximum 15 seconds
+        );
+
+        logger.warn(`Retrying address request after ${retryDelay}ms`, {
+          requestId,
+          addressId: id,
+          retryAttempt: retryAttempt + 1,
+          maxRetries,
+          action: 'retry_scheduled',
+        });
+
+        // Clean up current timeout
+        clearTimeout(timeoutId);
+
+        // Wait before retrying
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+
+        // Retry with incremented counter
+        return getSingleAddress(id, retryAttempt + 1, maxRetries);
+      }
+
+      // Handle specific error cases
+      if (errorStatus === 401 || errorStatus === 403) {
+        logger.warn('Authentication error in getSingleAddress', {
+          requestId,
+          addressId: id,
+          status: errorStatus,
+          action: 'auth_error',
+        });
+        return notFound();
+      }
+
+      if (errorStatus === 404) {
+        logger.info('Address not found', {
+          requestId,
+          addressId: id,
+          action: 'address_not_found',
+        });
+        return notFound();
+      }
+
+      return notFound();
+    }
+
+    // Process response with error handling
+    try {
+      const data = await res.json();
+
+      // Check for business errors
+      if (data?.success === false) {
+        logger.warn('API returned success: false', {
+          requestId,
+          addressId: id,
+          message: data?.message,
+          action: 'api_business_error',
+        });
+
+        // Determine if the business error requires a notFound() or not
+        if (
+          data?.code === 'ADDRESS_NOT_FOUND' ||
+          data?.message?.toLowerCase().includes('not found')
+        ) {
+          return notFound();
+        }
+
+        return notFound();
+      }
+
+      // Check that address exists in the response
+      if (!data?.data?.address) {
+        logger.error('Address data missing in response', {
+          requestId,
+          addressId: id,
+          action: 'address_data_missing',
+        });
+        return notFound();
+      }
+
+      // Success - cache the result
+      const address = data.data.address;
+      appCache.products.set(cacheKey, address, { ttl: 5 * 60 * 1000 }); // Cache for 5 minutes
+
+      logger.info('Successfully fetched address details', {
+        requestId,
+        addressId: id,
+        isDefaultAddress: !!address.isDefault,
+        action: 'api_success',
+        duration: Date.now() - parseInt(requestId.split('-')[2]), // Approximate duration calculation
+      });
+
+      return address;
+    } catch (parseError) {
+      logger.error('JSON parsing error in getSingleAddress', {
+        requestId,
+        addressId: id,
+        error: parseError.message,
+        retryAttempt,
+        action: 'parse_error',
+      });
+
+      // If parsing error and retries available
+      if (retryAttempt < maxRetries) {
+        const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
+        logger.warn(`Retrying after parse error (${retryDelay}ms)`, {
+          requestId,
+          addressId: id,
+          retryAttempt: retryAttempt + 1,
+          action: 'retry_scheduled',
+        });
+
+        clearTimeout(timeoutId);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        return getSingleAddress(id, retryAttempt + 1, maxRetries);
+      }
+
+      try {
+        const rawText = await res.clone().text();
+
+        logger.error('Raw response text', {
+          requestId,
+          addressId: id,
+          text: rawText.substring(0, 200) + '...',
+          action: 'raw_response',
+        });
+      } catch (textError) {
+        logger.error('Failed to get raw response text', {
+          requestId,
+          addressId: id,
+          error: textError.message,
+          action: 'raw_response_failed',
+        });
+      }
+
+      return notFound();
+    }
+  } catch (error) {
+    logger.error('Exception in getSingleAddress', {
+      requestId,
+      addressId: id,
+      error: error.message,
+      stack: error.stack,
+      retryAttempt,
+      action: 'get_single_address_error',
+    });
+
+    // Determine if the error is recoverable
+    const isRetryable =
+      error.name === 'AbortError' ||
+      error.name === 'TimeoutError' ||
+      error.message.includes('network') ||
+      error.message.includes('connection');
+
+    if (isRetryable && retryAttempt < maxRetries) {
+      const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
+      logger.warn(`Retrying after exception (${retryDelay}ms)`, {
+        requestId,
+        addressId: id,
+        retryAttempt: retryAttempt + 1,
+        maxRetries,
+        action: 'retry_scheduled',
+      });
+
+      clearTimeout(timeoutId);
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      return getSingleAddress(id, retryAttempt + 1, maxRetries);
+    }
+
+    captureException(error, {
+      tags: { action: 'get_single_address' },
+      extra: { addressId: id, requestId, retryAttempt },
+    });
+
     return notFound();
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return data?.data?.address;
 };
 
 export const getAllOrders = async (
