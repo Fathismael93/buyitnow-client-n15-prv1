@@ -14,7 +14,6 @@ import { registerSchema } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
 import { rateLimit, RATE_LIMIT_PRESETS } from '@/utils/rateLimit';
-// import { sanitizeNumber, sanitizeString } from '@/utils/inputSanitizer';
 
 // Limiter les tentatives d'inscription pour éviter les attaques par spam
 const registerLimiter = rateLimit({
@@ -56,23 +55,6 @@ export async function POST(req) {
         },
       );
     }
-
-    // Vérification de l'état de la base de données
-    // const dbStatus = await checkDbHealth();
-    // if (!dbStatus.healthy) {
-    //   logger.error(
-    //     'Database connection unhealthy during registration',
-    //     dbStatus,
-    //   );
-
-    //   return NextResponse.json(
-    //     {
-    //       success: false,
-    //       message: 'Registration service unavailable. Please try again later.',
-    //     },
-    //     { status: 503 },
-    //   );
-    // }
 
     // Connexion à la base de données
     const connectionInstance = await dbConnect();
@@ -161,19 +143,6 @@ export async function POST(req) {
       isActive: true,
       verified: false, // Nécessite vérification d'email
     });
-
-    // Génération d'un token de vérification (pour un futur système de vérification d'email)
-    // Note: Cette partie est optionnelle et peut être implémentée plus tard
-    /* 
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    user.verificationToken = crypto
-      .createHash('sha256')
-      .update(verificationToken)
-      .digest('hex');
-    await user.save({ validateBeforeSave: false });
-
-    // TODO: Envoyer un email de vérification avec le token
-    */
 
     // Log de succès
     logger.info('User registered successfully', {
