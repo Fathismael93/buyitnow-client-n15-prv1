@@ -1,21 +1,18 @@
-'use client';
+// 'use client';
 
-import dynamic from 'next/dynamic';
-import React, { useContext, useState } from 'react';
+// import { useContext } from 'react';
 
-import AuthContext from '@/context/AuthContext';
-
-const Sidebar = dynamic(() => import('@/components/layouts/Sidebar'));
+// import AuthContext from '@/context/AuthContext';
 
 export default function UserLayout({ children }) {
-  const { user } = useContext(AuthContext);
-  const [open, setOpen] = useState(false);
+  // const { user } = useContext(AuthContext);
 
   return (
     <>
       <section className="flex flex-row py-3 sm:py-7 bg-blue-100">
         <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
-          <h2 className="font-medium text-2xl">{user?.name?.toUpperCase()}</h2>
+          {/* <h2 className="font-medium text-2xl">{user?.name?.toUpperCase()}</h2> */}
+          <h2 className="font-medium text-2xl">Fathi Ahmed</h2>
         </div>
       </section>
       <section className="py-10">
