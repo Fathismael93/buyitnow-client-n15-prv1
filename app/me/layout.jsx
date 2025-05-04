@@ -17,16 +17,6 @@ export default function UserLayout({ children }) {
         <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
           <h2 className="font-medium text-2xl">{user?.name?.toUpperCase()}</h2>
         </div>
-        <div className="md:hidden mx-4">
-          <button
-            type="button"
-            onClick={() => setOpen((prev) => !prev)}
-            className="p-3 inline-flex items-center rounded-md text-black hover:bg-gray-200 hover:text-gray-800"
-          >
-            <span className="sr-only">Open menu</span>
-            <i className="fa fa-bars fa-lg"></i>
-          </button>
-        </div>
       </section>
       <section className="py-10">
         <div className="container max-w-(--breakpoint-xl) mx-auto px-4">

@@ -321,6 +321,12 @@ const Header = () => {
               >
                 Mes commandes
               </Link>
+              <Link
+                href="/me/contact"
+                className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
+              >
+                contacter le vendeur
+              </Link>
               <button
                 onClick={handleSignOut}
                 className="block cursor-pointer w-full text-left px-2 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
