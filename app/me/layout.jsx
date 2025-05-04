@@ -2,6 +2,7 @@
 
 import { getServerSession } from 'next-auth';
 import { auth } from '../api/auth/[...nextauth]/route';
+import { redirect } from 'next/navigation';
 
 // import { useContext } from 'react';
 
@@ -11,14 +12,21 @@ export default async function UserLayout({ children }) {
   // const { user } = useContext(AuthContext);
   const session = await getServerSession(auth);
 
-  console.log('UserLayout session:', session);
+  console.log('Session:', session);
+
+  if (!session) {
+    // Rediriger vers la page de connexion si l'utilisateur n'est pas authentifié
+    redirect('/login?callbackUrl=/me');
+  }
 
   return (
     <>
       <section className="flex flex-row py-3 sm:py-7 bg-blue-100">
         <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
-          {/* <h2 className="font-medium text-2xl">{user?.name?.toUpperCase()}</h2> */}
-          <h2 className="font-medium text-2xl">Fathi Ahmed</h2>
+          <h2 className="font-medium text-2xl">
+            {session?.user?.name?.toUpperCase()}
+          </h2>
+          {/* <h2 className="font-medium text-2xl"></h2> */}
         </div>
       </section>
       <section className="py-10">
