@@ -51,6 +51,8 @@ const OrderItem = memo(({ order }) => {
     setExpanded((prev) => !prev);
   }, []);
 
+  console.log('Order Item:', order);
+
   // Validation et récupération sécurisée des données
   const orderNumber = order.orderNumber || order._id.substring(0, 8);
   const orderDate = formatDate(order.createdAt);
