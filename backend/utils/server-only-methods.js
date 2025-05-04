@@ -1343,25 +1343,8 @@ export const getAllOrders = async (
         ? data.data.deliveryPrice
         : [];
 
-      // Masquer les informations sensibles de paiement
-      const sanitizedOrders = orders.map((order) => ({
-        ...order,
-        // Sécurité : masquer les détails sensibles des informations de paiement
-        paymentInfo: order.paymentInfo
-          ? {
-              ...order.paymentInfo,
-              // Assurer que le numéro de compte est masqué
-              paymentAccountNumber:
-                order.paymentInfo.paymentAccountNumber?.includes('••••••')
-                  ? order.paymentInfo.paymentAccountNumber
-                  : '••••••' +
-                    (order.paymentInfo.paymentAccountNumber?.slice(-4) || ''),
-            }
-          : order.paymentInfo,
-      }));
-
       const result = {
-        orders: sanitizedOrders,
+        orders,
         totalPages,
         deliveryPrice,
         currentPage: page,

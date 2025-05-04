@@ -48,7 +48,6 @@ const OrderItemSkeleton = () => (
  * Gère l'état, le contexte et l'affichage conditionnel
  */
 const ListOrders = ({ orders }) => {
-  console.log('Orders:', orders);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const { setDeliveryPrice } = useContext(OrderContext);
