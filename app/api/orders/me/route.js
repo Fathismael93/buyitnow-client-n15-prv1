@@ -10,7 +10,10 @@ import logger from '@/utils/logger';
 import { captureException } from '@/monitoring/sentry';
 import { createRateLimiter } from '@/utils/rateLimit';
 import { appCache, getCacheKey } from '@/utils/cache';
-import { sanitizePage } from '@/utils/inputSanitizer';
+import {
+  buildSanitizedSearchParams,
+  sanitizePage,
+} from '@/utils/inputSanitizer';
 
 // Constantes pour la configuration
 const DEFAULT_PER_PAGE = parseInt(process.env.DEFAULT_PRODUCTS_PER_PAGE || 10);
@@ -170,6 +173,7 @@ export async function GET(req) {
     // Limiter les valeurs pour éviter les abus de ressources
     const validatedPage = Math.max(1, Math.min(page, 100)); // Page entre 1 et 100
     const sanitizedPage = sanitizePage(validatedPage);
+    const sanitizedParams = buildSanitizedSearchParams(sanitizedPage);
 
     // 5. Générer une clé de cache basée sur les paramètres
     const cacheKey = getCacheKey('orders_history', {
@@ -221,7 +225,7 @@ export async function GET(req) {
 
           const apiFilters = new APIFilters(
             Order.find({ user: user._id }),
-            sanitizedPage,
+            sanitizedParams,
           ).pagination(resPerPage);
 
           apiFilters.query
