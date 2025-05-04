@@ -1,11 +1,11 @@
 import { lazy } from 'react';
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth/next';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { getCsrfToken } from 'next-auth/react';
 
 import Loading from '@/app/loading';
+import { redirect } from 'next/navigation';
 
 // Chargement dynamique avec retries
 const Login = lazy(() => import('@/components/auth/Login'), {
@@ -48,9 +48,7 @@ export const metadata = {
  * préalables et prépare les données nécessaires pour le client
  */
 async function LoginPage() {
-  console.log('Login page accessed');
   try {
-    console.log('Initializing login page');
     // Vérifier si l'utilisateur est déjà connecté
     const session = await getServerSession(auth);
     if (session) {
@@ -59,10 +57,9 @@ async function LoginPage() {
         role: session.user.role,
       });
       // Rediriger vers la page d'accueil ou tableau de bord selon le rôle
-      console.log('User connected, redirecting to dashboard');
+      console.log('User connected, redirecting to home page');
+      redirect('/');
     }
-
-    console.log('User is not logged in, proceeding to login page');
 
     // Récupérer les en-têtes pour le logging et la sécurité
     const headersList = headers();

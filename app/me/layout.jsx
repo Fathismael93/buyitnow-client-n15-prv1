@@ -1,15 +1,8 @@
-// 'use client';
-
 import { getServerSession } from 'next-auth';
 import { auth } from '../api/auth/[...nextauth]/route';
 import { redirect } from 'next/navigation';
 
-// import { useContext } from 'react';
-
-// import AuthContext from '@/context/AuthContext';
-
 export default async function UserLayout({ children }) {
-  // const { user } = useContext(AuthContext);
   const session = await getServerSession(auth);
 
   console.log('Session:', session);
@@ -26,7 +19,6 @@ export default async function UserLayout({ children }) {
           <h2 className="font-medium text-2xl">
             {session?.user?.name?.toUpperCase()}
           </h2>
-          {/* <h2 className="font-medium text-2xl"></h2> */}
         </div>
       </section>
       <section className="py-10">
