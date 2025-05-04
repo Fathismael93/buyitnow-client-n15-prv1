@@ -1,4 +1,3 @@
-import React from 'react';
 import dynamic from 'next/dynamic';
 
 import { getAllOrders } from '@/backend/utils/server-only-methods';
