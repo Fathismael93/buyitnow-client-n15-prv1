@@ -51,8 +51,6 @@ const OrderItem = memo(({ order }) => {
     setExpanded((prev) => !prev);
   }, []);
 
-  console.log('Order Item:', order);
-
   // Validation et récupération sécurisée des données
   const orderNumber = order.orderNumber || order._id.substring(0, 8);
   const orderDate = formatDate(order.createdAt);
@@ -63,9 +61,6 @@ const OrderItem = memo(({ order }) => {
   // Calcul des montants
   const amountPaid = order.paymentInfo?.amountPaid || 0;
   const deliveryAmount = hasShippingInfo ? deliveryPrice || 0 : 0;
-  console.log('Delivery Amount:', deliveryAmount);
-  console.log('Amount Paid:', amountPaid);
-  console.log('Products Amount:', amountPaid - deliveryAmount);
   const productsAmount = amountPaid - deliveryAmount;
 
   // Déterminer les statuts pour l'affichage

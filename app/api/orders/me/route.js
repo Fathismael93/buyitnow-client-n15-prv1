@@ -294,8 +294,6 @@ export async function GET(req) {
           ? result
           : Math.ceil(result);
 
-        console.log('Orders:', orders);
-
         // Préparer le résultat
         ordersResult = {
           deliveryPrice,
