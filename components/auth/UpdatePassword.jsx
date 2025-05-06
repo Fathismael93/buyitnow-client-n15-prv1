@@ -154,7 +154,7 @@ const UpdatePassword = ({ userId, referer }) => {
         calculatePasswordStrength(sanitizedValue);
       }
     },
-    [validationErrors, sanitizeInput, calculatePasswordStrength],
+    [formState, validationErrors, sanitizeInput],
   );
 
   // Calcule la force du mot de passe sur une échelle de 0 à 100
