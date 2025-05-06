@@ -83,8 +83,8 @@ async function UpdateAddressPage({ params }) {
       userAgent: userAgent?.substring(0, 100),
       referer: referer?.substring(0, 200),
       ip: anonymizedIp,
-      userId: session.user.id
-        ? `${session.user.id.substring(0, 2)}...${session.user.id.slice(-2)}`
+      userId: session.user._id
+        ? `${session.user._id.substring(0, 2)}...${session.user._id.slice(-2)}`
         : 'unknown',
       addressId: addressId.substring(0, 4) + '...',
     });
