@@ -25,7 +25,11 @@ const Profile = ({ addresses }) => {
             className="rounded-full mr-4"
             width={35}
             height={25}
-            src={user?.avatar ? user?.avatar?.url : '/images/default.png'}
+            src={
+              user?.avatar?.url !== null
+                ? user?.avatar?.url
+                : '/images/default.png'
+            }
             alt={user?.name}
           />
         </div>
