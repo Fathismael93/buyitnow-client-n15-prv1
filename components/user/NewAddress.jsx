@@ -329,7 +329,7 @@ const NewAddress = ({ userId, referer }) => {
                 <div className="grid md:grid-cols-2 gap-x-3">
                   <div className="mb-4">
                     <label htmlFor="zipCode" className="block mb-1 font-medium">
-                      Code postal <span className="text-red-500">*</span>
+                      Code postal
                     </label>
                     <input
                       id="zipCode"
