@@ -121,7 +121,7 @@ async function UpdateAddressPage({ params }) {
     // Vérifier que l'adresse appartient bien à l'utilisateur connecté
     if (
       address.user &&
-      address.user.toString() !== session.user.id.toString()
+      address.user.toString() !== session.user._id.toString()
     ) {
       console.warn(`Unauthorized access attempt to address ${addressId}`);
       throw new AddressError(
