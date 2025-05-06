@@ -80,20 +80,20 @@ async function NewAddressPage() {
       // Allow access but note for monitoring
     }
 
-    // Render the page with proper error boundaries
+    // Render the page with proper error boundaries - MODIFIED LAYOUT HERE
     return (
-      <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gray-50">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
+        <div className="mx-auto max-w-2xl">
           <h1 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Ajouter une nouvelle adresse
           </h1>
-        </div>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <Suspense fallback={<Loading />}>
-              <NewAddress userId={session.user.id} referer={referer} />
-            </Suspense>
+          <div className="mt-8">
+            <div className="bg-white py-8 px-4 sm:px-8 shadow sm:rounded-lg">
+              <Suspense fallback={<Loading />}>
+                <NewAddress userId={session.user.id} referer={referer} />
+              </Suspense>
+            </div>
           </div>
         </div>
       </div>
