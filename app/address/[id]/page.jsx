@@ -115,6 +115,9 @@ async function UpdateAddressPage({ params }) {
       throw new AddressError('Adresse introuvable', 404, 'NOT_FOUND');
     }
 
+    console.log('Address details fetched successfully', address);
+    console.log('User session details', session);
+
     // Vérifier que l'adresse appartient bien à l'utilisateur connecté
     if (
       address.user &&
