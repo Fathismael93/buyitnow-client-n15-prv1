@@ -195,7 +195,7 @@ const NewAddress = ({ userId, referer }) => {
   return (
     <section className="py-6">
       <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row -mx-4">
+        <div className="flex flex-col md:flex-row">
           <main className="md:w-2/3 lg:w-3/4 px-4 mx-auto w-full">
             <div
               className="mt-1 mb-8 p-4 md:p-7 mx-auto rounded-lg bg-white shadow-lg"
