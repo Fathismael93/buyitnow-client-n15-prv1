@@ -441,10 +441,123 @@ export const pageSchema = yup.object().shape({
     .max(1000, 'La page ne peut pas dépasser 1000'),
 });
 
+// Version améliorée du profileSchema dans helpers/schemas.js
 export const profileSchema = yup.object().shape({
-  name: yup.string().required().min(3),
-  phone: yup.number().positive().integer().required().min(6),
+  name: yup
+    .string()
+    .required('Le nom est obligatoire')
+    .trim()
+    .min(2, 'Le nom doit contenir au moins 2 caractères')
+    .max(100, 'Le nom ne peut pas dépasser 100 caractères')
+    .matches(
+      /^[a-zA-Z\u00C0-\u017F\s'-]+$/,
+      'Le nom ne doit contenir que des lettres, espaces, apostrophes et tirets',
+    )
+    .test(
+      'no-sql-injection',
+      'Format de nom non autorisé',
+      utils.noSqlInjection,
+    )
+    .test(
+      'no-nosql-injection',
+      'Format de nom non autorisé',
+      utils.noNoSqlInjection,
+    ),
+
+  phone: yup
+    .string()
+    .required('Le numéro de téléphone est obligatoire')
+    .trim()
+    .matches(
+      /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/,
+      'Format de numéro de téléphone invalide',
+    )
+    .test(
+      'is-valid-phone',
+      'Le numéro de téléphone doit être valide',
+      (value) =>
+        value &&
+        value.replace(/\D/g, '').length >= 6 &&
+        value.replace(/\D/g, '').length <= 15,
+    )
+    .test(
+      'no-sql-injection',
+      'Format de téléphone non autorisé',
+      utils.noSqlInjection,
+    ),
+
+  avatar: yup
+    .object()
+    .nullable()
+    .shape({
+      public_id: yup
+        .string()
+        .nullable()
+        .test(
+          'valid-cloudinary-id',
+          'ID Cloudinary invalide',
+          (value) => !value || value.startsWith('buyitnow/avatars/'),
+        ),
+      url: yup
+        .string()
+        .nullable()
+        .url("URL d'image invalide")
+        .test(
+          'secure-url',
+          'URL non sécurisée',
+          (value) => !value || value.startsWith('https://'),
+        ),
+    }),
 });
+
+// Fonction pour valider un profil avec journalisation des erreurs
+export const validateProfileWithLogging = async (profileData) => {
+  try {
+    const validatedData = await profileSchema.validate(profileData, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
+
+    return {
+      isValid: true,
+      data: validatedData,
+    };
+  } catch (error) {
+    // Formatage des erreurs pour un retour utilisateur clair
+    const formattedErrors = {};
+
+    if (error.inner && error.inner.length) {
+      error.inner.forEach((err) => {
+        formattedErrors[err.path] = err.message;
+      });
+    } else if (error.path && error.message) {
+      formattedErrors[error.path] = error.message;
+    } else {
+      formattedErrors.general =
+        error.message || 'Erreur de validation du profil';
+    }
+
+    // Journalisation sécurisée (sans données sensibles)
+    console.warn('Validation de profil échouée', {
+      errorCount: Object.keys(formattedErrors).length,
+      fields: Object.keys(formattedErrors),
+    });
+
+    if (error.name !== 'ValidationError') {
+      captureException(error, {
+        tags: { component: 'Profile', action: 'validateProfile' },
+        extra: {
+          fields: Object.keys(formattedErrors),
+        },
+      });
+    }
+
+    return {
+      isValid: false,
+      errors: formattedErrors,
+    };
+  }
+};
 
 /**
  * Schéma de validation d'adresse optimisé avec validation stricte et protection contre les injections
