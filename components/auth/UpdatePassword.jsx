@@ -69,24 +69,10 @@ const UpdatePassword = ({ userId, referer }) => {
       const { name, value } = e.target;
       const sanitizedValue = sanitizeInput(value);
 
-      // Mettre à jour l'état du formulaire
-      setFormState((prevState) => {
-        const newState = {
-          ...prevState,
-          [name]: sanitizedValue,
-        };
-
-        // Validation en temps réel lorsque tous les champs sont remplis
-        if (
-          newState.currentPassword &&
-          newState.newPassword &&
-          newState.confirmPassword
-        ) {
-          validateForm(newState); // Appeler avec le nouvel état pour une validation immédiate
-        }
-
-        return newState;
-      });
+      setFormState((prevState) => ({
+        ...prevState,
+        [name]: sanitizedValue,
+      }));
 
       // Marquer le formulaire comme touché
       setFormTouched(true);
@@ -134,8 +120,10 @@ const UpdatePassword = ({ userId, referer }) => {
           }));
         }
       }
+
+      console.log('validationErrors', validationErrors);
     },
-    [validationErrors, sanitizeInput, validateForm],
+    [formState, validationErrors, sanitizeInput],
   );
 
   // Calcule la force du mot de passe sur une échelle de 0 à 100
@@ -182,69 +170,54 @@ const UpdatePassword = ({ userId, referer }) => {
   }, [passwordStrength]);
 
   // Validation complète du formulaire
-  const validateForm = useCallback(
-    (state = formState) => {
-      const errors = {};
+  const validateForm = useCallback(() => {
+    const errors = {};
 
-      // Vérifications avec l'état fourni ou l'état actuel
-      if (!state.currentPassword) {
-        errors.currentPassword = 'Le mot de passe actuel est requis';
-      } else if (state.currentPassword.length < 6) {
-        errors.currentPassword =
-          'Le mot de passe actuel doit comporter au moins 6 caractères';
-      }
+    // Vérifier le mot de passe actuel
+    if (!formState.currentPassword) {
+      errors.currentPassword = 'Le mot de passe actuel est requis';
+    } else if (formState.currentPassword.length < 6) {
+      errors.currentPassword =
+        'Le mot de passe actuel doit comporter au moins 6 caractères';
+    }
 
-      // Vérifier le mot de passe actuel
-      if (!formState.currentPassword) {
-        errors.currentPassword = 'Le mot de passe actuel est requis';
-      } else if (formState.currentPassword.length < 6) {
-        errors.currentPassword =
-          'Le mot de passe actuel doit comporter au moins 6 caractères';
-      }
+    // Vérifier le nouveau mot de passe
+    if (!formState.newPassword) {
+      errors.newPassword = 'Le nouveau mot de passe est requis';
+    } else if (formState.newPassword.length < 8) {
+      errors.newPassword =
+        'Le nouveau mot de passe doit comporter au moins 8 caractères';
+    } else if (!/[A-Z]/.test(formState.newPassword)) {
+      errors.newPassword =
+        'Le mot de passe doit contenir au moins une lettre majuscule';
+    } else if (!/[a-z]/.test(formState.newPassword)) {
+      errors.newPassword =
+        'Le mot de passe doit contenir au moins une lettre minuscule';
+    } else if (!/\d/.test(formState.newPassword)) {
+      errors.newPassword = 'Le mot de passe doit contenir au moins un chiffre';
+    } else if (!/[@$!%*?&#]/.test(formState.newPassword)) {
+      errors.newPassword =
+        'Le mot de passe doit contenir au moins un caractère spécial (@$!%*?&#)';
+    } else if (/\s/.test(formState.newPassword)) {
+      errors.newPassword = "Le mot de passe ne doit pas contenir d'espaces";
+    } else if (/(123456|password|qwerty|abc123)/i.test(formState.newPassword)) {
+      errors.newPassword =
+        'Ce mot de passe est trop commun et facilement devinable';
+    } else if (formState.newPassword === formState.currentPassword) {
+      errors.newPassword =
+        'Le nouveau mot de passe doit être différent du mot de passe actuel';
+    }
 
-      // Vérifier le nouveau mot de passe
-      if (!formState.newPassword) {
-        errors.newPassword = 'Le nouveau mot de passe est requis';
-      } else if (formState.newPassword.length < 8) {
-        errors.newPassword =
-          'Le nouveau mot de passe doit comporter au moins 8 caractères';
-      } else if (!/[A-Z]/.test(formState.newPassword)) {
-        errors.newPassword =
-          'Le mot de passe doit contenir au moins une lettre majuscule';
-      } else if (!/[a-z]/.test(formState.newPassword)) {
-        errors.newPassword =
-          'Le mot de passe doit contenir au moins une lettre minuscule';
-      } else if (!/\d/.test(formState.newPassword)) {
-        errors.newPassword =
-          'Le mot de passe doit contenir au moins un chiffre';
-      } else if (!/[@$!%*?&#]/.test(formState.newPassword)) {
-        errors.newPassword =
-          'Le mot de passe doit contenir au moins un caractère spécial (@$!%*?&#)';
-      } else if (/\s/.test(formState.newPassword)) {
-        errors.newPassword = "Le mot de passe ne doit pas contenir d'espaces";
-      } else if (
-        /(123456|password|qwerty|abc123)/i.test(formState.newPassword)
-      ) {
-        errors.newPassword =
-          'Ce mot de passe est trop commun et facilement devinable';
-      } else if (formState.newPassword === formState.currentPassword) {
-        errors.newPassword =
-          'Le nouveau mot de passe doit être différent du mot de passe actuel';
-      }
+    // Vérifier la confirmation du mot de passe
+    if (!formState.confirmPassword) {
+      errors.confirmPassword = 'Veuillez confirmer votre nouveau mot de passe';
+    } else if (formState.confirmPassword !== formState.newPassword) {
+      errors.confirmPassword = 'Les mots de passe ne correspondent pas';
+    }
 
-      // Vérifier la confirmation du mot de passe
-      if (!formState.confirmPassword) {
-        errors.confirmPassword =
-          'Veuillez confirmer votre nouveau mot de passe';
-      } else if (formState.confirmPassword !== formState.newPassword) {
-        errors.confirmPassword = 'Les mots de passe ne correspondent pas';
-      }
-
-      setValidationErrors(errors);
-      return Object.keys(errors).length === 0;
-    },
-    [formState],
-  );
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [formState]);
 
   // Fonction de soumission du formulaire
   const submitHandler = async (e) => {
@@ -574,8 +547,7 @@ const UpdatePassword = ({ userId, referer }) => {
           type="submit"
           disabled={
             isSubmitting ||
-            Object.keys(validationErrors).length > 0 ||
-            !formTouched
+            (formTouched && Object.keys(validationErrors).length > 0)
           }
           className={`mt-4 px-4 py-2 text-center w-full inline-block text-white rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
             isSubmitting ||
