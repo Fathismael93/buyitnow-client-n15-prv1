@@ -65,7 +65,7 @@ const NewAddress = ({ userId, referer }) => {
   // Sanitize input to prevent XSS attacks
   const sanitizeInput = useCallback((value) => {
     if (typeof value === 'string') {
-      return DOMPurify.sanitize(value.trim());
+      return DOMPurify.sanitize(value);
     }
     return value;
   }, []);
@@ -132,10 +132,10 @@ const NewAddress = ({ userId, referer }) => {
       }
 
       // Additional custom validations
-      if (formState.zipCode && !/^\d{5}$/.test(formState.zipCode)) {
+      if (formState.zipCode && !/^\d{2,5}$/.test(formState.zipCode)) {
         setValidationErrors((prev) => ({
           ...prev,
-          zipCode: 'Le code postal doit contenir exactement 5 chiffres',
+          zipCode: 'Le code postal doit contenir entre 2 et 5 chiffres',
         }));
         toast.error('Format de code postal invalide');
         setIsSubmitting(false);
@@ -334,12 +334,11 @@ const NewAddress = ({ userId, referer }) => {
                     <input
                       id="zipCode"
                       name="zipCode"
-                      required
                       className={getInputClassName('zipCode')}
                       type="text"
                       inputMode="numeric"
-                      pattern="\d*"
-                      placeholder="Code postal à 5 chiffres"
+                      pattern="\d{2,5}"
+                      placeholder="Code postal (2 à 5 chiffres)"
                       value={formState.zipCode}
                       onChange={handleInputChange}
                       aria-invalid={!!validationErrors.zipCode}
