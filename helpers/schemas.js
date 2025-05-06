@@ -534,7 +534,6 @@ export const addressSchema = yup
     zipCode: yup
       .string()
       .trim()
-      .required('Le code postal est obligatoire')
       .test('is-valid-zip', 'Format de code postal invalide', (value) => {
         if (!value) return false;
         // Validation de code postal adaptée aux formats internationaux
