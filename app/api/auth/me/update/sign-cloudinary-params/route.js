@@ -12,6 +12,8 @@ export async function POST(req) {
   const body = await req.json();
   const { paramsToSign } = body;
 
+  console.log('paramsToSign', paramsToSign);
+
   // Add the folder parameter to paramsToSign
   paramsToSign.folder = 'buyitnow/avatars';
 
