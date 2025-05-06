@@ -121,7 +121,8 @@ const UpdatePassword = ({ userId, referer }) => {
         }
       }
 
-      console.log('validationErrors', validationErrors);
+      // console.log('validationErrors', validationErrors);
+      console.log('formState', formState.confirmPassword);
     },
     [formState, validationErrors, sanitizeInput],
   );
