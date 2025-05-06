@@ -22,8 +22,6 @@ import { addressSchema } from '@/helpers/schemas';
 const UpdateAddress = ({ id, address, userId, referer }) => {
   const router = useRouter();
 
-  console.log('userId', userId);
-
   // Get auth context with error handling
   const {
     error,

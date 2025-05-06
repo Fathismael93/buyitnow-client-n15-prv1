@@ -91,7 +91,7 @@ async function NewAddressPage() {
           <div className="mt-8">
             <div className="bg-white py-8 px-4 sm:px-8 shadow sm:rounded-lg">
               <Suspense fallback={<Loading />}>
-                <NewAddress userId={session.user.id} referer={referer} />
+                <NewAddress userId={session.user._id} referer={referer} />
               </Suspense>
             </div>
           </div>

@@ -142,7 +142,7 @@ async function UpdateAddressPage({ params }) {
                 <UpdateAddress
                   id={addressId}
                   address={address}
-                  userId={session.user.id}
+                  userId={session.user._id}
                   referer={referer}
                 />
               </Suspense>
