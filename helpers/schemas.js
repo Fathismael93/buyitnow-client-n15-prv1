@@ -751,10 +751,10 @@ export const validatePaymentDetails = async (
   }
 };
 
-export const emailSchema = yup.object().shape({
-  subject: yup.string().required().min(5),
-  message: yup.string().required().min(3),
-});
+// export const emailSchema = yup.object().shape({
+//   subject: yup.string().required().min(5),
+//   message: yup.string().required().min(3),
+// });
 
 /**
  * Schéma de validation pour la sélection d'adresse dans le processus de livraison
