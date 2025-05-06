@@ -832,3 +832,211 @@ export const validateShippingAddressSelection = async (
     };
   }
 };
+
+/**
+ * Schéma de validation pour la mise à jour de mot de passe
+ * Implémente les mêmes critères que le composant frontend UpdatePassword
+ */
+export const updatePasswordSchema = yup.object().shape({
+  currentPassword: yup
+    .string()
+    .trim()
+    .required('Le mot de passe actuel est requis')
+    .min(6, 'Le mot de passe actuel doit comporter au moins 6 caractères')
+    .test(
+      'no-sql-injection',
+      'Format de mot de passe non autorisé',
+      utils.noSqlInjection,
+    )
+    .test(
+      'no-nosql-injection',
+      'Format de mot de passe non autorisé',
+      utils.noNoSqlInjection,
+    ),
+
+  newPassword: yup
+    .string()
+    .trim()
+    .required('Le nouveau mot de passe est requis')
+    .min(8, 'Le nouveau mot de passe doit comporter au moins 8 caractères')
+    .max(100, 'Le nouveau mot de passe ne peut pas dépasser 100 caractères')
+    .matches(
+      /[A-Z]/,
+      'Le mot de passe doit contenir au moins une lettre majuscule',
+    )
+    .matches(
+      /[a-z]/,
+      'Le mot de passe doit contenir au moins une lettre minuscule',
+    )
+    .matches(/\d/, 'Le mot de passe doit contenir au moins un chiffre')
+    .matches(
+      /[@$!%*?&#]/,
+      'Le mot de passe doit contenir au moins un caractère spécial (@$!%*?&#)',
+    )
+    .test(
+      'no-whitespace',
+      "Le mot de passe ne doit pas contenir d'espaces",
+      (value) => !/\s/.test(value),
+    )
+    .test(
+      'no-common-sequences',
+      'Le mot de passe contient des séquences trop communes',
+      (value) => !REGEX.COMMON_SEQUENCES.test(value),
+    )
+    .test(
+      'not-common-password',
+      'Le mot de passe est trop commun',
+      utils.isNotCommonPassword,
+    )
+    .test(
+      'password-not-contains-personal-info',
+      "Le mot de passe ne doit pas contenir d'informations personnelles",
+      utils.passwordContainsPersonalInfo,
+    )
+    .test(
+      'no-sql-injection',
+      'Format de mot de passe non autorisé',
+      utils.noSqlInjection,
+    )
+    .test(
+      'no-nosql-injection',
+      'Format de mot de passe non autorisé',
+      utils.noNoSqlInjection,
+    )
+    .test(
+      'no-repeating-chars',
+      'Le mot de passe ne doit pas contenir des caractères répétés consécutivement',
+      (value) => !/(.)\1{2,}/.test(value),
+    )
+    .test(
+      'different-from-current',
+      'Le nouveau mot de passe doit être différent du mot de passe actuel',
+      function (value) {
+        // Accéder au mot de passe actuel via le contexte
+        const { currentPassword } = this.parent;
+        // Si les deux mots de passe sont définis, vérifier qu'ils sont différents
+        if (value && currentPassword) {
+          return value !== currentPassword;
+        }
+        // Si l'un des deux n'est pas défini, ne pas bloquer la validation
+        return true;
+      },
+    ),
+
+  // Champ optionnel pour la confirmation du mot de passe (à utiliser si nécessaire)
+  confirmPassword: yup
+    .string()
+    .test(
+      'passwords-match',
+      'Les mots de passe ne correspondent pas',
+      function (value) {
+        // Si la confirmation est fournie, elle doit correspondre au nouveau mot de passe
+        if (value) {
+          return value === this.parent.newPassword;
+        }
+        // Si la confirmation n'est pas fournie, ne pas bloquer la validation
+        return true;
+      },
+    ),
+});
+
+/**
+ * Wrapper pour la validation de mise à jour de mot de passe avec analyse de sécurité
+ * @param {Object} passwordData - Les données du formulaire de mot de passe
+ * @returns {Promise<Object>} - Résultat de la validation
+ */
+export const validatePasswordUpdate = async (passwordData) => {
+  try {
+    // Validation structurelle avec le schéma
+    const validatedData = await updatePasswordSchema.validate(passwordData, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
+
+    // Analyse de la force du mot de passe
+    const newPassword = validatedData.newPassword;
+    let passwordStrength = 0;
+
+    // Calcul de la force du mot de passe
+    // Longueur (40 points max)
+    passwordStrength += Math.min(newPassword.length * 4, 40);
+
+    // Complexité (60 points max)
+    if (/[a-z]/.test(newPassword)) passwordStrength += 10; // Minuscules
+    if (/[A-Z]/.test(newPassword)) passwordStrength += 10; // Majuscules
+    if (/\d/.test(newPassword)) passwordStrength += 10; // Chiffres
+    if (/[^a-zA-Z\d]/.test(newPassword)) passwordStrength += 15; // Caractères spéciaux
+
+    // Variété de caractères (bonus)
+    const uniqueChars = new Set(newPassword).size;
+    passwordStrength += Math.min(uniqueChars, 15);
+
+    // Séquences communes (malus)
+    if (REGEX.COMMON_SEQUENCES.test(newPassword)) passwordStrength -= 20;
+
+    // Répétitions (malus)
+    if (/(.)\1{2,}/.test(newPassword)) passwordStrength -= 10;
+
+    // Limiter le score entre 0 et 100
+    passwordStrength = Math.max(0, Math.min(passwordStrength, 100));
+
+    // Définir le niveau de force
+    let strengthLevel = 'faible';
+    if (passwordStrength >= 80) strengthLevel = 'fort';
+    else if (passwordStrength >= 60) strengthLevel = 'bon';
+    else if (passwordStrength >= 30) strengthLevel = 'moyen';
+
+    // Journalisation de sécurité (anonymisée)
+    if (process.env.NODE_ENV === 'production') {
+      console.info('Password update validation', {
+        strength: strengthLevel,
+        score: passwordStrength,
+        // Ne jamais logger d'informations sur le mot de passe lui-même
+      });
+    }
+
+    return {
+      isValid: true,
+      data: validatedData,
+      security: {
+        strength: strengthLevel,
+        score: passwordStrength,
+      },
+    };
+  } catch (error) {
+    // Formatage des erreurs pour un retour utilisateur clair
+    const formattedErrors = {};
+
+    if (error.inner && error.inner.length) {
+      error.inner.forEach((err) => {
+        formattedErrors[err.path] = err.message;
+      });
+    } else if (error.path && error.message) {
+      formattedErrors[error.path] = error.message;
+    } else {
+      formattedErrors.general =
+        error.message || 'Erreur de validation du mot de passe';
+    }
+
+    // Journalisation sécurisée (sans données sensibles)
+    console.warn('Validation de mise à jour de mot de passe échouée', {
+      errorCount: Object.keys(formattedErrors).length,
+      fields: Object.keys(formattedErrors),
+    });
+
+    // Capture sélective pour Sentry (seulement si ce n'est pas une erreur de validation standard)
+    if (error.name !== 'ValidationError') {
+      captureException(error, {
+        tags: { component: 'Password', action: 'validatePasswordUpdate' },
+        extra: {
+          fields: Object.keys(formattedErrors),
+        },
+      });
+    }
+
+    return {
+      isValid: false,
+      errors: formattedErrors,
+    };
+  }
+};

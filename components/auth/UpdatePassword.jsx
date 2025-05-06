@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import DOMPurify from 'dompurify';
 
 import AuthContext from '@/context/AuthContext';
+import { validatePasswordUpdate } from '@/helpers/schemas';
 
 /**
  * Composant de mise à jour de mot de passe
@@ -195,54 +196,38 @@ const UpdatePassword = ({ userId, referer }) => {
     return { label: 'Fort', color: 'bg-green-500' };
   }, [passwordStrength]);
 
-  // Validation complète du formulaire
-  const validateForm = useCallback(() => {
-    const errors = {};
+  // Validation complète du formulaire en utilisant le schéma importé
+  const validateForm = useCallback(async () => {
+    try {
+      const validation = await validatePasswordUpdate({
+        currentPassword: formState.currentPassword,
+        newPassword: formState.newPassword,
+        confirmPassword: formState.confirmPassword,
+      });
 
-    // Vérifier le mot de passe actuel
-    if (!formState.currentPassword) {
-      errors.currentPassword = 'Le mot de passe actuel est requis';
-    } else if (formState.currentPassword.length < 6) {
-      errors.currentPassword =
-        'Le mot de passe actuel doit comporter au moins 6 caractères';
+      if (!validation.isValid) {
+        // Mettre à jour l'état des erreurs de validation avec les erreurs reçues
+        setValidationErrors(validation.errors);
+        return false;
+      }
+
+      // Si la validation réussit, mettre à jour l'état de force du mot de passe
+      if (validation.security) {
+        setPasswordStrength(validation.security.score);
+      }
+
+      // Effacer les erreurs précédentes
+      setValidationErrors({});
+      return true;
+    } catch (error) {
+      console.error('Password validation error:', error);
+
+      // En cas d'erreur inattendue, ajouter une erreur générale
+      setValidationErrors({
+        general: 'Une erreur est survenue pendant la validation du formulaire',
+      });
+      return false;
     }
-
-    // Vérifier le nouveau mot de passe
-    if (!formState.newPassword) {
-      errors.newPassword = 'Le nouveau mot de passe est requis';
-    } else if (formState.newPassword.length < 8) {
-      errors.newPassword =
-        'Le nouveau mot de passe doit comporter au moins 8 caractères';
-    } else if (!/[A-Z]/.test(formState.newPassword)) {
-      errors.newPassword =
-        'Le mot de passe doit contenir au moins une lettre majuscule';
-    } else if (!/[a-z]/.test(formState.newPassword)) {
-      errors.newPassword =
-        'Le mot de passe doit contenir au moins une lettre minuscule';
-    } else if (!/\d/.test(formState.newPassword)) {
-      errors.newPassword = 'Le mot de passe doit contenir au moins un chiffre';
-    } else if (!/[@$!%*?&#]/.test(formState.newPassword)) {
-      errors.newPassword =
-        'Le mot de passe doit contenir au moins un caractère spécial (@$!%*?&#)';
-    } else if (/\s/.test(formState.newPassword)) {
-      errors.newPassword = "Le mot de passe ne doit pas contenir d'espaces";
-    } else if (/(123456|password|qwerty|abc123)/i.test(formState.newPassword)) {
-      errors.newPassword =
-        'Ce mot de passe est trop commun et facilement devinable';
-    } else if (formState.newPassword === formState.currentPassword) {
-      errors.newPassword =
-        'Le nouveau mot de passe doit être différent du mot de passe actuel';
-    }
-
-    // Vérifier la confirmation du mot de passe
-    if (!formState.confirmPassword) {
-      errors.confirmPassword = 'Veuillez confirmer votre nouveau mot de passe';
-    } else if (formState.confirmPassword !== formState.newPassword) {
-      errors.confirmPassword = 'Les mots de passe ne correspondent pas';
-    }
-
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
   }, [formState]);
 
   // Fonction de soumission du formulaire
@@ -252,8 +237,8 @@ const UpdatePassword = ({ userId, referer }) => {
     setIsSubmitting(true);
 
     try {
-      // Valider le formulaire
-      const isValid = validateForm();
+      // Valider le formulaire avec la nouvelle méthode
+      const isValid = await validateForm();
 
       if (!isValid) {
         toast.error('Veuillez corriger les erreurs dans le formulaire');
