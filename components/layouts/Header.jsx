@@ -169,6 +169,7 @@ const Header = () => {
   // Effet pour charger les données utilisateur et panier
   useEffect(() => {
     if (data?.user) {
+      console.log('User data:', data.user);
       try {
         setUser(data?.user);
         loadCart();

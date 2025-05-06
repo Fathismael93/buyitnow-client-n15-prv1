@@ -246,7 +246,7 @@ const auth = {
                 _id: updatedUser._id,
                 name: updatedUser.name,
                 email: updatedUser.email,
-                phone: user.phone,
+                phone: updatedUser.phone,
                 role: updatedUser.role,
                 avatar: updatedUser.avatar,
                 isActive: updatedUser.isActive,
