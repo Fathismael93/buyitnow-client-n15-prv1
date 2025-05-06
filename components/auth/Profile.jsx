@@ -15,8 +15,6 @@ const UserAddresses = dynamic(() => import('@/components/user/UserAddresses'), {
 const Profile = ({ addresses }) => {
   const { user } = useContext(AuthContext);
 
-  console.log('user', user);
-
   return (
     <>
       <figure className="flex items-start sm:items-center">
