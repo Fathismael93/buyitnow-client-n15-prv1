@@ -66,11 +66,8 @@ const UpdatePassword = ({ userId, referer }) => {
   // Modification de la fonction handleInputChange pour corriger le problème de validation des mots de passe
   const handleInputChange = useCallback(
     (e) => {
-      console.log('Start handleInputChange');
       const { name, value } = e.target;
       const sanitizedValue = sanitizeInput(value);
-
-      console.log('Starting setFormState');
 
       // Mettre à jour l'état du formulaire
       setFormState((prevState) => {
@@ -78,8 +75,6 @@ const UpdatePassword = ({ userId, referer }) => {
           ...prevState,
           [name]: sanitizedValue,
         };
-
-        console.log('New state:', newState);
 
         // Vérifier la correspondance entre les mots de passe
         if (name === 'newPassword' || name === 'confirmPassword') {

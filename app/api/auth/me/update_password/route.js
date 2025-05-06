@@ -4,12 +4,25 @@ import bcrypt from 'bcryptjs';
 import isAuthenticatedUser from '@/backend/middlewares/auth';
 import dbConnect from '@/backend/config/dbConnect';
 import User from '@/backend/models/user';
+import logger from '@/utils/logger';
 
 export async function PUT(req) {
   try {
     await isAuthenticatedUser(req, NextResponse);
 
-    dbConnect();
+    // Connexion à la base de données
+    const connectionInstance = await dbConnect();
+    if (!connectionInstance.connection) {
+      logger.error('Failed to connect to database during registration');
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Registration service unavailable. Please try again later.',
+        },
+        { status: 503 },
+      );
+    }
 
     const user = await User.findOne({ email: req.user.email }).select(
       '+password',
