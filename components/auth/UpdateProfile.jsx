@@ -216,7 +216,7 @@ const UpdateProfile = ({ userId, initialEmail, referer }) => {
     }
   };
 
-  // Configuration sécurisée pour Cloudinary
+  // Configuration sécurisée pour Cloudinary avec initialisation correcte
   const uploadOptions = {
     folder: 'buyitnow/avatars',
     maxFiles: 1,
@@ -224,16 +224,9 @@ const UpdateProfile = ({ userId, initialEmail, referer }) => {
     resourceType: 'image',
     clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp'],
     sources: ['local', 'camera'],
-    minImageWidth: 100,
-    minImageHeight: 100,
-    maxImageWidth: 2000,
-    maxImageHeight: 2000,
-    cropping: true,
-    croppingAspectRatio: 1, // Carré pour les avatars
-    croppingShowDimensions: true,
-    croppingValidateDimensions: true,
-    uploadPreset: undefined, // Ne jamais utiliser de preset non signé
-    googleApiKey: undefined, // Désactiver Google Drive pour la sécurité
+    multiple: false, // S'assurer que c'est bien à false
+    showUploadMoreButton: false,
+    showPoweredBy: false, // Optionnel: cacher le "powered by Cloudinary"
   };
 
   return (
@@ -378,7 +371,6 @@ const UpdateProfile = ({ userId, initialEmail, referer }) => {
                 )}
               </div>
             </div>
-
             <div className="flex-grow">
               <CldUploadWidget
                 signatureEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me/update/sign-cloudinary-params`}
@@ -386,19 +378,36 @@ const UpdateProfile = ({ userId, initialEmail, referer }) => {
                 onError={handleUploadError}
                 onStart={handleUploadStart}
                 options={uploadOptions}
+                uploadPreset={undefined} // Assurez-vous que c'est undefined pour utiliser la signature
               >
-                {({ open }) => (
-                  <button
-                    type="button"
-                    className="px-4 py-2 text-center w-full md:w-auto inline-block text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={() => open()}
-                    disabled={uploadInProgress || isSubmitting}
-                  >
-                    {uploadInProgress
-                      ? 'Téléchargement en cours...'
-                      : 'Changer ma photo de profil'}
-                  </button>
-                )}
+                {({ open }) => {
+                  // Ajout d'une vérification de sécurité pour open
+                  const handleOpenClick = () => {
+                    if (typeof open === 'function') {
+                      open();
+                    } else {
+                      console.error(
+                        "L'API Cloudinary n'est pas correctement initialisée",
+                      );
+                      toast.error(
+                        "Impossible d'ouvrir le sélecteur d'image. Veuillez réessayer.",
+                      );
+                    }
+                  };
+
+                  return (
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-center w-full md:w-auto inline-block text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handleOpenClick}
+                      disabled={uploadInProgress || isSubmitting}
+                    >
+                      {uploadInProgress
+                        ? 'Téléchargement en cours...'
+                        : 'Changer ma photo de profil'}
+                    </button>
+                  );
+                }}
               </CldUploadWidget>
               <p className="mt-2 text-xs text-gray-500">
                 Formats acceptés: JPG, PNG, WEBP. Taille maximale: 2 Mo
