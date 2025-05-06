@@ -162,6 +162,9 @@ const auth = {
           // Réinitialiser le compteur de rate limit après connexion réussie
           authLimiter.resetLimit(token);
 
+          console.log('userWithoutPassword', userWithoutPassword);
+          console.log('user', user);
+
           return userWithoutPassword;
         } catch (error) {
           // Si c'est une erreur de validation Yup, on la traite spécifiquement
@@ -197,6 +200,7 @@ const auth = {
       try {
         // Si un utilisateur est fourni (lors de la connexion), on l'ajoute au token
         if (user) {
+          console.log('user', user);
           token.user = {
             _id: user._id,
             name: user.name,
