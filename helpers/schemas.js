@@ -864,10 +864,162 @@ export const validatePaymentDetails = async (
   }
 };
 
+/**
+ * Schéma de validation pour le formulaire de contact
+ * Intègre des validations avancées contre les injections et les abus
+ */
 export const emailSchema = yup.object().shape({
-  subject: yup.string().required().min(5),
-  message: yup.string().required().min(3),
+  subject: yup
+    .string()
+    .trim()
+    .required('Le sujet est requis')
+    .min(5, 'Le sujet doit contenir au moins 5 caractères')
+    .max(100, 'Le sujet ne peut pas dépasser 100 caractères')
+    .matches(
+      /^[a-zA-Z0-9\u00C0-\u017F\s.,?!()'-]+$/,
+      'Le sujet contient des caractères non autorisés',
+    )
+    .test(
+      'no-sql-injection',
+      'Format de sujet non autorisé',
+      utils.noSqlInjection,
+    )
+    .test(
+      'no-nosql-injection',
+      'Format de sujet non autorisé',
+      utils.noNoSqlInjection,
+    )
+    .test(
+      'no-consecutive-special-chars',
+      'Le sujet contient trop de caractères spéciaux consécutifs',
+      (value) => {
+        if (!value) return true;
+        return !/[^\w\s]{3,}/.test(value);
+      },
+    ),
+
+  message: yup
+    .string()
+    .trim()
+    .required('Le message est requis')
+    .min(10, 'Votre message doit contenir au moins 10 caractères')
+    .max(1000, 'Votre message ne peut pas dépasser 1000 caractères')
+    .test(
+      'no-sql-injection',
+      'Format de message non autorisé',
+      utils.noSqlInjection,
+    )
+    .test(
+      'no-nosql-injection',
+      'Format de message non autorisé',
+      utils.noNoSqlInjection,
+    )
+    .test('no-urls-limit', 'Trop de liens dans le message', (value) => {
+      if (!value) return true;
+      // Limiter le nombre d'URLs dans le message (prévention de spam)
+      const urlCount = (value.match(/(https?:\/\/[^\s]+)/g) || []).length;
+      return urlCount <= 3;
+    })
+    .test(
+      'no-excessive-capitalization',
+      "Évitez d'utiliser trop de majuscules",
+      (value) => {
+        if (!value) return true;
+        // Vérifier que le message n'est pas principalement en majuscules
+        const uppercaseRatio =
+          value
+            .replace(/[^a-zA-Z]/g, '')
+            .split('')
+            .filter((char) => char === char.toUpperCase()).length /
+          value.replace(/[^a-zA-Z]/g, '').length;
+        return uppercaseRatio <= 0.7; // Max 70% de majuscules
+      },
+    ),
 });
+
+/**
+ * Valide un message de contact avec journalisation de sécurité
+ * @param {Object} contactData - Les données du formulaire de contact
+ * @returns {Promise<Object>} - Résultat de la validation
+ */
+export const validateContactMessage = async (contactData) => {
+  try {
+    // Valider avec le schéma
+    const validatedData = await emailSchema.validate(contactData, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
+
+    // Analyse heuristique pour détecter les tentatives de spam
+    const message = validatedData.message.toLowerCase();
+    const spamKeywords = [
+      'viagra',
+      'buy now',
+      'casino',
+      'lottery',
+      'prize',
+      'free money',
+      'investment opportunity',
+    ];
+
+    const spamScore = spamKeywords.reduce(
+      (score, keyword) =>
+        score + (message.includes(keyword.toLowerCase()) ? 1 : 0),
+      0,
+    );
+
+    const isLikelySpam = spamScore >= 2;
+
+    if (isLikelySpam) {
+      console.warn('Possible spam message detected', {
+        spamScore,
+        contentLength: message.length,
+        // Ne pas logger le contenu complet pour des raisons de confidentialité
+      });
+    }
+
+    return {
+      isValid: true,
+      data: validatedData,
+      securityFlags: isLikelySpam ? ['potential_spam'] : [],
+    };
+  } catch (error) {
+    // Formatage des erreurs
+    const formattedErrors = {};
+
+    if (error.inner && error.inner.length) {
+      error.inner.forEach((err) => {
+        formattedErrors[err.path] = err.message;
+      });
+    } else if (error.path && error.message) {
+      formattedErrors[error.path] = error.message;
+    } else {
+      formattedErrors.general =
+        error.message || 'Erreur de validation du message';
+    }
+
+    // Journalisation
+    console.warn('Échec de validation du message de contact', {
+      errorCount: Object.keys(formattedErrors).length,
+      fields: Object.keys(formattedErrors),
+    });
+
+    // Sentry pour les erreurs non-standards
+    if (error.name !== 'ValidationError') {
+      captureException(error, {
+        tags: { component: 'Contact', action: 'validateContactMessage' },
+        extra: {
+          fields: Object.keys(formattedErrors),
+        },
+      });
+    }
+
+    return {
+      isValid: false,
+      errors: formattedErrors,
+    };
+  }
+};
 
 /**
  * Schéma de validation pour la sélection d'adresse dans le processus de livraison
