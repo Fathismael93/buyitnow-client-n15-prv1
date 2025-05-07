@@ -1383,24 +1383,269 @@ export const AuthProvider = ({ children }) => {
 
   const sendEmail = async (newEmail) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/emails`, {
-        method: 'POST',
-        body: JSON.stringify(newEmail),
-      });
+      // Mettre à jour l'état de chargement
+      setLoading(true);
+      setError(null);
 
-      const data = await res.json();
+      // Vérifier le rate limiting côté client
+      const clientRateLimitKey = `email:send:${user?.email || 'anonymous'}`;
+      const maxClientAttempts = 5; // 5 tentatives maximum par heure
 
-      console.log('data message', data);
+      // Utiliser le cache pour suivre les tentatives d'envoi d'email
+      let emailAttempts = 0;
 
-      if (data?.success) {
-        toast.success(data?.message);
-        router.push('/me');
-      } else {
-        toast.info(data?.message);
-        return;
+      try {
+        // Utilisation du PersistentCache pour stocker les tentatives
+        if (appCache.ui) {
+          emailAttempts = appCache.ui.get(clientRateLimitKey) || 0;
+
+          // Si trop de tentatives, bloquer temporairement
+          if (emailAttempts >= maxClientAttempts) {
+            const retryAfter = 60 * 60; // 1 heure en secondes
+            setError(
+              `Trop de tentatives d'envoi d'email. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
+            );
+            toast.error(
+              `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
+            );
+            setLoading(false);
+            return;
+          }
+
+          // Incrémenter le compteur de tentatives
+          appCache.ui.set(clientRateLimitKey, emailAttempts + 1, {
+            ttl: 60 * 60 * 1000, // 1 heure
+          });
+        }
+      } catch (cacheError) {
+        // Si erreur de cache, continuer quand même (fail open)
+        console.warn(
+          'Cache error during email send attempt tracking:',
+          cacheError,
+        );
+      }
+
+      // Utiliser un AbortController pour pouvoir annuler la requête
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      // Configuration des headers avec protection contre les attaques
+      const headers = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest', // Protection CSRF supplémentaire
+        'Cache-Control':
+          'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
+      };
+
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/emails`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(newEmail),
+            signal: controller.signal,
+            credentials: 'include', // Inclure les cookies pour les sessions
+          },
+        );
+
+        clearTimeout(timeoutId);
+
+        // Vérifier le rate limiting côté serveur
+        if (res.status === 429) {
+          // Extraire la durée d'attente depuis les headers
+          const retryAfter = parseInt(
+            res.headers.get('Retry-After') || '60',
+            10,
+          );
+          setError(
+            `Trop de tentatives. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
+          );
+          toast.error(
+            `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
+          );
+
+          // Mettre à jour le cache des tentatives locales
+          if (appCache.ui) {
+            appCache.ui.set(clientRateLimitKey, maxClientAttempts, {
+              ttl: retryAfter * 1000,
+            });
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Gestion des erreurs HTTP
+        if (!res.ok) {
+          const statusCode = res.status;
+          let errorData;
+
+          try {
+            errorData = await res.json();
+          } catch (e) {
+            errorData = { message: `Erreur HTTP: ${res.status}` };
+          }
+
+          // Traitement unifié des erreurs HTTP
+          if (statusCode === 400) {
+            // Erreur de validation
+            setError(errorData.message || 'Données invalides');
+            toast.error(
+              errorData.message || 'Veuillez vérifier les informations saisies',
+            );
+          } else if (statusCode === 401 || statusCode === 403) {
+            // Erreur d'authentification
+            setError('Session expirée ou accès non autorisé');
+            toast.error(
+              "Votre session a expiré ou vous n'êtes pas autorisé à effectuer cette action. Veuillez vous reconnecter.",
+            );
+            // Rediriger vers la page de connexion après un court délai
+            setTimeout(() => router.push('/login'), 2000);
+          } else if (statusCode >= 400 && statusCode < 500) {
+            // Autres erreurs client
+            setError(errorData.message || 'Erreur dans la requête');
+            toast.error(
+              errorData.message ||
+                "Une erreur est survenue lors de l'envoi de l'email",
+            );
+          } else {
+            // Erreurs serveur
+            setError('Erreur serveur');
+            toast.error(
+              'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
+            );
+
+            // Capturer l'exception pour Sentry en production
+            if (process.env.NODE_ENV === 'production') {
+              const serverError = new Error(
+                errorData.message || `Erreur serveur (${statusCode})`,
+              );
+              serverError.statusCode = statusCode;
+              serverError.componentName = 'EmailSend';
+              serverError.additionalInfo = {
+                context: 'email',
+                operation: 'send',
+                statusCode,
+                responseMessage: errorData.message,
+              };
+              captureException(serverError);
+            }
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Traitement de la réponse JSON avec gestion d'erreur
+        let data;
+        try {
+          data = await res.json();
+          console.log('Response data:', data);
+        } catch (jsonError) {
+          setError('Réponse du serveur invalide');
+          toast.error('Réponse du serveur invalide. Veuillez réessayer.');
+          setLoading(false);
+          return;
+        }
+
+        // Vérification de la structure de la réponse
+        if (!data) {
+          setError('Réponse du serveur vide');
+          toast.error('Erreur lors du traitement de la réponse.');
+          setLoading(false);
+          return;
+        }
+
+        // Succès
+        if (data.success) {
+          // Réinitialiser le compteur de tentatives en cas de succès
+          if (appCache.ui) {
+            appCache.ui.delete(clientRateLimitKey);
+          }
+
+          toast.success(data.message || 'Email envoyé avec succès!');
+          setTimeout(() => router.push('/me'), 1000);
+        } else {
+          // Cas d'erreur applicative
+          setError(data?.message || "Échec de l'envoi d'email");
+          toast.info(data?.message || "Échec de l'envoi d'email");
+          setLoading(false);
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+
+        // Catégorisation des erreurs réseau
+        const isAborted = fetchError.name === 'AbortError';
+        const isNetworkError =
+          fetchError.message.includes('network') ||
+          fetchError.message.includes('fetch') ||
+          !navigator.onLine;
+        const isTimeout = isAborted || fetchError.message.includes('timeout');
+
+        if (isTimeout) {
+          // Timeout
+          setError('La requête a pris trop de temps');
+          toast.error(
+            'La connexion au serveur est trop lente. Veuillez réessayer plus tard.',
+          );
+        } else if (isNetworkError) {
+          // Erreur réseau
+          setError('Problème de connexion internet');
+          toast.error(
+            'Impossible de se connecter au serveur. Vérifiez votre connexion internet.',
+          );
+        } else {
+          // Autres erreurs
+          setError("Erreur lors de l'envoi de l'email");
+          toast.error(
+            'Une erreur inattendue est survenue. Veuillez réessayer.',
+          );
+
+          // Journalisation en dev uniquement
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Email send error:', fetchError);
+          }
+
+          // Capturer l'exception pour Sentry en production
+          if (process.env.NODE_ENV === 'production') {
+            captureException(fetchError, {
+              tags: {
+                component: 'EmailSend',
+                action: 'sendEmail',
+                errorType: isTimeout
+                  ? 'timeout'
+                  : isNetworkError
+                    ? 'network'
+                    : 'unknown',
+              },
+            });
+          }
+        }
       }
     } catch (error) {
-      setError(error?.response?.data?.message);
+      // Erreurs générales non gérées
+      setError('Une erreur inattendue est survenue');
+      toast.error(
+        'Une erreur inattendue est survenue. Veuillez réessayer plus tard.',
+      );
+
+      // Journalisation en dev uniquement
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Email send unexpected error:', error);
+      }
+
+      // Capturer l'exception pour Sentry en production
+      if (process.env.NODE_ENV === 'production') {
+        captureException(error, {
+          tags: { component: 'EmailSend', action: 'sendEmail' },
+        });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
