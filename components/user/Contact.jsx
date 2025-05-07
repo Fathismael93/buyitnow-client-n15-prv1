@@ -96,6 +96,8 @@ const Contact = ({ referrerValidated = true }) => {
       // Envoi du message
       const result = await sendEmail(emailData);
 
+      console.log("Résultat de l'envoi:", result);
+
       if (result.success) {
         toast.success('Votre message a été envoyé avec succès');
         resetForm();
