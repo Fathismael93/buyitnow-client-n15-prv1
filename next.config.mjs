@@ -27,7 +27,6 @@ const bundleAnalyzer = withBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });
 
-// eslint-disable-next-line no-unused-vars
 const securityHeaders = [
   {
     key: 'Strict-Transport-Security',
@@ -86,10 +85,10 @@ const nextConfig = {
   // Configuration des headers de sécurité
   async headers() {
     return [
-      // {
-      //   source: '/:path*',
-      //   headers: securityHeaders,
-      // },
+      {
+        source: '/:path*',
+        headers: securityHeaders,
+      },
       // Dans la section headers, pour les API non-critiques:
       {
         source: '/api/products',
