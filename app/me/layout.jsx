@@ -54,7 +54,7 @@ export default async function UserLayout({ children }) {
       {/* Main content section with responsive layout */}
       <section className="py-6 md:py-10">
         <div className="container max-w-[var(--breakpoint-xl)] mx-auto px-4">
-          <div className="flex flex-col md:flex-row -mx-4">
+          <div className="flex justify-center items-center flex-col md:flex-row -mx-4">
             <main className="md:w-2/3 lg:w-3/4 px-4 w-full">
               <article className="border border-gray-200 bg-white shadow-sm rounded-md mb-5 p-3 lg:p-5">
                 {/* Loading state with optimized skeleton */}
