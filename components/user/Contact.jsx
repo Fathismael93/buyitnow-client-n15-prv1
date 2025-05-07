@@ -93,17 +93,7 @@ const Contact = ({ referrerValidated = true }) => {
         emailData.flaggedForModeration = true;
       }
 
-      // Envoi du message
-      const result = await sendEmail(emailData);
-
-      console.log("Résultat de l'envoi:", result);
-
-      if (result.success) {
-        toast.success('Votre message a été envoyé avec succès');
-        resetForm();
-      } else {
-        toast.error(result.message || 'Une erreur est survenue');
-      }
+      await sendEmail(emailData);
     } catch (error) {
       console.error("Erreur lors de l'envoi du message:", error);
       toast.error(
