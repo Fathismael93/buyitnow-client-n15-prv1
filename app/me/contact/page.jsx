@@ -28,18 +28,6 @@ const Contact = dynamic(
 );
 
 /**
- * Metadata for the contact page with security headers
- */
-export const metadata = {
-  title: 'Buy It Now - Contact the owner',
-  description: 'Get in touch with our team for support or inquiries',
-  robots: {
-    index: false, // Prevent indexing of authenticated pages
-    follow: false,
-  },
-};
-
-/**
  * Security headers for contact page with referrer validation
  */
 export async function generateMetadata() {
@@ -60,6 +48,12 @@ export async function generateMetadata() {
   }
 
   return {
+    title: 'Buy It Now - Contact the owner',
+    description: 'Get in touch with our team for support or inquiries',
+    robots: {
+      index: false, // Prevent indexing of authenticated pages
+      follow: false,
+    },
     // Additional runtime metadata based on request context
     alternates: {
       canonical: '/me/contact',
