@@ -1390,6 +1390,8 @@ export const AuthProvider = ({ children }) => {
 
       const data = await res.json();
 
+      console.log('data message', data);
+
       if (data?.success) {
         toast.success(data?.message);
         router.push('/me');
