@@ -30,7 +30,7 @@ const Search = dynamic(() => import('./Search'), {
 const CartButton = memo(({ cartCount }) => (
   <Link
     href="/cart"
-    className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors relative"
+    className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-[#EDE8E9] hover:border-[#D8CED0] transition-colors relative"
     aria-label="Panier"
     data-testid="cart-button"
   >
@@ -65,7 +65,7 @@ const UserDropdown = memo(({ user }) => {
     <div className="relative group">
       <Link
         href="/me"
-        className="flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-blue-50 transition-colors"
+        className="flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-[#EDE8E9] transition-colors"
         aria-expanded="false"
         aria-haspopup="true"
         id="user-menu-button"
@@ -104,7 +104,7 @@ const UserDropdown = memo(({ user }) => {
             <Link
               key={`menu-item-${index}`}
               href={item.href}
-              className={`block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 ${item.className || ''}`}
+              className={`block px-4 py-2 text-sm text-gray-700 hover:bg-[#EDE8E9] ${item.className || ''}`}
               role="menuitem"
             >
               {item.label}
@@ -264,7 +264,7 @@ const Header = () => {
             {!user ? (
               <Link
                 href="/login"
-                className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-[#EDE8E9] hover:border-[#D8CED0] transition-colors"
                 data-testid="login"
               >
                 <i className="text-gray-400 w-5 fa fa-user"></i>
@@ -291,7 +291,7 @@ const Header = () => {
             <div className="space-y-3">
               <Link
                 href="/me"
-                className="flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-blue-50"
+                className="flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-[#EDE8E9]"
               >
                 <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
                   <Image
@@ -317,13 +317,13 @@ const Header = () => {
               </Link>
               <Link
                 href="/me/orders"
-                className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
+                className="block px-2 py-2 text-sm text-gray-700 hover:bg-[#EDE8E9] rounded-md"
               >
                 Mes commandes
               </Link>
               <Link
                 href="/me/contact"
-                className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
+                className="block px-2 py-2 text-sm text-gray-700 hover:bg-[#EDE8E9] rounded-md"
               >
                 contacter le vendeur
               </Link>
@@ -337,7 +337,7 @@ const Header = () => {
           ) : (
             <Link
               href="/login"
-              className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="block w-full text-center px-4 py-2 bg-[#5F464B] text-white rounded-md hover:bg-[#4A3539]"
             >
               Connexion
             </Link>

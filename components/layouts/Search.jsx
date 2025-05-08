@@ -105,7 +105,7 @@ const Search = ({ setLoading }) => {
     >
       <input
         ref={inputRef}
-        className="grow appearance-none border border-gray-200 bg-gray-100 rounded-md mr-2 py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-blue-500"
+        className="grow appearance-none border border-gray-200 bg-gray-100 rounded-md mr-2 py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-[#5F464B]"
         type="search"
         placeholder="Rechercher un produit..."
         value={keyword}
@@ -119,8 +119,8 @@ const Search = ({ setLoading }) => {
         type="button"
         className={`px-4 py-2 inline-block border border-transparent ${
           isSubmitting
-            ? 'bg-blue-400 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-700'
+            ? 'bg-[#8A7176] cursor-not-allowed'
+            : 'bg-[#5F464B] hover:bg-[#4A3539]'
         } text-white rounded-md transition-colors`}
         onClick={debouncedSubmit} // Utiliser debouncedSubmit ici
         disabled={isSubmitting}
