@@ -106,9 +106,9 @@ const ProductImageGallery = memo(function ProductImageGallery({
             key={img?.url || `img-${index}`}
             className={`inline-block border ${
               selectedImage === img?.url
-                ? 'border-blue-500 ring-2 ring-blue-200'
+                ? 'border-[#5F464B] ring-2 ring-[#D8CED0]'
                 : 'border-gray-200'
-            } cursor-pointer p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all`}
+            } cursor-pointer p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5F464B] transition-all`}
             onClick={() => onImageSelect(img?.url)}
             aria-label={`View product image ${index + 1}`}
             aria-pressed={selectedImage === img?.url}
@@ -171,7 +171,7 @@ const ProductInfo = memo(function ProductInfo({
 
       <div className="flex flex-wrap items-baseline mb-4">
         <p
-          className="font-semibold text-xl sm:text-2xl text-blue-600 mr-3"
+          className="font-semibold text-xl sm:text-2xl text-[#5F464B] mr-3"
           aria-label="Prix"
         >
           {formattedPrice}
@@ -205,7 +205,7 @@ const ProductInfo = memo(function ProductInfo({
           className={`w-full sm:w-auto px-6 py-3 inline-block text-white font-medium text-center rounded-lg transition-colors 
             ${
               inStock
-                ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-300 focus:outline-none cursor-pointer'
+                ? 'bg-[#5F464B] hover:bg-[#4A3539] focus:ring-2 focus:ring-[#8A7176] focus:outline-none cursor-pointer'
                 : 'bg-gray-400 cursor-not-allowed'
             }`}
           onClick={onAddToCart}
@@ -245,7 +245,7 @@ const ProductInfo = memo(function ProductInfo({
         </button>
 
         <button
-          className="w-full sm:w-auto px-4 py-2 inline-block text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors"
+          className="w-full sm:w-auto px-4 py-2 inline-block text-[#5F464B] border border-[#5F464B] rounded-lg hover:bg-[#EDE8E9] focus:ring-2 focus:ring-[#8A7176] focus:outline-none transition-colors"
           aria-label="Partager ce produit"
           onClick={onShare}
         >
@@ -324,7 +324,7 @@ const ProductInfo = memo(function ProductInfo({
       {product?.createdAt &&
         new Date(product.createdAt) >
           new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) && (
-          <div className="mt-4 inline-block bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-blue-700 text-sm">
+          <div className="mt-4 inline-block bg-[#EDE8E9] border border-[#D8CED0] rounded-lg px-3 py-2 text-[#5F464B] text-sm">
             <i className="fas fa-star mr-1" aria-hidden="true"></i>
             Nouveau
           </div>
@@ -366,7 +366,7 @@ const RelatedProducts = memo(function RelatedProducts({
           <Link
             key={product?._id}
             href={`/product/${product?._id}`}
-            className="group bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 hover:border-blue-100 transform hover:-translate-y-1"
+            className="group bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 hover:border-[#D8CED0] transform hover:-translate-y-1"
           >
             <div className="aspect-w-1 aspect-h-1 mb-4 bg-gray-100 rounded-lg overflow-hidden">
               <Image
@@ -384,10 +384,10 @@ const RelatedProducts = memo(function RelatedProducts({
               />
             </div>
             <div>
-              <h3 className="font-medium text-gray-800 mb-1 group-hover:text-blue-600 transition-colors line-clamp-2">
+              <h3 className="font-medium text-gray-800 mb-1 group-hover:text-[#5F464B] transition-colors line-clamp-2">
                 {product?.name || 'Produit sans nom'}
               </h3>
-              <p className="font-bold text-blue-600">
+              <p className="font-bold text-[#5F464B]">
                 {formatPrice(product?.price)}
               </p>
             </div>
@@ -471,8 +471,6 @@ function ProductDetails({ product, sameCategoryProducts }) {
     setIsAddingToCart(true);
 
     try {
-      console.log('Product in ProductDetails', product);
-      console.log('Cart in ProductDetails', cart);
       const isProductInCart = cart.find((i) => i?.productId === product._id);
 
       if (isProductInCart) {
@@ -562,7 +560,7 @@ function ProductDetails({ product, sameCategoryProducts }) {
           </p>
           <Link
             href="/"
-            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-block px-6 py-3 bg-[#5F464B] text-white rounded-lg hover:bg-[#4A3539] transition-colors"
           >
             Retour à l&apos;accueil
           </Link>

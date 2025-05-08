@@ -1,11 +1,11 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import Link from 'next/link';
 
 import { arrayHasData } from '@/helpers/helpers';
 
 const BreadCrumbs = memo(({ breadCrumbs }) => {
   return (
-    <section className="py-5 sm:py-7 bg-blue-100">
+    <section className="py-5 sm:py-7 bg-[#EDE8E9]">
       <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
         <ol className="inline-flex flex-wrap text-gray-600 space-x-1 md:space-x-3 items-center">
           {arrayHasData(breadCrumbs)
@@ -14,7 +14,7 @@ const BreadCrumbs = memo(({ breadCrumbs }) => {
                 <li className="inline-flex items-center" key={index}>
                   <Link
                     href={breadCrumb.url}
-                    className="text-gray-600 hover:text-blue-600"
+                    className="text-gray-600 hover:text-[#5F464B]"
                   >
                     {breadCrumb.name}
                   </Link>
