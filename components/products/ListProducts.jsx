@@ -210,7 +210,7 @@ const ListProducts = ({ data, categories }) => {
                 <ProductItemSkeleton key={index} />
               ))}
             </div>
-          ) : !arrayHasData(data?.products) ? (
+          ) : arrayHasData(data?.products) ? (
             <div
               className="flex flex-col items-center justify-center py-10 text-center"
               aria-live="assertive"
