@@ -10,7 +10,7 @@ import {
 } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'react-toastify';
-import PropTypes from 'prop-types';
+import PropTypes from 'prop-types'; // Pour la validation des props
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -18,11 +18,14 @@ import AuthContext from '@/context/AuthContext';
 import CartContext from '@/context/CartContext';
 import { arrayHasData } from '@/helpers/helpers';
 import { INCREASE } from '@/helpers/constants';
+
+// Pour la sécurité - nécessite d'installer cette dépendance
+// npm install dompurify
 import DOMPurify from 'dompurify';
 
 // Chargement dynamique des composants
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
-  ssr: true,
+  ssr: true, // Enable SSR for SEO
   loading: () => (
     <div className="h-8 bg-gray-100 rounded-lg animate-pulse"></div>
   ),
@@ -36,107 +39,40 @@ const formatPrice = (price) => {
   }).format(price || 0);
 };
 
-// Composant pour les badges d'information produit
-const ProductBadge = memo(
-  ({ bgColor, textColor, borderColor, icon, children }) => (
-    <div
-      className={`inline-block ${bgColor} ${borderColor} rounded-lg px-3 py-2 ${textColor} text-sm mr-2 mb-2`}
-    >
-      {icon && <i className={`fas ${icon} mr-1`} aria-hidden="true"></i>}
-      {children}
-    </div>
-  ),
-);
-
-ProductBadge.displayName = 'ProductBadge';
-
-// Aperçu des images miniatures
-const ThumbnailGallery = memo(function ThumbnailGallery({
-  images,
-  selectedImage,
-  onSelect,
-}) {
-  const defaultImage = '/images/default_product.png';
-  const thumbnails = images?.length > 0 ? images : [{ url: defaultImage }];
-
-  return (
-    <div className="flex gap-2 mt-4 flex-wrap">
-      {thumbnails.map((img, index) => (
-        <button
-          key={img?.url || `img-${index}`}
-          className={`relative overflow-hidden rounded-lg transition-all duration-200 ${
-            selectedImage === img?.url
-              ? 'ring-2 ring-blue-500 border-2 border-blue-500'
-              : 'border-2 border-gray-200 hover:border-blue-300'
-          }`}
-          onClick={() => onSelect(img?.url)}
-          aria-pressed={selectedImage === img?.url}
-          aria-label={`View product image ${index + 1}`}
-        >
-          <div className="w-16 h-16 bg-gray-50">
-            <Image
-              src={img?.url || defaultImage}
-              alt={`Thumbnail ${index + 1}`}
-              width={64}
-              height={64}
-              className="object-contain w-full h-full"
-              onError={(e) => {
-                e.target.src = defaultImage;
-              }}
-            />
-          </div>
-        </button>
-      ))}
-    </div>
-  );
-});
-
-// Galerie d'images du produit (version améliorée)
 const ProductImageGallery = memo(function ProductImageGallery({
   product,
   selectedImage,
   onImageSelect,
 }) {
+  // Si pas d'images disponibles, utiliser l'image par défaut
   const defaultImage = '/images/default_product.png';
   const productImages =
     product?.images?.length > 0 ? product.images : [{ url: defaultImage }];
 
   return (
-    <div className="flex flex-col">
-      {/* Image principale */}
-      <div className="relative overflow-hidden bg-gray-50 rounded-xl border border-gray-100 aspect-square flex items-center justify-center">
-        <Image
-          src={selectedImage || defaultImage}
-          alt={product?.name || 'Product image'}
-          width={600}
-          height={600}
-          className="object-contain max-h-[600px] w-full transition-transform duration-500 hover:scale-110"
-          priority={true}
-          quality={90}
-          placeholder="blur"
-          blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEtAJJXIDTiQAAAABJRU5ErkJggg=="
-        />
-
-        {/* Badges en superposition sur l'image */}
-        <div className="absolute top-3 left-3 flex flex-col gap-2">
-          {product?.sold > 10 && (
-            <span className="bg-amber-500 text-white text-xs font-bold uppercase px-2 py-1 rounded-md">
-              {product.sold > 100 ? 'Best-seller' : 'Populaire'}
-            </span>
-          )}
-
-          {product?.createdAt &&
-            new Date(product.createdAt) >
-              new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) && (
-              <span className="bg-blue-500 text-white text-xs font-bold uppercase px-2 py-1 rounded-md">
-                Nouveau
-              </span>
-            )}
+    <aside aria-label="Product images">
+      <div
+        className="border border-gray-200 shadow-sm p-3 text-center rounded-lg mb-5 bg-white relative h-auto max-h-[500px] flex items-center justify-center overflow-hidden"
+        role="img"
+        aria-label={`Main image of ${product?.name || 'product'}`}
+      >
+        <div className="w-full h-full transition-transform duration-300 hover:scale-110">
+          <Image
+            className="object-contain max-h-[450px] inline-block transition-opacity"
+            src={selectedImage || defaultImage}
+            alt={product?.name || 'Product image'}
+            width={400}
+            height={400}
+            priority={true} // Load this image early
+            quality={85}
+            placeholder="blur"
+            blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEtAJJXIDTiQAAAABJRU5ErkJggg=="
+          />
         </div>
 
-        {/* Bouton de zoom */}
+        {/* Overlay de zoom (à implémenter avec une librairie comme react-medium-image-zoom) */}
         <button
-          className="absolute bottom-3 right-3 bg-white/80 backdrop-blur-sm hover:bg-white rounded-full p-2 shadow-md opacity-80 hover:opacity-100 transition-all text-gray-700"
+          className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-sm opacity-70 hover:opacity-100 transition-opacity"
           aria-label="Zoom image"
           onClick={() => {
             /* Intégrer une fonction de zoom ici */
@@ -159,71 +95,127 @@ const ProductImageGallery = memo(function ProductImageGallery({
         </button>
       </div>
 
-      {/* Galerie miniatures */}
-      <ThumbnailGallery
-        images={productImages}
-        selectedImage={selectedImage}
-        onSelect={onImageSelect}
-      />
-    </div>
+      {/* Thumbnails gallery */}
+      <div
+        className="space-x-2 overflow-x-auto pb-3 flex flex-nowrap scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 -mx-2 px-2 hide-scrollbar sm:flex-wrap"
+        aria-label="Product thumbnail images"
+        role="group"
+      >
+        {productImages.map((img, index) => (
+          <button
+            key={img?.url || `img-${index}`}
+            className={`inline-block border ${
+              selectedImage === img?.url
+                ? 'border-blue-500 ring-2 ring-blue-200'
+                : 'border-gray-200'
+            } cursor-pointer p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all`}
+            onClick={() => onImageSelect(img?.url)}
+            aria-label={`View product image ${index + 1}`}
+            aria-pressed={selectedImage === img?.url}
+          >
+            <Image
+              className="w-14 h-14 object-contain"
+              src={img?.url || defaultImage}
+              alt={`${product?.name || 'Product'} - thumbnail ${index + 1}`}
+              width={56}
+              height={56}
+              onError={(e) => {
+                e.target.src = defaultImage;
+              }}
+            />
+          </button>
+        ))}
+      </div>
+    </aside>
   );
 });
 
-// Panneau de prix et d'actions
-const PricingPanel = memo(function PricingPanel({
-  price,
-  oldPrice,
+const ProductInfo = memo(function ProductInfo({
+  product,
   inStock,
   onAddToCart,
   isAddingToCart,
   onShare,
 }) {
+  // Formattage du prix mémoïsé
+  const formattedPrice = useMemo(
+    () => formatPrice(product?.price),
+    [product?.price],
+  );
+
   return (
-    <div className="bg-gray-50 p-5 rounded-xl border border-gray-200 mb-6">
-      <div className="flex flex-wrap items-baseline mb-4">
-        <span className="text-3xl font-bold text-gray-900 mr-3">
-          {formatPrice(price)}
-        </span>
+    <main>
+      <h1 className="font-semibold text-xl sm:text-2xl mb-4 text-gray-800">
+        {product?.name || 'Product Not Available'}
+      </h1>
 
-        {oldPrice && (
-          <span className="text-lg text-gray-500 line-through">
-            {formatPrice(oldPrice)}
-          </span>
-        )}
-
-        {inStock && (
-          <span className="ml-auto text-green-600 flex items-center text-sm">
+      <div className="flex flex-wrap items-center space-x-2 mb-2">
+        {product?.verified && (
+          <span className="text-green-700 flex items-center">
             <svg
-              className="w-4 h-4 mr-1"
-              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 mr-1"
               viewBox="0 0 20 20"
+              fill="currentColor"
             >
               <path
                 fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                 clipRule="evenodd"
               />
             </svg>
-            En stock
+            Vérifié
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+      <div className="flex flex-wrap items-baseline mb-4">
+        <p
+          className="font-semibold text-xl sm:text-2xl text-blue-600 mr-3"
+          aria-label="Prix"
+        >
+          {formattedPrice}
+        </p>
+
+        {/* Afficher un prix barré si c'est pertinent */}
+        {product?.oldPrice && (
+          <p className="text-sm sm:text-base text-gray-500 line-through">
+            {formatPrice(product.oldPrice)}
+          </p>
+        )}
+      </div>
+
+      {/* Description sécurisée contre XSS */}
+      {product?.description ? (
+        <div
+          className="mb-6 text-gray-600 leading-relaxed"
+          dangerouslySetInnerHTML={{
+            __html: DOMPurify.sanitize(product.description),
+          }}
+        />
+      ) : (
+        <p className="mb-6 text-gray-600">
+          Aucune description disponible pour ce produit.
+        </p>
+      )}
+
+      {/* Bouton d'ajout au panier */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <button
-          className={`sm:col-span-3 py-3 px-6 rounded-lg font-medium relative ${
-            inStock
-              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          } transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none`}
+          className={`w-full sm:w-auto px-6 py-3 inline-block text-white font-medium text-center rounded-lg transition-colors 
+            ${
+              inStock
+                ? 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-300 focus:outline-none cursor-pointer'
+                : 'bg-gray-400 cursor-not-allowed'
+            }`}
           onClick={onAddToCart}
           disabled={!inStock || isAddingToCart}
           aria-label={inStock ? 'Ajouter au panier' : 'Produit indisponible'}
         >
           {isAddingToCart ? (
-            <span className="flex items-center justify-center">
+            <span className="inline-flex items-center">
               <svg
-                className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
+                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -245,240 +237,107 @@ const PricingPanel = memo(function PricingPanel({
               Ajout en cours...
             </span>
           ) : (
-            <span className="flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
+            <>
+              <i className="fa fa-shopping-cart mr-2" aria-hidden="true"></i>
               {inStock ? 'Ajouter au panier' : 'Indisponible'}
-            </span>
+            </>
           )}
         </button>
 
         <button
-          className="py-3 px-4 rounded-lg bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors focus:ring-2 focus:ring-gray-400 focus:outline-none"
+          className="w-full sm:w-auto px-4 py-2 inline-block text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors"
           aria-label="Partager ce produit"
           onClick={onShare}
         >
-          <span className="flex items-center justify-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-              />
-            </svg>
-          </span>
+          <i className="fas fa-share-alt mr-1" aria-hidden="true"></i>
+          Partager
         </button>
       </div>
 
-      {/* Badges et informations */}
-      <div className="space-y-2 text-sm text-gray-600">
-        {inStock && (
-          <div className="flex items-center gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-green-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            <span>Livraison gratuite à partir de 50€</span>
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 text-blue-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span>Expédition sous 24-48h</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 text-blue-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-            />
-          </svg>
-          <span>Garantie satisfait ou remboursé</span>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-// Informations sur le produit
-const ProductInfo = memo(function ProductInfo({
-  product,
-  inStock,
-  onAddToCart,
-  isAddingToCart,
-  onShare,
-}) {
-  return (
-    <div className="space-y-6">
-      {/* Titre et vérification */}
-      <div>
-        {product?.category?.categoryName && (
-          <p className="text-blue-600 font-medium text-sm mb-2">
-            {product.category.categoryName}
-          </p>
-        )}
-        <div className="flex items-start gap-2">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex-grow">
-            {product?.name || 'Product Not Available'}
-          </h1>
-
-          {product?.verified && (
-            <span
-              className="bg-green-100 p-1 rounded-full text-green-700 flex-shrink-0"
-              title="Produit vérifié"
-            >
+      {/* Informations supplémentaires */}
+      <ul className="mb-5 text-gray-600">
+        <li className="mb-2 flex">
+          <span className="font-medium w-36 inline-block">Disponibilité:</span>
+          {inStock ? (
+            <span className="text-green-600 font-medium flex items-center">
               <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 20 20"
+                className="w-4 h-4 mr-1"
                 fill="currentColor"
+                viewBox="0 0 20 20"
               >
                 <path
                   fillRule="evenodd"
-                  d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                   clipRule="evenodd"
                 />
               </svg>
+              En stock
+            </span>
+          ) : (
+            <span className="text-red-600 font-medium flex items-center">
+              <svg
+                className="w-4 h-4 mr-1"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Rupture de stock
             </span>
           )}
+        </li>
+        <li className="mb-2 flex">
+          <span className="font-medium w-36 inline-block">Quantité:</span>
+          <span>{product?.stock || 0} unité(s)</span>
+        </li>
+        <li className="mb-2 flex">
+          <span className="font-medium w-36 inline-block">Catégorie:</span>
+          <span>{product?.category?.categoryName || 'Non catégorisé'}</span>
+        </li>
+        <li className="mb-2 flex">
+          <span className="font-medium w-36 inline-block">Référence:</span>
+          <span className="font-mono text-sm">{product?._id || 'N/A'}</span>
+        </li>
+      </ul>
+
+      {/* Badge livraison */}
+      {inStock && (
+        <div className="inline-block bg-green-50 border border-green-100 rounded-lg px-3 py-2 text-green-700 text-sm">
+          <i className="fas fa-truck mr-1" aria-hidden="true"></i>
+          Livraison gratuite à partir de 50€
         </div>
-      </div>
+      )}
 
-      {/* Panneau de prix et actions */}
-      <PricingPanel
-        price={product?.price}
-        oldPrice={product?.oldPrice}
-        inStock={inStock}
-        onAddToCart={onAddToCart}
-        isAddingToCart={isAddingToCart}
-        onShare={onShare}
-      />
-
-      {/* Description */}
-      <div className="bg-white rounded-xl overflow-hidden border border-gray-200">
-        <div className="p-5">
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">
-            Description
-          </h2>
-          {product?.description ? (
-            <div
-              className="prose max-w-none text-gray-600"
-              dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(product.description),
-              }}
-            />
-          ) : (
-            <p className="text-gray-600">
-              Aucune description disponible pour ce produit.
-            </p>
-          )}
+      {/* Badge de popularité basé sur les ventes */}
+      {product?.sold > 10 && (
+        <div className="mt-4 inline-block bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-amber-700 text-sm mr-2">
+          <i className="fas fa-fire mr-1" aria-hidden="true"></i>
+          {product.sold > 100 ? 'Très populaire' : 'Populaire'}
         </div>
-      </div>
+      )}
 
-      {/* Caractéristiques techniques simplifiées */}
-      <div className="bg-white rounded-xl overflow-hidden border border-gray-200">
-        <div className="p-5">
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">
-            Caractéristiques
-          </h2>
-          <div className="grid grid-cols-1 gap-4">
-            <div className="flex border-b border-gray-100 pb-2">
-              <span className="font-medium w-36 text-gray-700">Référence:</span>
-              <span className="font-mono text-sm text-gray-600">
-                {product?._id || 'N/A'}
-              </span>
-            </div>
-            <div className="flex border-b border-gray-100 pb-2">
-              <span className="font-medium w-36 text-gray-700">Catégorie:</span>
-              <span className="text-gray-600">
-                {product?.category?.categoryName || 'Non catégorisé'}
-              </span>
-            </div>
-            <div className="flex border-b border-gray-100 pb-2">
-              <span className="font-medium w-36 text-gray-700">
-                Disponibilité:
-              </span>
-              {inStock ? (
-                <span className="text-green-600 font-medium">
-                  En stock ({product?.stock} unité
-                  {product?.stock > 1 ? 's' : ''})
-                </span>
-              ) : (
-                <span className="text-red-600 font-medium">
-                  Rupture de stock
-                </span>
-              )}
-            </div>
-
-            {/* Affichage des spécifications si disponibles */}
-            {product?.specifications &&
-              Object.entries(product.specifications).map(([key, value]) => (
-                <div key={key} className="flex border-b border-gray-100 pb-2">
-                  <span className="font-medium w-36 text-gray-700">{key}:</span>
-                  <span className="text-gray-600">{value}</span>
-                </div>
-              ))}
+      {/* Indiquer quand le produit est récent (moins de 30 jours) */}
+      {product?.createdAt &&
+        new Date(product.createdAt) >
+          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) && (
+          <div className="mt-4 inline-block bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-blue-700 text-sm">
+            <i className="fas fa-star mr-1" aria-hidden="true"></i>
+            Nouveau
           </div>
-        </div>
-      </div>
-    </div>
+        )}
+    </main>
   );
 });
 
-// Produits connexes repensés
 const RelatedProducts = memo(function RelatedProducts({
   products,
   currentProductId,
 }) {
+  // Filtrer les produits pour exclure le produit actuel et limiter à 4 max
   const filteredProducts = useMemo(
     () =>
       products
@@ -487,13 +346,18 @@ const RelatedProducts = memo(function RelatedProducts({
     [products, currentProductId],
   );
 
+  // Si arrayHasData retourne true, cela signifie que le tableau est vide ou invalide
+  // Donc nous voulons vérifier SI arrayHasData est true, ALORS return null
   if (arrayHasData(filteredProducts)) {
     return null;
   }
 
   return (
-    <section className="mt-12 bg-white rounded-xl p-6 border border-gray-200">
-      <h2 className="font-bold text-2xl mb-6 text-gray-800">
+    <section aria-labelledby="related-heading" className="mt-12">
+      <h2
+        id="related-heading"
+        className="font-bold text-xl sm:text-2xl mb-5 text-gray-800"
+      >
         Produits similaires
       </h2>
 
@@ -502,38 +366,31 @@ const RelatedProducts = memo(function RelatedProducts({
           <Link
             key={product?._id}
             href={`/product/${product?._id}`}
-            className="group"
+            className="group bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 hover:border-blue-100 transform hover:-translate-y-1"
           >
-            <div className="bg-gray-50 rounded-xl overflow-hidden aspect-square relative mb-3">
+            <div className="aspect-w-1 aspect-h-1 mb-4 bg-gray-100 rounded-lg overflow-hidden">
               <Image
                 src={product?.images?.[0]?.url || '/images/default_product.png'}
                 alt={product?.name || 'Produit similaire'}
-                width={300}
-                height={300}
+                width={200}
+                height={200}
                 className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300"
-                loading="lazy"
+                loading="lazy" // Chargement différé
                 placeholder="blur"
                 blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAEtAJJXIDTiQAAAABJRU5ErkJggg=="
                 onError={(e) => {
                   e.target.src = '/images/default_product.png';
                 }}
               />
-
-              {/* Badge stock si rupture */}
-              {product?.stock <= 0 && (
-                <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                  Rupture de stock
-                </div>
-              )}
             </div>
-
-            <h3 className="font-medium text-gray-800 group-hover:text-blue-600 transition-colors line-clamp-2">
-              {product?.name || 'Produit sans nom'}
-            </h3>
-
-            <p className="font-bold text-blue-600 mt-1">
-              {formatPrice(product?.price)}
-            </p>
+            <div>
+              <h3 className="font-medium text-gray-800 mb-1 group-hover:text-blue-600 transition-colors line-clamp-2">
+                {product?.name || 'Produit sans nom'}
+              </h3>
+              <p className="font-bold text-blue-600">
+                {formatPrice(product?.price)}
+              </p>
+            </div>
           </Link>
         ))}
       </div>
@@ -679,7 +536,7 @@ function ProductDetails({ product, sameCategoryProducts }) {
   if (!product) {
     return (
       <div className="container max-w-xl mx-auto px-4 py-16 text-center">
-        <div className="bg-white shadow-md rounded-xl p-8">
+        <div className="bg-white shadow-md rounded-lg p-8">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             className="h-12 w-12 text-gray-400 mx-auto mb-4"
@@ -713,30 +570,46 @@ function ProductDetails({ product, sameCategoryProducts }) {
   }
 
   return (
-    <div className="bg-gray-50 py-6">
+    <div className="bg-gray-50 py-6 sm:py-10">
+      {breadCrumbs && <BreadCrumbs breadCrumbs={breadCrumbs} />}
+
       <div className="container max-w-6xl mx-auto px-4">
-        {breadCrumbs && <BreadCrumbs breadCrumbs={breadCrumbs} />}
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-100">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            {/* Galerie d'images */}
+            <ProductImageGallery
+              product={product}
+              selectedImage={selectedImage}
+              onImageSelect={handleImageSelect}
+            />
 
-        {/* Section principale */}
-        <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Colonne gauche: galerie d'images */}
-          <ProductImageGallery
-            product={product}
-            selectedImage={selectedImage}
-            onImageSelect={handleImageSelect}
-          />
+            {/* Informations produit */}
+            <ProductInfo
+              product={product}
+              inStock={inStock}
+              onAddToCart={handleAddToCart}
+              isAddingToCart={isAddingToCart}
+              onShare={handleShare}
+            />
+          </div>
 
-          {/* Colonne droite: informations produit */}
-          <ProductInfo
-            product={product}
-            inStock={inStock}
-            onAddToCart={handleAddToCart}
-            isAddingToCart={isAddingToCart}
-            onShare={handleShare}
-          />
+          {/* Spécifications produit */}
+          {product.specifications && (
+            <div className="border-t border-gray-200 pt-8 mt-8">
+              <h2 className="text-xl font-semibold mb-4">Spécifications</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(product.specifications).map(([key, value]) => (
+                  <div key={key} className="flex">
+                    <span className="font-medium w-36">{key}:</span>
+                    <span>{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Produits similaires en bas de page */}
+        {/* Produits connexes */}
         <RelatedProducts
           products={sameCategoryProducts}
           currentProductId={product._id}

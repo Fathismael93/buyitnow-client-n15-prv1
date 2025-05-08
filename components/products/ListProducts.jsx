@@ -25,7 +25,7 @@ const ProductItem = dynamic(() => import('./ProductItem'), {
 const ProductItemSkeleton = () => (
   <div
     className="border border-gray-200 overflow-hidden bg-white rounded-md mb-5 animate-pulse"
-    aria-hidden="true"
+    aria-hidden="true" // Cacher ces éléments des lecteurs d'écran pendant le chargement
   >
     <div className="flex flex-col md:flex-row">
       {/* Contenu existant du skeleton */}
@@ -37,7 +37,6 @@ const ListProducts = ({ data, categories }) => {
   // États locaux
   const [localLoading, setLocalLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [showFilters, setShowFilters] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -69,6 +68,7 @@ const ListProducts = ({ data, categories }) => {
 
       return summary.length > 0 ? summary.join(' | ') : null;
     } catch (err) {
+      // Capture silencieuse d'erreur pour éviter de planter le composant
       captureException(err, {
         tags: { component: 'ListProducts', function: 'getFilterSummary' },
       });
@@ -89,15 +89,12 @@ const ListProducts = ({ data, categories }) => {
       setLocalLoading(true);
       router.push('/');
     } catch (err) {
+      // Supprimer cette ligne : setError(err);
+      // Au lieu de cela, laisser l'erreur se propager vers Error Boundary
       console.error(err);
-      throw err;
+      throw err; // Optionnel, mais permet de propager l'erreur vers error.jsx
     }
   }, [router]);
-
-  // Toggle pour afficher/masquer les filtres
-  const toggleFilters = useCallback(() => {
-    setShowFilters((prev) => !prev);
-  }, []);
 
   useEffect(() => {
     // Seulement pour l'initial render, pas pour les changements de filtres
@@ -127,140 +124,107 @@ const ListProducts = ({ data, categories }) => {
   return (
     <section className="py-8">
       <div className="container max-w-[1440px] mx-auto px-4">
-        {/* Nouvelle barre d'en-tête avec titre et actions */}
-        <div className="flex flex-wrap justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">
-            {data?.products?.length > 0
-              ? `${data.products.length} produit${data.products.length > 1 ? 's' : ''} trouvé${data.products.length > 1 ? 's' : ''}`
-              : 'Produits'}
-          </h1>
-
-          <div className="flex items-center space-x-3 mt-2 md:mt-0">
-            <button
-              onClick={toggleFilters}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md flex items-center transition-colors"
-              aria-expanded={showFilters}
-              aria-controls="filters-panel"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-                />
-              </svg>
-              {showFilters ? 'Masquer les filtres' : 'Afficher les filtres'}
-            </button>
-
-            {filterSummary && (
-              <button
-                onClick={handleResetFilters}
-                className="px-4 py-2 border border-red-200 text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                aria-label="Réinitialiser tous les filtres"
-              >
-                Réinitialiser
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Affichage du récapitulatif des filtres quand ils sont appliqués */}
-        {filterSummary && (
-          <div
-            className="mb-6 p-3 bg-blue-50 rounded-lg text-sm text-blue-800 border border-blue-100"
-            aria-live="polite"
-            aria-label="Filtres appliqués"
-          >
-            <p className="font-medium">{filterSummary}</p>
-          </div>
-        )}
-
-        {/* Panneau de filtres (collapsible) */}
-        {hasValidCategories && (
-          <div
-            id="filters-panel"
-            className={`transition-all duration-300 overflow-hidden mb-6 ${showFilters ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}
-            aria-hidden={!showFilters}
-          >
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <Filters
-                categories={categories}
-                setLocalLoading={setLocalLoading}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Grille de produits */}
-        <main aria-label="Liste des produits">
-          {localLoading ? (
-            <div
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-              aria-busy="true"
-              aria-label="Chargement des produits"
-            >
-              {[...Array(6)].map((_, index) => (
-                <ProductItemSkeleton key={index} />
-              ))}
-            </div>
-          ) : arrayHasData(data?.products) ? (
-            <div
-              className="flex flex-col items-center justify-center py-10 text-center"
-              aria-live="assertive"
-              role="status"
-            >
-              <div className="mb-4 text-5xl text-gray-300">
-                <i className="fa fa-search" aria-hidden="true"></i>
-              </div>
-              <h2 className="text-xl font-semibold text-gray-800 mb-2">
-                Aucun produit trouvé
-              </h2>
-              <p className="text-gray-600 max-w-md">
-                {keyword
-                  ? `Aucun résultat pour "${keyword}". Essayez d'autres termes de recherche.`
-                  : 'Aucun produit ne correspond aux filtres sélectionnés. Essayez de modifier vos critères.'}
-              </p>
-              <button
-                onClick={handleResetFilters}
-                className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                aria-label="Voir tous les produits disponibles"
-              >
-                Voir tous les produits
-              </button>
-            </div>
+        <div className="flex flex-col md:flex-row -mx-4">
+          {hasValidCategories ? (
+            <Filters
+              categories={categories}
+              setLocalLoading={setLocalLoading}
+            />
           ) : (
-            <>
+            <div className="md:w-1/3 lg:w-1/4 px-4">
+              <div className="p-4 bg-gray-100 rounded-md">
+                <p>Chargement des filtres...</p>
+              </div>
+            </div>
+          )}
+
+          <main
+            className="md:w-2/3 lg:w-3/4 px-3"
+            aria-label="Liste des produits"
+          >
+            {/* Affichage du récapitulatif des filtres et du nombre de résultats */}
+            {filterSummary && (
               <div
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                aria-busy={false}
-                aria-label="Liste des produits chargés"
+                className="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-800 border border-blue-100"
+                aria-live="polite"
+                aria-label="Filtres appliqués"
               >
-                {data?.products?.map((product) => (
-                  <Suspense
-                    key={product?._id || `product-${Math.random()}`}
-                    fallback={<ProductItemSkeleton />}
-                  >
-                    <ProductItem product={product} />
-                  </Suspense>
+                <p className="font-medium">{filterSummary}</p>
+              </div>
+            )}
+
+            <div className="mb-4 flex justify-between items-center">
+              <h1
+                className="text-xl font-bold text-gray-800"
+                aria-live="polite"
+              >
+                {data?.products?.length > 0
+                  ? `${data.products.length} produit${data.products.length > 1 ? 's' : ''} trouvé${data.products.length > 1 ? 's' : ''}`
+                  : 'Produits'}
+              </h1>
+            </div>
+
+            {localLoading ? (
+              <div
+                className="space-y-4"
+                aria-busy="true"
+                aria-label="Chargement des produits"
+              >
+                {[...Array(3)].map((_, index) => (
+                  <ProductItemSkeleton key={index} />
                 ))}
               </div>
-
-              {/* Pagination centrée */}
-              {data?.totalPages > 1 && (
-                <div className="mt-12 flex justify-center">
-                  <CustomPagination totalPages={data?.totalPages} />
+            ) : arrayHasData(data?.products) ? (
+              <div
+                className="flex flex-col items-center justify-center py-10 text-center"
+                aria-live="assertive"
+                role="status"
+              >
+                <div className="mb-4 text-5xl text-gray-300">
+                  <i className="fa fa-search" aria-hidden="true"></i>
                 </div>
-              )}
-            </>
-          )}
-        </main>
+                <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                  Aucun produit trouvé
+                </h2>
+                <p className="text-gray-600 max-w-md">
+                  {keyword
+                    ? `Aucun résultat pour "${keyword}". Essayez d'autres termes de recherche.`
+                    : 'Aucun produit ne correspond aux filtres sélectionnés. Essayez de modifier vos critères.'}
+                </p>
+                <button
+                  onClick={handleResetFilters}
+                  className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  aria-label="Voir tous les produits disponibles"
+                >
+                  Voir tous les produits
+                </button>
+              </div>
+            ) : (
+              <>
+                <div
+                  className="space-y-4"
+                  aria-busy={false}
+                  aria-label="Liste des produits chargés"
+                >
+                  {data?.products?.map((product) => (
+                    <Suspense
+                      key={product?._id || `product-${Math.random()}`}
+                      fallback={<ProductItemSkeleton />}
+                    >
+                      <ProductItem product={product} />
+                    </Suspense>
+                  ))}
+                </div>
+
+                {data?.totalPages > 1 && (
+                  <div className="mt-8">
+                    <CustomPagination totalPages={data?.totalPages} />
+                  </div>
+                )}
+              </>
+            )}
+          </main>
+        </div>
       </div>
     </section>
   );
