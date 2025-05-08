@@ -30,6 +30,7 @@ const ProductItem = memo(({ product }) => {
   const addToCartHandler = useCallback(
     (e) => {
       e.preventDefault();
+      e.stopPropagation();
 
       try {
         if (!user) {
@@ -52,18 +53,26 @@ const ProductItem = memo(({ product }) => {
         console.error("Erreur d'ajout au panier:", error);
       }
     },
-    [user, cart, productId],
+    [user, cart, productId, addItemToCart, updateCart],
   );
 
   return (
-    <article className="border border-gray-200 overflow-hidden bg-white shadow-xs rounded-sm mb-5">
+    <article className="group bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-all flex flex-col h-full">
       <Link
         href={`/product/${productId}`}
-        className="flex flex-col md:flex-row hover:bg-blue-50"
+        className="flex flex-col h-full"
         aria-label={`Voir les détails du produit: ${productName}`}
       >
-        <div className="md:w-1/4 flex p-3">
-          <div className="relative w-full aspect-square">
+        {/* Badge Stock */}
+        <div className="relative">
+          {!inStock && (
+            <div className="absolute top-2 right-2 z-10 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+              Rupture de stock
+            </div>
+          )}
+
+          {/* Image en pleine largeur au top */}
+          <div className="w-full aspect-square bg-gray-50 p-6 flex items-center justify-center relative">
             <Image
               src={imageUrl}
               alt={productName}
@@ -77,79 +86,68 @@ const ProductItem = memo(({ product }) => {
               style={{ objectFit: 'contain' }}
               priority={false}
               loading="lazy"
-              sizes="(max-width: 768px) 80vw, 240px"
+              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="max-h-48 transition-transform group-hover:scale-105"
             />
           </div>
         </div>
-        <div className="md:w-2/4">
-          <div className="p-4">
-            <h3
-              className="font-semibold text-xl text-gray-800 line-clamp-2"
-              title={productName}
-            >
-              {productName}
-            </h3>
-            <div className="mt-4 md:text-xs lg:text-sm text-gray-700">
-              <p className="mb-1" title={productCategory}>
-                <span className="font-semibold mr-3">Catégorie: </span>
-                <span>{productCategory}</span>
-              </p>
-              <p className="mb-1" title="Description">
-                <span className="font-semibold mr-3">Description: </span>
-                <span className="line-clamp-2">
-                  {productDescription
-                    ? productDescription.substring(0, 45) + '...'
-                    : 'Aucune description disponible'}
-                </span>
-              </p>
-              <p className="mb-1" title="Stock">
-                <span className="font-semibold mr-3">Stock: </span>
-                {inStock ? (
-                  <span className="text-green-700 font-medium">En stock</span>
-                ) : (
-                  <span className="text-red-700 font-medium">
-                    Rupture de stock
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="md:w-1/4 border-t lg:border-t-0 lg:border-l border-gray-200">
-          <div className="p-5">
-            <span
-              className="text-xl font-semibold text-black flex items-center justify-center md:justify-start"
-              data-testid="Price"
-            >
-              {new Intl.NumberFormat('fr-FR', {
-                style: 'currency',
-                currency: 'EUR',
-              }).format(productPrice)}
-            </span>
 
-            <p
-              className="text-green-700 md:text-xs lg:text-sm text-center md:text-left"
-              title="Livraison gratuite"
-            >
-              Livraison gratuite
-            </p>
-            <div className="my-3 flex justify-center md:justify-start">
-              <button
-                disabled={!inStock}
-                className={`px-2 lg:px-4 py-2 inline-block md:text-xs lg:text-sm text-white rounded-md hover:bg-blue-700 transition
-                  ${inStock ? 'bg-blue-600' : 'bg-gray-400 cursor-not-allowed'}`}
-                onClick={(e) => inStock && addToCartHandler(e)}
-                aria-label={
-                  inStock ? 'Ajouter au panier' : 'Produit indisponible'
-                }
-                aria-disabled={!inStock}
+        {/* Corps du produit */}
+        <div className="p-4 flex flex-col flex-grow">
+          {/* Catégorie */}
+          <div className="text-xs text-gray-500 mb-2">{productCategory}</div>
+
+          {/* Titre */}
+          <h3
+            className="font-semibold text-lg text-gray-800 line-clamp-2 mb-2"
+            title={productName}
+          >
+            {productName}
+          </h3>
+
+          {/* Description */}
+          <p className="text-sm text-gray-600 line-clamp-2 mb-4 flex-grow">
+            {productDescription
+              ? productDescription.substring(0, 100) +
+                (productDescription.length > 100 ? '...' : '')
+              : 'Aucune description disponible'}
+          </p>
+
+          {/* Prix et disponibilité */}
+          <div className="mt-auto">
+            <div className="flex items-baseline justify-between mb-2">
+              <span
+                className="text-xl font-bold text-gray-900"
+                data-testid="Price"
               >
-                {inStock ? 'Ajouter au panier' : 'Indisponible'}
-              </button>
+                {new Intl.NumberFormat('fr-FR', {
+                  style: 'currency',
+                  currency: 'EUR',
+                }).format(productPrice)}
+              </span>
+
+              <span className="text-xs text-green-600">Livraison gratuite</span>
             </div>
           </div>
         </div>
       </Link>
+
+      {/* Bouton ajouter au panier (en dehors du Link pour éviter conflit) */}
+      <div className="px-4 pb-4">
+        <button
+          disabled={!inStock}
+          className={`w-full py-2 rounded-md text-center text-sm transition-colors ${
+            inStock
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+          }`}
+          onClick={addToCartHandler}
+          aria-label={inStock ? 'Ajouter au panier' : 'Produit indisponible'}
+          aria-disabled={!inStock}
+        >
+          {inStock ? 'Ajouter au panier' : 'Indisponible'}
+        </button>
+      </div>
     </article>
   );
 });
