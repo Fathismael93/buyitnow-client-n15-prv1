@@ -174,7 +174,7 @@ const Filters = ({ categories, setLocalLoading }) => {
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="text-sm text-blue-600 cursor-pointer hover:text-blue-800 hidden md:block"
+              className="text-sm text-[#5F464B] cursor-pointer hover:text-[#4A3539] hidden md:block"
               aria-label="Réinitialiser tous les filtres"
             >
               Réinitialiser
@@ -200,7 +200,7 @@ const Filters = ({ categories, setLocalLoading }) => {
                 <input
                   id="min-price"
                   name="min"
-                  className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-blue-500 w-full"
+                  className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-[#5F464B] w-full"
                   type="number"
                   min="0"
                   placeholder="Min"
@@ -221,7 +221,7 @@ const Filters = ({ categories, setLocalLoading }) => {
                 <input
                   id="max-price"
                   name="max"
-                  className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-blue-500 w-full"
+                  className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-[#5F464B] w-full"
                   type="number"
                   min="0"
                   placeholder="Max"
@@ -236,8 +236,8 @@ const Filters = ({ categories, setLocalLoading }) => {
             <button
               className={`w-full py-2 px-4 ${
                 isSubmitting
-                  ? 'bg-blue-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700'
+                  ? 'bg-[#8A7176] cursor-not-allowed'
+                  : 'bg-[#5F464B] hover:bg-[#4A3539]'
               } text-white cursor-pointer rounded-md transition-colors`}
               onClick={handlePriceFilter}
               aria-label="Appliquer les filtres de prix"
@@ -262,7 +262,7 @@ const Filters = ({ categories, setLocalLoading }) => {
                     key={category?._id}
                     className={`flex items-center w-full p-2 rounded-md transition-colors cursor-pointer ${
                       currentCategory === category?._id
-                        ? 'bg-blue-100 text-blue-700'
+                        ? 'bg-[#EDE8E9] text-[#5F464B]'
                         : 'hover:bg-gray-100 text-gray-700'
                     }`}
                     onClick={() => handleCategoryClick(category?._id)}

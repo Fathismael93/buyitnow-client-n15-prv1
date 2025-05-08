@@ -145,7 +145,7 @@ const ListProducts = ({ data, categories }) => {
             {/* Affichage du récapitulatif des filtres et du nombre de résultats */}
             {filterSummary && (
               <div
-                className="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-800 border border-blue-100"
+                className="mb-4 p-3 bg-[#EDE8E9] rounded-lg text-sm text-[#5F464B] border border-[#D8CED0]"
                 aria-live="polite"
                 aria-label="Filtres appliqués"
               >
@@ -193,7 +193,7 @@ const ListProducts = ({ data, categories }) => {
                 </p>
                 <button
                   onClick={handleResetFilters}
-                  className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  className="mt-6 px-4 py-2 bg-[#5F464B] text-white rounded-md hover:bg-[#4A3539] transition-colors"
                   aria-label="Voir tous les produits disponibles"
                 >
                   Voir tous les produits

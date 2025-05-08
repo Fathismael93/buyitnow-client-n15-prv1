@@ -59,7 +59,7 @@ const ProductItem = memo(({ product }) => {
     <article className="border border-gray-200 overflow-hidden bg-white shadow-xs rounded-sm mb-5">
       <Link
         href={`/product/${productId}`}
-        className="flex flex-col md:flex-row hover:bg-blue-50"
+        className="flex flex-col md:flex-row hover:bg-[#EDE8E9]"
         aria-label={`Voir les détails du produit: ${productName}`}
       >
         <div className="md:w-1/4 flex p-3">
@@ -136,8 +136,8 @@ const ProductItem = memo(({ product }) => {
             <div className="my-3 flex justify-center md:justify-start">
               <button
                 disabled={!inStock}
-                className={`px-2 lg:px-4 py-2 inline-block md:text-xs lg:text-sm text-white rounded-md hover:bg-blue-700 transition
-                  ${inStock ? 'bg-blue-600' : 'bg-gray-400 cursor-not-allowed'}`}
+                className={`px-2 lg:px-4 py-2 inline-block md:text-xs lg:text-sm text-white rounded-md hover:bg-[#4A3539] transition
+                  ${inStock ? 'bg-[#5F464B]' : 'bg-gray-400 cursor-not-allowed'}`}
                 onClick={(e) => inStock && addToCartHandler(e)}
                 aria-label={
                   inStock ? 'Ajouter au panier' : 'Produit indisponible'
