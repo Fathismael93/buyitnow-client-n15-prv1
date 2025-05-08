@@ -14,8 +14,8 @@ const Filters = ({ categories, setLocalLoading }) => {
   // État local synchronisé avec les paramètres d'URL
   const [min, setMin] = useState(() => searchParams?.get('min') || '');
   const [max, setMax] = useState(() => searchParams?.get('max') || '');
-  const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeCategoryPanel, setActiveCategoryPanel] = useState(false);
 
   // Mémoiser la valeur de catégorie actuelle
   const currentCategory = useMemo(
@@ -81,7 +81,7 @@ const Filters = ({ categories, setLocalLoading }) => {
 
         // Navigation vers la nouvelle URL
         const path = `/?${params.toString()}`;
-        setOpen(false);
+        setActiveCategoryPanel(false);
         setIsSubmitting(false);
         setLocalLoading(false);
         router.push(path);
@@ -114,7 +114,6 @@ const Filters = ({ categories, setLocalLoading }) => {
 
       // Navigation
       const path = `/?${params.toString()}`;
-      setOpen(false);
       setIsSubmitting(false);
       setLocalLoading(false);
       router.push(path);
@@ -142,7 +141,7 @@ const Filters = ({ categories, setLocalLoading }) => {
     setMin('');
     setMax('');
     router.push('/');
-    setOpen(false);
+    setActiveCategoryPanel(false);
   }, [router, setLocalLoading]);
 
   // Vérifier si des filtres sont actifs
@@ -150,95 +149,71 @@ const Filters = ({ categories, setLocalLoading }) => {
     return min || max || currentCategory;
   }, [min, max, currentCategory]);
 
+  // Obtenir le nom de la catégorie sélectionnée
+  const selectedCategoryName = useMemo(() => {
+    if (!currentCategory) return null;
+    return (
+      categories?.find((c) => c._id === currentCategory)?.categoryName ||
+      'Catégorie'
+    );
+  }, [currentCategory, categories]);
+
   return (
-    <aside className="md:w-1/3 lg:w-1/4 px-4">
-      <div className="sticky top-20">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-800 hidden md:block">
-            Filtres
-          </h2>
+    <div className="w-full">
+      {/* Layout horizontal pour desktop */}
+      <div className="flex flex-wrap items-end gap-4">
+        {/* Section Prix */}
+        <div className="bg-white rounded-lg p-4 border border-gray-200 flex-grow md:flex-grow-0">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">Prix (€)</h3>
+          <div className="flex items-end gap-2">
+            <div>
+              <label
+                htmlFor="min-price"
+                className="text-xs text-gray-500 mb-1 block"
+              >
+                Min
+              </label>
+              <input
+                id="min-price"
+                name="min"
+                className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-blue-500 w-24"
+                type="number"
+                min="0"
+                placeholder="Min"
+                value={min}
+                onChange={(e) => setMin(e.target.value)}
+                aria-label="Prix minimum"
+                disabled={isSubmitting}
+              />
+            </div>
 
-          <button
-            className="md:hidden w-full mb-4 py-2 px-4 bg-white border border-gray-200 rounded-md shadow-sm flex justify-between items-center"
-            onClick={() => setOpen((prev) => !prev)}
-            aria-expanded={open}
-            aria-controls="filter-panel"
-          >
-            <span className="font-medium text-gray-700">Filtres</span>
-            <i
-              className={`fa fa-${open ? 'chevron-up' : 'chevron-down'} text-gray-500`}
-              aria-hidden="true"
-            ></i>
-          </button>
-
-          {hasActiveFilters && (
-            <button
-              onClick={resetFilters}
-              className="text-sm text-blue-600 cursor-pointer hover:text-blue-800 hidden md:block"
-              aria-label="Réinitialiser tous les filtres"
-            >
-              Réinitialiser
-            </button>
-          )}
-        </div>
-
-        <div
-          id="filter-panel"
-          className={`${open ? 'block' : 'hidden'} md:block space-y-4`}
-        >
-          {/* Prix */}
-          <div className="p-4 border border-gray-200 bg-white rounded-lg shadow-sm">
-            <h3 className="font-semibold mb-3 text-gray-700">Prix (€)</h3>
-            <div className="grid grid-cols-2 gap-x-2 mb-3">
-              <div>
-                <label
-                  htmlFor="min-price"
-                  className="text-xs text-gray-500 mb-1 block"
-                >
-                  Min
-                </label>
-                <input
-                  id="min-price"
-                  name="min"
-                  className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-blue-500 w-full"
-                  type="number"
-                  min="0"
-                  placeholder="Min"
-                  value={min}
-                  onChange={(e) => setMin(e.target.value)}
-                  aria-label="Prix minimum"
-                  disabled={isSubmitting}
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="max-price"
-                  className="text-xs text-gray-500 mb-1 block"
-                >
-                  Max
-                </label>
-                <input
-                  id="max-price"
-                  name="max"
-                  className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-blue-500 w-full"
-                  type="number"
-                  min="0"
-                  placeholder="Max"
-                  value={max}
-                  onChange={(e) => setMax(e.target.value)}
-                  aria-label="Prix maximum"
-                  disabled={isSubmitting}
-                />
-              </div>
+            <div>
+              <label
+                htmlFor="max-price"
+                className="text-xs text-gray-500 mb-1 block"
+              >
+                Max
+              </label>
+              <input
+                id="max-price"
+                name="max"
+                className="appearance-none border border-gray-200 bg-gray-100 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-blue-500 w-24"
+                type="number"
+                min="0"
+                placeholder="Max"
+                value={max}
+                onChange={(e) => setMax(e.target.value)}
+                aria-label="Prix maximum"
+                disabled={isSubmitting}
+              />
             </div>
 
             <button
-              className={`w-full py-2 px-4 ${
+              className={`py-2 px-4 ${
                 isSubmitting
                   ? 'bg-blue-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700'
-              } text-white cursor-pointer rounded-md transition-colors`}
+              } text-white cursor-pointer rounded-md transition-colors whitespace-nowrap`}
               onClick={handlePriceFilter}
               aria-label="Appliquer les filtres de prix"
               disabled={isSubmitting}
@@ -246,52 +221,111 @@ const Filters = ({ categories, setLocalLoading }) => {
               Appliquer
             </button>
           </div>
-
-          {/* Catégories */}
-          <div className="p-4 border border-gray-200 bg-white rounded-lg shadow-sm">
-            <h3 className="font-semibold mb-3 text-gray-700">Catégories</h3>
-
-            {arrayHasData(categories) ? (
-              <div className="w-full text-center py-2">
-                <p className="text-gray-500">Aucune catégorie disponible</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                {categories?.map((category) => (
-                  <button
-                    key={category?._id}
-                    className={`flex items-center w-full p-2 rounded-md transition-colors cursor-pointer ${
-                      currentCategory === category?._id
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'hover:bg-gray-100 text-gray-700'
-                    }`}
-                    onClick={() => handleCategoryClick(category?._id)}
-                    aria-pressed={currentCategory === category?._id}
-                    disabled={isSubmitting}
-                  >
-                    <span className="ml-2">{category?.categoryName}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Bouton réinitialiser mobile */}
-          {hasActiveFilters && (
-            <div className="md:hidden">
-              <button
-                onClick={resetFilters}
-                className="w-full py-2 text-center text-sm text-red-600 hover:text-red-800 border border-red-200 cursor-pointer rounded-md hover:bg-red-50"
-                aria-label="Réinitialiser tous les filtres"
-                disabled={isSubmitting}
-              >
-                Réinitialiser les filtres
-              </button>
-            </div>
-          )}
         </div>
+
+        {/* Section Catégories avec dropdown */}
+        <div className="relative bg-white rounded-lg border border-gray-200 flex-grow md:flex-grow-0">
+          <button
+            className="w-full p-4 text-left flex items-center justify-between"
+            onClick={() => setActiveCategoryPanel(!activeCategoryPanel)}
+            aria-expanded={activeCategoryPanel}
+            aria-haspopup="true"
+          >
+            <span className="text-sm font-medium text-gray-700">
+              Catégorie: {selectedCategoryName || 'Toutes'}
+            </span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className={`h-5 w-5 text-gray-500 transition-transform ${
+                activeCategoryPanel ? 'rotate-180' : ''
+              }`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+
+          {/* Panneau déroulant des catégories */}
+          <div
+            className={`absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg transform transition-all ${
+              activeCategoryPanel
+                ? 'opacity-100 scale-100'
+                : 'opacity-0 scale-95 pointer-events-none'
+            }`}
+          >
+            <div className="p-2 max-h-60 overflow-y-auto">
+              {arrayHasData(categories) ? (
+                <div className="text-center py-2">
+                  <p className="text-gray-500">Aucune catégorie disponible</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {categories?.map((category) => (
+                    <button
+                      key={category?._id}
+                      className={`flex items-center w-full p-2 rounded-md transition-colors cursor-pointer ${
+                        currentCategory === category?._id
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'hover:bg-gray-100 text-gray-700'
+                      }`}
+                      onClick={() => handleCategoryClick(category?._id)}
+                      aria-pressed={currentCategory === category?._id}
+                      disabled={isSubmitting}
+                    >
+                      <span>{category?.categoryName}</span>
+                      {currentCategory === category?._id && (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5 ml-auto"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Bouton réinitialiser */}
+        {hasActiveFilters && (
+          <button
+            onClick={resetFilters}
+            className="py-2 px-4 border border-red-200 text-red-600 rounded-md hover:bg-red-50 transition-colors whitespace-nowrap"
+            aria-label="Réinitialiser tous les filtres"
+            disabled={isSubmitting}
+          >
+            Réinitialiser les filtres
+          </button>
+        )}
       </div>
-    </aside>
+
+      {/* Overlay pour fermer le menu des catégories lorsqu'il est ouvert */}
+      {activeCategoryPanel && (
+        <div
+          className="fixed inset-0 z-20"
+          onClick={() => setActiveCategoryPanel(false)}
+          aria-hidden="true"
+        />
+      )}
+    </div>
   );
 };
 
