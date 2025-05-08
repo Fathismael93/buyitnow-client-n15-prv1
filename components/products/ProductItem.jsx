@@ -8,6 +8,7 @@ import { INCREASE } from '@/helpers/constants';
 import AuthContext from '@/context/AuthContext';
 
 const ProductItem = memo(({ product }) => {
+  console.log('ProductItem re-rendered', product);
   const { addItemToCart, updateCart, cart } = useContext(CartContext);
   const { user } = useContext(AuthContext);
 
