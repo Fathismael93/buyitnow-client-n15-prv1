@@ -2,14 +2,12 @@ import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 
 import '@/app/globals.css';
-import Loading from './loading';
 
 import { GlobalProvider } from './GlobalProvider';
 const Head = dynamic(() => import('@/app/head'));
 const HeaderWithErrorBoundary = dynamic(
   () => import('@/components/layouts/HeaderWithErrorBoundary'),
   {
-    loading: () => <Loading />,
     ssr: true,
   },
 );
@@ -108,7 +106,7 @@ export default function RootLayout({ children }) {
         <EnvInit />
         <GlobalProvider>
           <ServiceWorkerManager />
-          <Suspense fallback={<Loading />}>
+          <Suspense>
             <HeaderWithErrorBoundary />
           </Suspense>
           <main className="flex-grow">{children}</main>

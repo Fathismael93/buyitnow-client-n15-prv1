@@ -3,11 +3,9 @@ import dynamic from 'next/dynamic';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { captureException } from '@/monitoring/sentry';
-import Loading from '../loading';
 
 // Import dynamique du composant Cart avec fallback spécifique
 const Cart = dynamic(() => import('@/components/cart/Cart'), {
-  loading: () => <Loading />,
   ssr: true,
 });
 

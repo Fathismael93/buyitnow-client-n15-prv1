@@ -5,12 +5,10 @@ import { redirect, notFound } from 'next/navigation';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { captureException } from '@/monitoring/sentry';
 
-import Loading from '@/app/loading';
 import { getSingleAddress } from '@/backend/utils/server-only-methods';
 
 // Chargement dynamique avec configuration optimisée
 const UpdateAddress = lazy(() => import('@/components/user/UpdateAddress'), {
-  loading: () => <Loading />,
   ssr: true, // Activer le SSR pour améliorer le premier chargement
 });
 
@@ -138,7 +136,7 @@ async function UpdateAddressPage({ params }) {
 
           <div className="mt-8">
             <div className="bg-white py-8 px-4 sm:px-8 shadow sm:rounded-lg">
-              <Suspense fallback={<Loading />}>
+              <Suspense>
                 <UpdateAddress
                   id={addressId}
                   address={address}

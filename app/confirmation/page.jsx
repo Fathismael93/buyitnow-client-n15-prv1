@@ -1,11 +1,9 @@
-import React from 'react';
 import dynamic from 'next/dynamic';
 
-import Loading from '@/app/loading';
-
-const Confirmation = dynamic(() => import('@/components/cart/Confirmation'), {
-  loading: () => <Loading />,
-});
+const Confirmation = dynamic(
+  () => import('@/components/cart/Confirmation'),
+  {},
+);
 
 export const metadata = {
   title: 'Buy It Now - Confirmation',

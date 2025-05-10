@@ -5,11 +5,8 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { captureException } from '@/monitoring/sentry';
 
-import Loading from '@/app/loading';
-
 // Lazy load the NewAddress component with optimized configuration
 const NewAddress = lazy(() => import('@/components/user/NewAddress'), {
-  loading: () => <Loading />,
   ssr: true, // Enable SSR for better initial load
 });
 
@@ -90,7 +87,7 @@ async function NewAddressPage() {
 
           <div className="mt-8">
             <div className="bg-white py-8 px-4 sm:px-8 shadow sm:rounded-lg">
-              <Suspense fallback={<Loading />}>
+              <Suspense>
                 <NewAddress userId={session.user._id} referer={referer} />
               </Suspense>
             </div>
