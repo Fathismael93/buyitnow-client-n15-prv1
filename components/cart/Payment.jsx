@@ -539,15 +539,15 @@ const Payment = () => {
                     </span>
                   </div>
 
-                  {shippingStatus && (
-                    <div className="flex justify-between text-gray-600">
-                      <span>Frais de livraison:</span>
-                      <span>{formatPrice(deliveryPrice || 0)}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between text-gray-600">
+                    <span>Frais de livraison:</span>
+                    <span>
+                      {shippingStatus ? formatPrice(deliveryPrice || 0) : 0}
+                    </span>
+                  </div>
 
                   <div className="flex justify-between text-lg font-bold border-t pt-3 mt-2">
-                    <span>Total:</span>
+                    <span>Total a payer:</span>
                     <span className="text-blue-600">
                       {formatPrice(totalAmount)}
                     </span>
