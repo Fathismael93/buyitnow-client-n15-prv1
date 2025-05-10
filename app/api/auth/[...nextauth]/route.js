@@ -213,8 +213,6 @@ const auth = {
           token.authTime = Date.now();
         }
 
-        console.log('trigger', trigger);
-
         // Gérer les mises à jour de session
         // Détection de la demande de mise à jour de session
         if (trigger === 'update') {

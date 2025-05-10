@@ -440,7 +440,6 @@ export const AuthProvider = ({ children }) => {
         let data;
         try {
           data = await res.json();
-          console.log('Response data in update profile:', data);
         } catch (jsonError) {
           setError('Réponse du serveur invalide');
           toast.error('Réponse du serveur invalide. Veuillez réessayer.');
@@ -500,6 +499,7 @@ export const AuthProvider = ({ children }) => {
           }
 
           setUser(data.data.updatedUser); // Mettre à jour l'état utilisateur avec les nouvelles données
+          router.push('/me'); // Rediriger vers la page de profil
 
           // Afficher un message de réussite
           toast.success(data.message || 'Profil mis à jour avec succès!');
