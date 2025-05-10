@@ -318,7 +318,7 @@ const OrderSummary = memo(({ checkoutInfo, cart = [] }) => {
 
       <div className="border-t border-gray-200 pt-4">
         <h3 className="font-medium text-gray-800 mb-3">
-          Articles dans votre panier
+          Produits dans votre panier
         </h3>
 
         <div className="space-y-3 max-h-80 overflow-auto pr-2 hide-scrollbar">
@@ -326,7 +326,7 @@ const OrderSummary = memo(({ checkoutInfo, cart = [] }) => {
             cart.map((item) => <ItemShipping key={item.id} item={item} />)
           ) : (
             <p className="text-gray-500 text-sm italic py-2">
-              Aucun article dans votre panier
+              Aucun produit dans votre panier
             </p>
           )}
         </div>

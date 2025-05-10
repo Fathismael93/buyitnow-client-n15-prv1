@@ -256,7 +256,7 @@ const Shipping = ({ initialData }) => {
           </div>
           <h2 className="text-2xl font-semibold mb-3">Votre panier est vide</h2>
           <p className="text-gray-600 mb-6 max-w-md">
-            Vous devez ajouter des articles à votre panier avant de passer à la
+            Vous devez ajouter des produits à votre panier avant de passer à la
             livraison.
           </p>
           <Link
@@ -505,7 +505,7 @@ const OrderSummary = memo(
 
       <div className="border-t border-gray-200 pt-4 mt-4">
         <h3 className="font-medium text-gray-800 mb-3">
-          Articles ({Array.isArray(cart) ? cart.length : 0})
+          Produits ({Array.isArray(cart) ? cart.length : 0})
         </h3>
 
         <div className="space-y-3 max-h-80 overflow-auto pr-2 hide-scrollbar">
@@ -515,7 +515,7 @@ const OrderSummary = memo(
             ))
           ) : (
             <p className="text-gray-500 text-sm italic py-2">
-              Aucun article dans votre panier
+              Aucun produit dans votre panier
             </p>
           )}
         </div>

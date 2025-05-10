@@ -400,7 +400,7 @@ const Payment = () => {
           </div>
           <h2 className="text-2xl font-semibold mb-3">Votre panier est vide</h2>
           <p className="text-gray-600 mb-6 max-w-md">
-            Vous devez ajouter des articles à votre panier avant de procéder au
+            Vous devez ajouter des produits à votre panier avant de procéder au
             paiement.
           </p>
           <Link
@@ -532,6 +532,13 @@ const Payment = () => {
                 </div>
 
                 <div className="space-y-3 mb-6">
+                  <div className="flex justify-between text-lg font-bold border-t pt-3 mt-2">
+                    <span>Total du panier:</span>
+                    <span className="text-blue-600">
+                      {formatPrice(Number(safeValue(checkoutInfo?.amount, 0)))}
+                    </span>
+                  </div>
+
                   {shippingStatus && (
                     <div className="flex justify-between text-gray-600">
                       <span>Frais de livraison:</span>
