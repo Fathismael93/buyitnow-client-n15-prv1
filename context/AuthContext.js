@@ -456,6 +456,7 @@ export const AuthProvider = ({ children }) => {
         let data;
         try {
           data = await res.json();
+          console.log('Response data in update profile:', data);
         } catch (jsonError) {
           setError('Réponse du serveur invalide');
           toast.error('Réponse du serveur invalide. Veuillez réessayer.');
