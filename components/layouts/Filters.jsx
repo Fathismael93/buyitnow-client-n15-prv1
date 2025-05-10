@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-toastify';
 
-import { arrayHasData, getPriceQueryParams } from '@/helpers/helpers';
+import { isArrayEmpty, getPriceQueryParams } from '@/helpers/helpers';
 import { maxPriceSchema, minPriceSchema } from '@/helpers/schemas';
 
 const Filters = ({ categories, setLocalLoading }) => {
@@ -251,7 +251,7 @@ const Filters = ({ categories, setLocalLoading }) => {
           <div className="p-4 border border-gray-200 bg-white rounded-lg shadow-sm">
             <h3 className="font-semibold mb-3 text-gray-700">Catégories</h3>
 
-            {arrayHasData(categories) ? (
+            {isArrayEmpty(categories) ? (
               <div className="w-full text-center py-2">
                 <p className="text-gray-500">Aucune catégorie disponible</p>
               </div>

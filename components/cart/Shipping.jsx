@@ -18,7 +18,7 @@ import { captureException } from '@/monitoring/sentry';
 // Imports optimisés
 import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
-import { arrayHasData, formatPrice, safeValue } from '@/helpers/helpers';
+import { isArrayEmpty, formatPrice, safeValue } from '@/helpers/helpers';
 import { useOnlineStatus } from '@/hooks/useCustomHooks';
 import { validateShippingAddressSelection } from '@/helpers/schemas';
 
@@ -114,7 +114,7 @@ const Shipping = ({ initialData }) => {
         const paymentData = initialData?.paymentTypes || paymentTypes;
 
         // Vérifier les méthodes de paiement
-        if (arrayHasData(paymentData)) {
+        if (isArrayEmpty(paymentData)) {
           toast.error(
             "Aucun moyen de paiement n'est disponible. Veuillez réessayer plus tard.",
             {

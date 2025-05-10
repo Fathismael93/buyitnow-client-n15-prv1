@@ -18,7 +18,7 @@ import { captureException } from '@/monitoring/sentry';
 // Imports optimisés
 import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
-import { arrayHasData, formatPrice, safeValue } from '@/helpers/helpers';
+import { isArrayEmpty, formatPrice, safeValue } from '@/helpers/helpers';
 import { useOnlineStatus } from '@/hooks/useCustomHooks';
 import { validatePaymentDetails } from '@/helpers/schemas';
 
@@ -126,7 +126,7 @@ const Payment = () => {
         });
 
         // Vérifier si des moyens de paiement sont disponibles
-        if (arrayHasData(paymentTypes)) {
+        if (isArrayEmpty(paymentTypes)) {
           toast.error("Aucun moyen de paiement n'est disponible actuellement", {
             position: 'bottom-right',
             autoClose: 5000,
@@ -427,7 +427,7 @@ const Payment = () => {
                   Choisissez votre moyen de paiement
                 </h2>
 
-                {arrayHasData(paymentTypes) ? (
+                {isArrayEmpty(paymentTypes) ? (
                   <NoPaymentMethodsFound />
                 ) : (
                   <div className="grid sm:grid-cols-2 gap-4 mb-6">

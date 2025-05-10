@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { arrayHasData } from '@/helpers/helpers';
+import { isArrayEmpty } from '@/helpers/helpers';
 import { captureException } from '@/monitoring/sentry';
 
 // Import dynamique des composants
@@ -174,7 +174,7 @@ const ListProducts = ({ data, categories }) => {
                   <ProductItemSkeleton key={index} />
                 ))}
               </div>
-            ) : arrayHasData(data?.products) ? (
+            ) : isArrayEmpty(data?.products) ? (
               <div
                 className="flex flex-col items-center justify-center py-10 text-center"
                 aria-live="assertive"

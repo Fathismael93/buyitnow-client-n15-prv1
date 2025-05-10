@@ -7,7 +7,7 @@ import Link from 'next/link';
 
 import OrderContext from '@/context/OrderContext';
 import CartContext from '@/context/CartContext';
-import { arrayHasData } from '@/helpers/helpers';
+import { isArrayEmpty } from '@/helpers/helpers';
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
 
 const Confirmation = () => {
@@ -50,7 +50,7 @@ const Confirmation = () => {
                 <h2 className="text-xl text-black font-semibold mb-4">
                   Nos Comptes
                 </h2>
-                {arrayHasData(paymentTypes) ? (
+                {isArrayEmpty(paymentTypes) ? (
                   <div className="w-full">
                     <p className="font-bold text-xl text-center">
                       Something Happened While Fetching Payment Types!

@@ -17,7 +17,7 @@ import { captureException } from '@/monitoring/sentry';
 // Imports optimisés
 import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
-import { arrayHasData } from '@/helpers/helpers';
+import { isArrayEmpty } from '@/helpers/helpers';
 import Loading from '@/app/loading';
 
 // Chargement dynamique des composants
@@ -87,14 +87,14 @@ const ShippingChoice = ({
         router.prefetch('/shipping');
 
         // Validation des données
-        if (!arrayHasData(addresses) && addresses.length === 0) {
+        if (isArrayEmpty(addresses)) {
           toast.error(
             'Vous devez compléter votre profil et ajouter une adresse',
           );
           return router.push('/me');
         }
 
-        if (!arrayHasData(payments) && payments.length === 0) {
+        if (isArrayEmpty(payments)) {
           toast.error(
             "Aucun moyen de paiement n'est disponible pour le moment. Veuillez réessayer plus tard.",
           );

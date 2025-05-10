@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useContext } from 'react';
+import { useContext } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
 import OrderContext from '@/context/OrderContext';
-import { arrayHasData } from '@/helpers/helpers';
+import { isArrayEmpty } from '@/helpers/helpers';
 
 const ErrorPage = () => {
   const { lowStockProducts } = useContext(OrderContext);
@@ -22,7 +22,7 @@ const ErrorPage = () => {
         </div>
       </section>
 
-      {!arrayHasData(lowStockProducts) && (
+      {!isArrayEmpty(lowStockProducts) && (
         <section className="py-10">
           <div className="container max-w-(--breakpoint-xl) mx-auto px-4">
             <div className="flex flex-col md:flex-row gap-4">

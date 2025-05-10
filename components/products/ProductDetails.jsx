@@ -16,7 +16,7 @@ import Link from 'next/link';
 
 import AuthContext from '@/context/AuthContext';
 import CartContext from '@/context/CartContext';
-import { arrayHasData } from '@/helpers/helpers';
+import { isArrayEmpty } from '@/helpers/helpers';
 import { INCREASE } from '@/helpers/constants';
 
 // Pour la sécurité - nécessite d'installer cette dépendance
@@ -346,9 +346,9 @@ const RelatedProducts = memo(function RelatedProducts({
     [products, currentProductId],
   );
 
-  // Si arrayHasData retourne true, cela signifie que le tableau est vide ou invalide
-  // Donc nous voulons vérifier SI arrayHasData est true, ALORS return null
-  if (arrayHasData(filteredProducts)) {
+  // Si isArrayEmpty retourne true, cela signifie que le tableau est vide ou invalide
+  // Donc nous voulons vérifier SI isArrayEmpty est true, ALORS return null
+  if (isArrayEmpty(filteredProducts)) {
     return null;
   }
 

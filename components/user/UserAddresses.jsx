@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { memo } from 'react';
 
-import { arrayHasData } from '@/helpers/helpers';
+import { isArrayEmpty } from '@/helpers/helpers';
 
 const UserAddresses = memo(({ addresses }) => {
-  return arrayHasData(addresses) ? (
+  return isArrayEmpty(addresses) ? (
     <div className="w-full">
       <p className="font-bold text-xl text-center">No address found!</p>
     </div>
