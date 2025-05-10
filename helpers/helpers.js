@@ -3,7 +3,7 @@
  * @param {Array} array - Tableau à vérifier
  * @returns {boolean} - true si le tableau est vide ou non défini
  */
-export const arrayHasData = (array) => {
+export const isArrayEmpty = (array) => {
   return !Array.isArray(array) || array.length === 0;
 };
 
