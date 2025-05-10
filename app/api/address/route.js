@@ -163,7 +163,9 @@ export async function GET(req) {
 
         try {
           // Utiliser la méthode statique du modèle Address
-          const result = Address.findByUser(user._id);
+          const result = Address.findByUser(user._id).select(
+            'street city state zipCode country phoneNo isDefault additionalInfo addressId',
+          );
           clearTimeout(timeoutId);
           resolve(result);
         } catch (error) {
