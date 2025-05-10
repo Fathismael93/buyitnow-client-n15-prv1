@@ -273,24 +273,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const loadUser = async () => {
-    try {
-      setLoading(true);
-
-      const res = await fetch('/api/auth/session?update=');
-      const data = await res.json();
-
-      console.log('User data in loadUser:', data);
-
-      if (data?.user) {
-        setUser(data.user);
-        router.push('/me');
-      }
-    } catch (error) {
-      setError(error?.response?.data?.message);
-    }
-  };
-
   const updateProfile = async ({ name, phone, avatar }) => {
     try {
       // Mettre à jour l'état de chargement
@@ -517,11 +499,10 @@ export const AuthProvider = ({ children }) => {
             });
           }
 
+          setUser(data.data.updatedUser); // Mettre à jour l'état utilisateur avec les nouvelles données
+
           // Afficher un message de réussite
           toast.success(data.message || 'Profil mis à jour avec succès!');
-
-          // Recharger les données utilisateur
-          loadUser();
         } else {
           // Cas de succès mal formaté
           setError('Réponse inattendue du serveur');
