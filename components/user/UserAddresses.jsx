@@ -21,10 +21,25 @@ const UserAddresses = memo(({ addresses }) => {
             </div>
             <figcaption className="text-gray-600">
               <p>
-                {address.street} <br /> {address.city}, {address.state},{' '}
-                {address.zipCode}, {address.country}
+                {address.street} <br />
+                {address.city}, {address.state}, {address.zipCode},{' '}
+                {address.country}
                 <br />
-                Phone no: {address.phoneNo}
+                {address.additionalInfo && (
+                  <>
+                    Additional Info: {address.additionalInfo}
+                    <br />
+                  </>
+                )}
+                Address ID: {address.addressId}
+                {address.isDefault && (
+                  <>
+                    <br />
+                    <span className="text-green-600 font-semibold">
+                      Default Address
+                    </span>
+                  </>
+                )}
               </p>
             </figcaption>
           </figure>
