@@ -532,9 +532,9 @@ const Payment = () => {
                 </div>
 
                 <div className="space-y-3 mb-6">
-                  <div className="flex justify-between text-lg font-bold border-t pt-3 mt-2">
+                  <div className="flex justify-between text-gray-600">
                     <span>Total du panier:</span>
-                    <span className="text-blue-600">
+                    <span>
                       {formatPrice(Number(safeValue(checkoutInfo?.amount, 0)))}
                     </span>
                   </div>
