@@ -280,6 +280,8 @@ export const AuthProvider = ({ children }) => {
       const res = await fetch('/api/auth/session?update=');
       const data = await res.json();
 
+      console.log('User data in loadUser:', data);
+
       if (data?.user) {
         setUser(data.user);
         router.push('/me');

@@ -184,9 +184,6 @@ const UpdateProfile = ({ userId, initialEmail, referer }) => {
       setFormTouched(false);
       setValidationErrors({});
 
-      // Afficher un message de succès
-      toast.success('Profil mis à jour avec succès');
-
       // Journalisation anonymisée (uniquement en production)
       if (process.env.NODE_ENV === 'production') {
         console.info('Profile updated successfully', {
