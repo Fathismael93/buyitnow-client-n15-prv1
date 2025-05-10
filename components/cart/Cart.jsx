@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 
 import CartContext from '@/context/CartContext';
-import Loading from '@/app/loading';
 import dynamic from 'next/dynamic';
 import { captureException } from '@/monitoring/sentry';
 
@@ -76,7 +75,7 @@ const Cart = () => {
 
   // Afficher un écran de chargement pendant le chargement initial
   if (!initialLoadComplete) {
-    return <Loading />;
+    return <p>Loading...</p>;
   }
 
   return (

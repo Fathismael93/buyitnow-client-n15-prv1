@@ -3,7 +3,6 @@ import {
   getAllProducts,
   getCategories,
 } from '@/backend/utils/server-only-methods';
-import Loading from './loading';
 
 // Utilisation de lazy au lieu de dynamic pour éviter le conflit de nom
 const ListProducts = lazy(() => import('@/components/products/ListProducts'));
@@ -22,7 +21,6 @@ export const metadata = {
 
 export const revalidate = 3600; // Revalidation toutes les 60 secondes
 
-// eslint-disable-next-line react/prop-types
 const HomePage = async ({ searchParams }) => {
   // Récupération des données avec un fallback en cas d'erreur
   const productsData = await getAllProducts(searchParams).catch(() => ({
@@ -35,7 +33,7 @@ const HomePage = async ({ searchParams }) => {
   }));
 
   return (
-    <Suspense fallback={<Loading />}>
+    <Suspense>
       <main>
         <ListProducts data={productsData?.data} categories={categories} />
       </main>

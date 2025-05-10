@@ -18,7 +18,6 @@ import { captureException } from '@/monitoring/sentry';
 import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
 import { isArrayEmpty } from '@/helpers/helpers';
-import Loading from '@/app/loading';
 
 // Chargement dynamique des composants
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
@@ -174,7 +173,7 @@ const ShippingChoice = ({
 
   // Si en cours de chargement, afficher un indicateur
   if (isLoading) {
-    return <Loading />;
+    return <p>Loading...</p>;
   }
 
   return (
