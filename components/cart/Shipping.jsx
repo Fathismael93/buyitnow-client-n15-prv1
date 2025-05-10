@@ -488,6 +488,11 @@ const OrderSummary = memo(
 
       <ul className="space-y-3">
         <li className="flex justify-between text-gray-600">
+          <span>Total du panier:</span>
+          <span>{formatPrice(baseAmount)}</span>
+        </li>
+
+        <li className="flex justify-between text-gray-600">
           <span>Frais de livraison:</span>
           <span>{formatPrice(deliveryPrice)}</span>
         </li>

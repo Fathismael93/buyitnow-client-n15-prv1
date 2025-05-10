@@ -128,7 +128,7 @@ const CartHeader = memo(({ cartCount }) => (
           Mon Panier
         </h1>
         <span className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
-          {cartCount || 0} article{cartCount !== 1 ? 's' : ''}
+          {cartCount || 0} produit{cartCount !== 1 ? 's' : ''}
         </span>
       </div>
     </div>
