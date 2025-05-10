@@ -176,8 +176,6 @@ export async function GET(req) {
 
       addresses = await addressPromise;
 
-      console.log('Addresses fetched from database', addresses);
-
       // Mettre en cache les résultats pour 5 minutes
       appCache.products.set(cacheKey, addresses, { ttl: 5 * 60 * 1000 });
     } else {

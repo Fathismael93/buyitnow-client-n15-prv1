@@ -4,7 +4,6 @@ import { memo } from 'react';
 import { arrayHasData } from '@/helpers/helpers';
 
 const UserAddresses = memo(({ addresses }) => {
-  console.log('UserAddresses', addresses);
   return arrayHasData(addresses) ? (
     <div className="w-full">
       <p className="font-bold text-xl text-center">No address found!</p>
@@ -22,15 +21,15 @@ const UserAddresses = memo(({ addresses }) => {
             <figcaption className="text-gray-600">
               <p>
                 {address.street} <br />
-                {address.city}, {address.state}, {address.zipCode},{' '}
-                {address.country}
-                <br />
                 {address.additionalInfo && (
                   <>
                     Additional Info: {address.additionalInfo}
                     <br />
                   </>
                 )}
+                {address.city}, {address.state}, {address.zipCode},{' '}
+                {address.country}
+                <br />
                 Address ID: {address.addressId}
                 {address.isDefault && (
                   <>
