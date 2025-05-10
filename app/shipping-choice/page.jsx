@@ -4,14 +4,12 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { captureException } from '@/monitoring/sentry';
 
-import Loading from '@/app/loading';
 import { getAllAddresses } from '@/backend/utils/server-only-methods';
 
 // Chargement dynamique du composant ShippingChoice avec fallback pour optimiser le chargement
 const ShippingChoice = dynamic(
   () => import('@/components/cart/ShippingChoice'),
   {
-    loading: () => <Loading />,
     ssr: true,
   },
 );
@@ -80,7 +78,7 @@ const ShippingChoicePage = async () => {
         itemType="https://schema.org/WebPage"
       >
         <meta itemProp="name" content="Choix de livraison" />
-        <Suspense fallback={<Loading />}>
+        <Suspense>
           <ShippingChoice
             addresses={addresses}
             payments={payments}

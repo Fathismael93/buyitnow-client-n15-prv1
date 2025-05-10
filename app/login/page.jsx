@@ -4,12 +4,10 @@ import { getServerSession } from 'next-auth/next';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { getCsrfToken } from 'next-auth/react';
 
-import Loading from '@/app/loading';
 import { redirect } from 'next/navigation';
 
 // Chargement dynamique avec retries
 const Login = lazy(() => import('@/components/auth/Login'), {
-  loading: () => <Loading />,
   ssr: true, // Activer le SSR pour améliorer la première charge
 });
 

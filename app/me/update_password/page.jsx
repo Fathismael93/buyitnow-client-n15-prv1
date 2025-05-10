@@ -5,11 +5,8 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { captureException } from '@/monitoring/sentry';
 
-import Loading from '@/app/loading';
-
 // Chargement dynamique optimisé avec SSR activé
 const UpdatePassword = lazy(() => import('@/components/auth/UpdatePassword'), {
-  loading: () => <Loading />,
   ssr: true, // Activer le SSR pour améliorer le premier chargement
 });
 
@@ -98,7 +95,7 @@ async function PasswordPage() {
           </div>
 
           <div className="bg-white py-8 px-4 sm:px-8 shadow sm:rounded-lg">
-            <Suspense fallback={<Loading />}>
+            <Suspense>
               <UpdatePassword userId={session.user._id} referer={referer} />
             </Suspense>
           </div>

@@ -2,13 +2,10 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth/next';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
-
-import Loading from '@/app/loading';
 import { lazy } from 'react';
 
 // Chargement dynamique optimisé avec retries
 const Register = lazy(() => import('@/components/auth/Register'), {
-  loading: () => <Loading />,
   ssr: true, // Activer le SSR pour améliorer le premier chargement
 });
 

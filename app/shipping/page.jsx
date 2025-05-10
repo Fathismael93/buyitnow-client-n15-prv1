@@ -3,13 +3,10 @@ import dynamic from 'next/dynamic';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { captureException } from '@/monitoring/sentry';
-
-import Loading from '@/app/loading';
 import { getAllAddresses } from '@/backend/utils/server-only-methods';
 
 // Chargement dynamique du composant Shipping avec fallback
 const Shipping = dynamic(() => import('@/components/cart/Shipping'), {
-  loading: () => <Loading />,
   ssr: true,
 });
 
@@ -76,7 +73,7 @@ const ShippingPage = async () => {
         itemType="https://schema.org/WebPage"
       >
         <meta itemProp="name" content="Adresse de livraison" />
-        <Suspense fallback={<Loading />}>
+        <Suspense>
           <Shipping initialData={addressesData} />
         </Suspense>
       </div>

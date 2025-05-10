@@ -1,14 +1,10 @@
 import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { captureException } from '@/monitoring/sentry';
-
-import Loading from '@/app/loading';
 
 // Chargement dynamique du composant Payment avec fallback
 const Payment = dynamic(() => import('@/components/cart/Payment'), {
-  loading: () => <Loading />,
   ssr: true,
 });
 
@@ -67,7 +63,7 @@ const PaymentPage = async () => {
         itemType="https://schema.org/WebPage"
       >
         <meta itemProp="name" content="Paiement" />
-        <Suspense fallback={<Loading />}>
+        <Suspense>
           <Payment />
         </Suspense>
       </div>
