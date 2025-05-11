@@ -6,6 +6,7 @@ import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { captureException } from '@/monitoring/sentry';
 
 import { getSingleAddress } from '@/backend/utils/server-only-methods';
+import UpdateAddressSkeleton from '@/components/skeletons/UpdateAddressSkeleton';
 
 // Chargement dynamique avec configuration optimisée
 const UpdateAddress = lazy(() => import('@/components/user/UpdateAddress'), {
@@ -136,7 +137,7 @@ async function UpdateAddressPage({ params }) {
 
           <div className="mt-8">
             <div className="bg-white py-8 px-4 sm:px-8 shadow sm:rounded-lg">
-              <Suspense>
+              <Suspense fallback={<UpdateAddressSkeleton />}>
                 <UpdateAddress
                   id={addressId}
                   address={address}

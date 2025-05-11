@@ -15,7 +15,7 @@ const ItemCart = dynamic(() => import('./components/ItemCart'), {
 });
 
 // Composants et hooks extraits pour meilleure organisation
-import CartItemSkeleton from './components/CartItemSkeleton';
+import CartItemSkeleton from '../skeletons/CartItemSkeleton';
 import EmptyCart from './components/EmptyCart';
 import CartSummary from './components/CartSummary';
 import useCartOperations from '../../hooks/useCartOperations';

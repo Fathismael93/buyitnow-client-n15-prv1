@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth/next';
 import { redirect } from 'next/navigation';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { captureException } from '@/monitoring/sentry';
+import NewAddressSkeleton from '@/components/skeletons/NewAddressSkeleton';
 
 // Lazy load the NewAddress component with optimized configuration
 const NewAddress = lazy(() => import('@/components/user/NewAddress'), {
@@ -87,7 +88,7 @@ async function NewAddressPage() {
 
           <div className="mt-8">
             <div className="bg-white py-8 px-4 sm:px-8 shadow sm:rounded-lg">
-              <Suspense>
+              <Suspense fallback={<NewAddressSkeleton />}>
                 <NewAddress userId={session.user._id} referer={referer} />
               </Suspense>
             </div>
