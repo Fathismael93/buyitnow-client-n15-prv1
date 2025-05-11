@@ -80,7 +80,7 @@ const Payment = () => {
     const baseAmount = Number(safeValue(checkoutInfo?.amount, 0));
     const shipping = shippingStatus ? Number(safeValue(deliveryPrice, 0)) : 0;
     return (baseAmount + shipping).toFixed(2);
-  }, [checkoutInfo?.amount, deliveryPrice, shippingStatus]);
+  }, [deliveryPrice, shippingStatus]);
 
   // Chemins de fil d'Ariane
   const breadCrumbs = useMemo(() => {
@@ -160,16 +160,7 @@ const Payment = () => {
     if (!dataInitialized) {
       initializePaymentPage();
     }
-  }, [
-    router,
-    checkoutInfo,
-    orderInfo,
-    setOrderInfo,
-    shippingInfo,
-    paymentTypes,
-    dataInitialized,
-    isOnline,
-  ]);
+  }, [shippingInfo, paymentTypes, dataInitialized, isOnline]);
 
   // Validation du formulaire à chaque changement
   useEffect(() => {
@@ -366,8 +357,6 @@ const Payment = () => {
     paymentType,
     accountName,
     accountNumber,
-    orderInfo,
-    addOrder,
     shippingStatus,
     totalAmount,
     paymentTypes,

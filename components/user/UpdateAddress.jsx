@@ -73,7 +73,7 @@ const UpdateAddress = ({ id, address, userId, referer }) => {
     if (streetInputRef.current) {
       streetInputRef.current.focus();
     }
-  }, [address, id, router]);
+  }, [address, id]);
 
   // Handle auth context updates
   useEffect(() => {
@@ -89,7 +89,7 @@ const UpdateAddress = ({ id, address, userId, referer }) => {
       setIsSubmitting(false);
       setIsDeleting(false);
     }
-  }, [error, updated, clearErrors, setUpdated]);
+  }, [error, clearErrors]);
 
   // Sanitize input to prevent XSS attacks
   const sanitizeInput = useCallback((value) => {
@@ -101,29 +101,26 @@ const UpdateAddress = ({ id, address, userId, referer }) => {
   }, []);
 
   // Handle input change with sanitization
-  const handleInputChange = useCallback(
-    (e) => {
-      const { name, value, type, checked } = e.target;
-      const inputValue = type === 'checkbox' ? checked : sanitizeInput(value);
+  const handleInputChange = useCallback((e) => {
+    const { name, value, type, checked } = e.target;
+    const inputValue = type === 'checkbox' ? checked : sanitizeInput(value);
 
-      setFormState((prevState) => ({
-        ...prevState,
-        [name]: inputValue,
+    setFormState((prevState) => ({
+      ...prevState,
+      [name]: inputValue,
+    }));
+
+    // Mark form as touched on any change
+    setFormTouched(true);
+
+    // Clear validation error for this field when user types
+    if (validationErrors[name]) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        [name]: null,
       }));
-
-      // Mark form as touched on any change
-      setFormTouched(true);
-
-      // Clear validation error for this field when user types
-      if (validationErrors[name]) {
-        setValidationErrors((prev) => ({
-          ...prev,
-          [name]: null,
-        }));
-      }
-    },
-    [validationErrors, sanitizeInput],
-  );
+    }
+  }, []);
 
   // Validate form against schema
   const validateForm = useCallback(async () => {

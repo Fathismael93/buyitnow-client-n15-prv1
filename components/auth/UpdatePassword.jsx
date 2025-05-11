@@ -45,7 +45,7 @@ const UpdatePassword = ({ userId, referer }) => {
     if (currentPasswordRef.current) {
       currentPasswordRef.current.focus();
     }
-  }, []);
+  }, [currentPasswordRef]);
 
   // Gestion des erreurs du contexte d'authentification
   useEffect(() => {
@@ -65,62 +65,30 @@ const UpdatePassword = ({ userId, referer }) => {
   }, []);
 
   // Modification de la fonction handleInputChange pour corriger le problème de validation des mots de passe
-  const handleInputChange = useCallback(
-    (e) => {
-      const { name, value } = e.target;
-      const sanitizedValue = sanitizeInput(value);
+  const handleInputChange = useCallback((e) => {
+    const { name, value } = e.target;
+    const sanitizedValue = sanitizeInput(value);
 
-      // Mettre à jour l'état du formulaire
-      setFormState((prevState) => {
-        const newState = {
-          ...prevState,
-          [name]: sanitizedValue,
-        };
+    // Mettre à jour l'état du formulaire
+    setFormState((prevState) => {
+      const newState = {
+        ...prevState,
+        [name]: sanitizedValue,
+      };
 
-        // Vérifier la correspondance entre les mots de passe
-        if (name === 'newPassword' || name === 'confirmPassword') {
-          // Si on modifie le nouveau mot de passe
-          if (name === 'newPassword') {
-            if (
-              newState.confirmPassword &&
-              newState.confirmPassword.length > 0
-            ) {
-              // Mettre à jour l'erreur en fonction de si les mots de passe correspondent
-              if (sanitizedValue !== newState.confirmPassword) {
-                setValidationErrors((prev) => ({
-                  ...prev,
-                  confirmPassword: 'Les mots de passe ne correspondent pas',
-                }));
-              } else {
-                // Important: supprimer l'erreur quand les mots de passe correspondent
-                setValidationErrors((prev) => {
-                  const newErrors = { ...prev };
-                  delete newErrors.confirmPassword;
-                  return newErrors;
-                });
-              }
-            }
-          }
-
-          // Si on modifie la confirmation du mot de passe
-          if (name === 'confirmPassword') {
-            if (sanitizedValue.length > 0) {
-              // Vérifier si la confirmation correspond au nouveau mot de passe
-              if (sanitizedValue !== newState.newPassword) {
-                setValidationErrors((prev) => ({
-                  ...prev,
-                  confirmPassword: 'Les mots de passe ne correspondent pas',
-                }));
-              } else {
-                // Important: supprimer l'erreur quand les mots de passe correspondent
-                setValidationErrors((prev) => {
-                  const newErrors = { ...prev };
-                  delete newErrors.confirmPassword;
-                  return newErrors;
-                });
-              }
+      // Vérifier la correspondance entre les mots de passe
+      if (name === 'newPassword' || name === 'confirmPassword') {
+        // Si on modifie le nouveau mot de passe
+        if (name === 'newPassword') {
+          if (newState.confirmPassword && newState.confirmPassword.length > 0) {
+            // Mettre à jour l'erreur en fonction de si les mots de passe correspondent
+            if (sanitizedValue !== newState.confirmPassword) {
+              setValidationErrors((prev) => ({
+                ...prev,
+                confirmPassword: 'Les mots de passe ne correspondent pas',
+              }));
             } else {
-              // Champ vide, pas d'erreur à ce stade
+              // Important: supprimer l'erreur quand les mots de passe correspondent
               setValidationErrors((prev) => {
                 const newErrors = { ...prev };
                 delete newErrors.confirmPassword;
@@ -130,28 +98,54 @@ const UpdatePassword = ({ userId, referer }) => {
           }
         }
 
-        return newState;
+        // Si on modifie la confirmation du mot de passe
+        if (name === 'confirmPassword') {
+          if (sanitizedValue.length > 0) {
+            // Vérifier si la confirmation correspond au nouveau mot de passe
+            if (sanitizedValue !== newState.newPassword) {
+              setValidationErrors((prev) => ({
+                ...prev,
+                confirmPassword: 'Les mots de passe ne correspondent pas',
+              }));
+            } else {
+              // Important: supprimer l'erreur quand les mots de passe correspondent
+              setValidationErrors((prev) => {
+                const newErrors = { ...prev };
+                delete newErrors.confirmPassword;
+                return newErrors;
+              });
+            }
+          } else {
+            // Champ vide, pas d'erreur à ce stade
+            setValidationErrors((prev) => {
+              const newErrors = { ...prev };
+              delete newErrors.confirmPassword;
+              return newErrors;
+            });
+          }
+        }
+      }
+
+      return newState;
+    });
+
+    // Marquer le formulaire comme touché
+    setFormTouched(true);
+
+    // Effacer l'erreur de ce champ quand l'utilisateur tape
+    if (validationErrors[name] && name !== 'confirmPassword') {
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
       });
+    }
 
-      // Marquer le formulaire comme touché
-      setFormTouched(true);
-
-      // Effacer l'erreur de ce champ quand l'utilisateur tape
-      if (validationErrors[name] && name !== 'confirmPassword') {
-        setValidationErrors((prev) => {
-          const newErrors = { ...prev };
-          delete newErrors[name];
-          return newErrors;
-        });
-      }
-
-      // Si on est en train de calculer la force du mot de passe
-      if (name === 'newPassword') {
-        calculatePasswordStrength(sanitizedValue);
-      }
-    },
-    [formState, validationErrors, sanitizeInput],
-  );
+    // Si on est en train de calculer la force du mot de passe
+    if (name === 'newPassword') {
+      calculatePasswordStrength(sanitizedValue);
+    }
+  }, []);
 
   // Calcule la force du mot de passe sur une échelle de 0 à 100
   const calculatePasswordStrength = useCallback((password) => {

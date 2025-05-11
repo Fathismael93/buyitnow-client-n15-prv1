@@ -32,7 +32,7 @@ const Login = ({ csrfToken }) => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [navigator]);
 
   // Validation à la volée des champs individuels
   const validateField = async (name, value) => {

@@ -76,7 +76,7 @@ const Search = ({ setLoading }) => {
         setIsSubmitting(false);
       }
     },
-    [keyword, isSubmitting, router, setLoading],
+    [keyword],
   );
 
   // Soumettre sur appui de la touche Entrée avec debounce

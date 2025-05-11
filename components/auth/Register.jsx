@@ -42,7 +42,7 @@ const Register = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [navigator]);
 
   // Gestion des erreurs depuis le contexte
   useEffect(() => {

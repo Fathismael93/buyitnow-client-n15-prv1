@@ -92,7 +92,7 @@ const Filters = ({ categories, setLocalLoading }) => {
         setIsSubmitting(false);
       }
     },
-    [router, searchParams, isSubmitting, setLocalLoading],
+    [searchParams],
   );
 
   // Gestionnaire pour appliquer les filtres de prix
@@ -125,15 +125,7 @@ const Filters = ({ categories, setLocalLoading }) => {
       setLocalLoading(false);
       setIsSubmitting(false);
     }
-  }, [
-    min,
-    max,
-    validatePrices,
-    router,
-    searchParams,
-    isSubmitting,
-    setLocalLoading,
-  ]);
+  }, [min, max, searchParams]);
 
   // Réinitialiser les filtres
   const resetFilters = useCallback(() => {
@@ -143,7 +135,7 @@ const Filters = ({ categories, setLocalLoading }) => {
     setMax('');
     router.push('/');
     setOpen(false);
-  }, [router, setLocalLoading]);
+  }, []);
 
   // Vérifier si des filtres sont actifs
   const hasActiveFilters = useMemo(() => {

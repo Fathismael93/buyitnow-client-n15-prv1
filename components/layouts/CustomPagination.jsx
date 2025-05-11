@@ -35,7 +35,7 @@ const CustomPagination = memo(({ totalPages = 1 }) => {
     if (isNavigating) {
       setIsNavigating(false);
     }
-  }, [searchParams, isNavigating]);
+  }, []);
 
   // Gestion du changement de page avec feedback visuel
   const handlePageChange = useCallback(
@@ -80,7 +80,7 @@ const CustomPagination = memo(({ totalPages = 1 }) => {
         setIsNavigating(false);
       }
     },
-    [currentPage, isNavigating, pathname, router, searchParams],
+    [currentPage, searchParams],
   );
 
   // Ne pas afficher la pagination s'il n'y a qu'une seule page

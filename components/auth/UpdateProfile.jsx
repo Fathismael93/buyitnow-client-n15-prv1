@@ -73,30 +73,27 @@ const UpdateProfile = ({ userId, initialEmail, referer }) => {
   }, []);
 
   // Gestionnaire de changement d'input avec sanitation
-  const handleInputChange = useCallback(
-    (e) => {
-      const { name, value } = e.target;
-      const sanitizedValue = sanitizeInput(value);
+  const handleInputChange = useCallback((e) => {
+    const { name, value } = e.target;
+    const sanitizedValue = sanitizeInput(value);
 
-      setFormState((prevState) => ({
-        ...prevState,
-        [name]: sanitizedValue,
-      }));
+    setFormState((prevState) => ({
+      ...prevState,
+      [name]: sanitizedValue,
+    }));
 
-      // Marquer le formulaire comme modifié
-      setFormTouched(true);
+    // Marquer le formulaire comme modifié
+    setFormTouched(true);
 
-      // Effacer l'erreur de ce champ quand l'utilisateur tape
-      if (validationErrors[name]) {
-        setValidationErrors((prev) => {
-          const newErrors = { ...prev };
-          delete newErrors[name];
-          return newErrors;
-        });
-      }
-    },
-    [validationErrors, sanitizeInput],
-  );
+    // Effacer l'erreur de ce champ quand l'utilisateur tape
+    if (validationErrors[name]) {
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  }, []);
 
   // Gestionnaire de téléchargement d'avatar réussi
   const handleUploadSuccess = useCallback((result) => {

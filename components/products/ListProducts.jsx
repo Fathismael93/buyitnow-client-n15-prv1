@@ -94,7 +94,7 @@ const ListProducts = ({ data, categories }) => {
       console.error(err);
       throw err; // Optionnel, mais permet de propager l'erreur vers error.jsx
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     // Seulement pour l'initial render, pas pour les changements de filtres
@@ -105,7 +105,7 @@ const ListProducts = ({ data, categories }) => {
     if (localLoading) {
       setLocalLoading(false);
     }
-  }, [data, isInitialLoad, localLoading]);
+  }, [data]);
 
   // Afficher un avertissement si les données ne sont pas valides
   if (!hasValidData) {

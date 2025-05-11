@@ -90,23 +90,20 @@ const ListOrders = ({ orders }) => {
         tags: { component: 'ListOrders', action: 'setDeliveryPrice' },
       });
     }
-  }, [orders, setDeliveryPrice]);
+  }, [orders]);
 
   // Naviguer vers une page spécifique
-  const handlePageChange = useCallback(
-    (pageNumber) => {
-      try {
-        setIsLoading(true);
-        router.push(`/me/orders?page=${pageNumber}`);
-      } catch (err) {
-        setError('Erreur lors du changement de page');
-        captureException(err, {
-          tags: { component: 'ListOrders', action: 'pageChange' },
-        });
-      }
-    },
-    [router],
-  );
+  const handlePageChange = useCallback((pageNumber) => {
+    try {
+      setIsLoading(true);
+      router.push(`/me/orders?page=${pageNumber}`);
+    } catch (err) {
+      setError('Erreur lors du changement de page');
+      captureException(err, {
+        tags: { component: 'ListOrders', action: 'pageChange' },
+      });
+    }
+  }, []);
 
   // Réinitialiser les états lors du changement de données
   useEffect(() => {

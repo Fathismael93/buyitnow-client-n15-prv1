@@ -98,7 +98,7 @@ const Shipping = ({ initialData }) => {
         : parseFloat(deliveryPrice || 0);
 
     return Number((baseAmount + delivery).toFixed(2));
-  }, [checkoutInfo?.amount, deliveryPrice]);
+  }, [deliveryPrice]);
 
   // Initialisation des données
   useEffect(() => {
@@ -167,17 +167,7 @@ const Shipping = ({ initialData }) => {
     if (!dataInitialized) {
       initializeData();
     }
-  }, [
-    router,
-    addresses,
-    paymentTypes,
-    initialData,
-    setAddresses,
-    setPaymentTypes,
-    shippingInfo,
-    dataInitialized,
-    isOnline,
-  ]);
+  }, [shippingInfo, dataInitialized, isOnline]);
 
   // Gérer la sélection d'adresse avec validation
   const handleAddressSelection = useCallback(
@@ -219,7 +209,7 @@ const Shipping = ({ initialData }) => {
         setShippinInfo(addressId);
       }
     },
-    [addressList, setShippinInfo],
+    [addressList],
   );
 
   // Gérer le passage au paiement
@@ -232,7 +222,7 @@ const Shipping = ({ initialData }) => {
     }
 
     router.push('/payment');
-  }, [selectedAddress, router]);
+  }, [selectedAddress]);
 
   // Rendu pour le cas où aucun panier n'existe
   if (!cart || !Array.isArray(cart) || cart.length === 0) {

@@ -133,18 +133,7 @@ const ShippingChoice = ({
     if (!dataInitialized) {
       initializeData();
     }
-  }, [
-    addresses,
-    payments,
-    deliveryPrice,
-    cart,
-    router,
-    setAddresses,
-    setPaymentTypes,
-    setDeliveryPrice,
-    setOrderInfo,
-    dataInitialized,
-  ]);
+  }, [addresses, payments, deliveryPrice, cart, dataInitialized]);
 
   // Fonction pour préparer les éléments de commande
   const prepareOrderItems = useCallback(() => {
@@ -165,11 +154,11 @@ const ShippingChoice = ({
   // Gestion des clics sur les options de livraison
   const handleYesClick = useCallback(() => {
     setShippingStatus(true);
-  }, [setShippingStatus]);
+  }, []);
 
   const handleNoClick = useCallback(() => {
     setShippingStatus(false);
-  }, [setShippingStatus]);
+  }, []);
 
   // Si en cours de chargement, afficher un indicateur
   if (isLoading) {

@@ -8,6 +8,8 @@ import Link from 'next/link';
 import OrderContext from '@/context/OrderContext';
 import CartContext from '@/context/CartContext';
 import { isArrayEmpty } from '@/helpers/helpers';
+import { captureException } from '@/monitoring/sentry';
+import { toast } from 'react-toastify';
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
 
 const Confirmation = () => {
@@ -15,7 +17,20 @@ const Confirmation = () => {
   const { setCartToState } = useContext(CartContext);
 
   useEffect(() => {
-    setCartToState();
+    // Chargement initial du panier - OPTIMISÉ
+    const loadCart = async () => {
+      try {
+        await setCartToState();
+      } catch (error) {
+        console.error('Erreur lors du chargement du panier:', error);
+        captureException(error, {
+          tags: { component: 'Cart', action: 'initialLoad' },
+        });
+        toast.error('Impossible de charger votre panier. Veuillez réessayer.');
+      }
+    };
+
+    loadCart();
   }, []);
 
   if (secret === undefined || secret === null) {
