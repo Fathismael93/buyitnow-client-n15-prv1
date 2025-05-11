@@ -142,7 +142,6 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // eslint-disable-next-line no-unused-vars
   const [isLoadingCart, setIsLoadingCart] = useState(false);
-  const [isLoggingClicked, setIsLoggingClicked] = useState(false);
   const { data } = useSession();
   const router = useRouter();
 
@@ -204,15 +203,9 @@ const Header = () => {
         );
       });
       // Fallback de sécurité
-      setIsLoggingClicked(true);
       router.push('/login');
     }
   };
-
-  if (isLoggingClicked && user !== null) {
-    setIsLoggingClicked(false);
-    window.location.reload();
-  }
 
   return (
     <header className="bg-white py-2 border-b sticky top-0 z-50 shadow-sm">
@@ -267,7 +260,6 @@ const Header = () => {
                 href="/login"
                 className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors"
                 data-testid="login"
-                onClick={() => setIsLoggingClicked(true)}
               >
                 <i className="text-gray-400 w-5 fa fa-user"></i>
                 <span className="ml-1">Connexion</span>
@@ -338,7 +330,6 @@ const Header = () => {
             <Link
               href="/login"
               className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              onClick={() => setIsLoggingClicked(true)}
             >
               Connexion
             </Link>
