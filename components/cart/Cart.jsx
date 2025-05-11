@@ -71,7 +71,7 @@ const Cart = () => {
     if (!initialLoadComplete && !isLoadingCart.current) {
       loadCart();
     }
-  }, [router, setCartToState, initialLoadComplete]);
+  }, [isLoadingCart, initialLoadComplete]);
 
   // Afficher un écran de chargement pendant le chargement initial
   if (!initialLoadComplete) {

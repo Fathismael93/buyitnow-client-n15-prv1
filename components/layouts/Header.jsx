@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 'use client';
 
 import {
@@ -138,6 +137,7 @@ const Header = () => {
     useContext(CartContext);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [isLoadingCart, setIsLoadingCart] = useState(false);
   const { data } = useSession();
   const router = useRouter();
@@ -158,7 +158,7 @@ const Header = () => {
       });
       setIsLoadingCart(false);
     }
-  }, [setCartToState]);
+  }, []);
 
   useEffect(() => {
     router.prefetch('/cart');
@@ -180,7 +180,7 @@ const Header = () => {
         });
       }
     }
-  }, [data?.user]);
+  }, [data]);
 
   const handleSignOut = async () => {
     try {
