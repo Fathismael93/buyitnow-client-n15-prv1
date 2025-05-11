@@ -65,6 +65,8 @@ const Header = () => {
   useEffect(() => {
     if (data?.user) {
       try {
+        const currentPath = router.asPath;
+        console.log('Current path:', currentPath);
         setUser(data?.user);
         loadCart();
       } catch (error) {
