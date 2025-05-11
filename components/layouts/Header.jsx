@@ -33,7 +33,7 @@ const CartButton = memo(({ cartCount, router }) => {
       className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors relative"
       aria-label="Panier"
       data-testid="cart-button"
-      onClick={() => router.push('/cart')}
+      onClick={router.push('/cart')}
     >
       <i className="text-gray-400 w-5 fa fa-shopping-cart"></i>
       <span className="ml-1">Panier ({cartCount > 0 ? cartCount : 0})</span>
@@ -71,7 +71,7 @@ const UserDropdown = memo(({ user, router }) => {
         aria-expanded="false"
         aria-haspopup="true"
         id="user-menu-button"
-        onClick={() => router.push('/me')}
+        onClick={router.push('/me')}
       >
         <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
           <Image
