@@ -16,6 +16,7 @@ import { signOut, useSession } from 'next-auth/react';
 import AuthContext from '@/context/AuthContext';
 import { throwEnrichedError, handleAsyncError } from '@/monitoring/errorUtils';
 import { useRouter } from 'next/navigation';
+import { set } from 'mongoose';
 
 // Chargement dynamique optimisé du composant Search
 const Search = dynamic(() => import('./Search'), {
@@ -26,19 +27,13 @@ const Search = dynamic(() => import('./Search'), {
 });
 
 // Sous-composants memoïsés pour éviter les re-rendus inutiles
-const CartButton = memo(({ cartCount, router }) => {
-  const handleClick = () => {
-    window.location.href === '/cart';
-    router.push('/cart');
-  };
-
+const CartButton = memo(({ cartCount }) => {
   return (
     <Link
       href="/cart"
       className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors relative"
       aria-label="Panier"
       data-testid="cart-button"
-      onClick={handleClick}
     >
       <i className="text-gray-400 w-5 fa fa-shopping-cart"></i>
       <span className="ml-1">Panier ({cartCount > 0 ? cartCount : 0})</span>
@@ -53,7 +48,7 @@ const CartButton = memo(({ cartCount, router }) => {
 
 CartButton.displayName = 'CartButton';
 
-const UserDropdown = memo(({ user, router }) => {
+const UserDropdown = memo(({ user }) => {
   const menuItems = useMemo(
     () => [
       { href: '/me', label: 'Mon profil' },
@@ -68,11 +63,6 @@ const UserDropdown = memo(({ user, router }) => {
     signOut({ callbackUrl: '/login' });
   };
 
-  const handleClick = () => {
-    window.location.href === '/me';
-    router.push('/me');
-  };
-
   return (
     <div className="relative group">
       <Link
@@ -81,7 +71,6 @@ const UserDropdown = memo(({ user, router }) => {
         aria-expanded="false"
         aria-haspopup="true"
         id="user-menu-button"
-        onClick={handleClick}
       >
         <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
           <Image
@@ -153,6 +142,7 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // eslint-disable-next-line no-unused-vars
   const [isLoadingCart, setIsLoadingCart] = useState(false);
+  const [isLoggingClicked, setIsLoggingClicked] = useState(false);
   const { data } = useSession();
   const router = useRouter();
 
@@ -214,9 +204,15 @@ const Header = () => {
         );
       });
       // Fallback de sécurité
+      setIsLoggingClicked(true);
       router.push('/login');
     }
   };
+
+  if (isLoggingClicked) {
+    setIsLoggingClicked(false);
+    window.location.reload();
+  }
 
   return (
     <header className="bg-white py-2 border-b sticky top-0 z-50 shadow-sm">
@@ -271,6 +267,7 @@ const Header = () => {
                 href="/login"
                 className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors"
                 data-testid="login"
+                onClick={() => setIsLoggingClicked(true)}
               >
                 <i className="text-gray-400 w-5 fa fa-user"></i>
                 <span className="ml-1">Connexion</span>
@@ -295,7 +292,6 @@ const Header = () => {
               <Link
                 href="/me"
                 className="flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-blue-50"
-                onClick={() => router.push('/me')}
               >
                 <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
                   <Image
@@ -342,6 +338,7 @@ const Header = () => {
             <Link
               href="/login"
               className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              onClick={() => setIsLoggingClicked(true)}
             >
               Connexion
             </Link>
