@@ -56,7 +56,6 @@ async function LoginPage() {
       });
       // Rediriger vers la page d'accueil ou tableau de bord selon le rôle
       console.log('User connected, redirecting to home page');
-      return redirect('/');
     }
 
     // Récupérer les en-têtes pour le logging et la sécurité

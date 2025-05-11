@@ -16,7 +16,6 @@ import { signOut, useSession } from 'next-auth/react';
 import AuthContext from '@/context/AuthContext';
 import { throwEnrichedError, handleAsyncError } from '@/monitoring/errorUtils';
 import { useRouter } from 'next/navigation';
-import { set } from 'mongoose';
 
 // Chargement dynamique optimisé du composant Search
 const Search = dynamic(() => import('./Search'), {
@@ -28,12 +27,16 @@ const Search = dynamic(() => import('./Search'), {
 
 // Sous-composants memoïsés pour éviter les re-rendus inutiles
 const CartButton = memo(({ cartCount }) => {
+  const handleClick = () => {
+    window.location.href = '/cart';
+  };
   return (
     <Link
       href="/cart"
       className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors relative"
       aria-label="Panier"
       data-testid="cart-button"
+      onClick={handleClick}
     >
       <i className="text-gray-400 w-5 fa fa-shopping-cart"></i>
       <span className="ml-1">Panier ({cartCount > 0 ? cartCount : 0})</span>
@@ -63,6 +66,10 @@ const UserDropdown = memo(({ user }) => {
     signOut({ callbackUrl: '/login' });
   };
 
+  const handleClick = (e) => {
+    window.location.href = '/me';
+  };
+
   return (
     <div className="relative group">
       <Link
@@ -71,6 +78,7 @@ const UserDropdown = memo(({ user }) => {
         aria-expanded="false"
         aria-haspopup="true"
         id="user-menu-button"
+        onClick={handleClick}
       >
         <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
           <Image
@@ -207,6 +215,10 @@ const Header = () => {
     }
   };
 
+  const handleClick = () => {
+    window.location.href = '/me';
+  };
+
   return (
     <header className="bg-white py-2 border-b sticky top-0 z-50 shadow-sm">
       <div className="container max-w-[1440px] mx-auto px-4">
@@ -228,7 +240,7 @@ const Header = () => {
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
             {user !== undefined && user !== null ? (
-              <CartButton cartCount={cartCount} router={router} />
+              <CartButton cartCount={cartCount} />
             ) : null}
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
@@ -251,10 +263,10 @@ const Header = () => {
 
           {/* User navigation - Desktop */}
           <div className="hidden md:flex items-center space-x-3">
-            {user ? <CartButton cartCount={cartCount} router={router} /> : null}
+            {user ? <CartButton cartCount={cartCount} /> : null}
 
             {user ? (
-              <UserDropdown user={user} router={router} />
+              <UserDropdown user={user} />
             ) : (
               <Link
                 href="/login"
@@ -284,6 +296,7 @@ const Header = () => {
               <Link
                 href="/me"
                 className="flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-blue-50"
+                onClick={handleClick}
               >
                 <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
                   <Image
