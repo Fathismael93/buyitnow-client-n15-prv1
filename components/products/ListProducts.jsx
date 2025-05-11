@@ -5,6 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { isArrayEmpty } from '@/helpers/helpers';
 import { captureException } from '@/monitoring/sentry';
+import {
+  FiltersSkeleton,
+  ProductItemSkeleton,
+} from '../skeletons/ListProductsSkeleton';
 
 // Import dynamique des composants
 const CustomPagination = dynamic(
@@ -13,6 +17,7 @@ const CustomPagination = dynamic(
 );
 
 const Filters = dynamic(() => import('../layouts/Filters'), {
+  loading: () => <FiltersSkeleton />,
   ssr: true,
 });
 
@@ -20,18 +25,6 @@ const ProductItem = dynamic(() => import('./ProductItem'), {
   loading: () => <ProductItemSkeleton />,
   ssr: true,
 });
-
-// Composant squelette pour le chargement des produits
-const ProductItemSkeleton = () => (
-  <div
-    className="border border-gray-200 overflow-hidden bg-white rounded-md mb-5 animate-pulse"
-    aria-hidden="true" // Cacher ces éléments des lecteurs d'écran pendant le chargement
-  >
-    <div className="flex flex-col md:flex-row">
-      {/* Contenu existant du skeleton */}
-    </div>
-  </div>
-);
 
 const ListProducts = ({ data, categories }) => {
   // États locaux

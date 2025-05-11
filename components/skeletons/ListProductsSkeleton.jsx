@@ -1,7 +1,7 @@
 // components/skeletons/ListProductsSkeleton.jsx
 'use client';
 
-const ProductItemSkeleton = () => (
+export const ProductItemSkeleton = () => (
   <div className="border border-gray-200 overflow-hidden bg-white rounded-sm mb-5 animate-pulse">
     <div className="flex flex-col md:flex-row">
       {/* Image */}
@@ -45,7 +45,7 @@ const ProductItemSkeleton = () => (
   </div>
 );
 
-const FiltersSkeleton = () => (
+export const FiltersSkeleton = () => (
   <aside className="md:w-1/3 lg:w-1/4 px-4">
     <div className="sticky top-20">
       <div className="flex justify-between items-center mb-4">
