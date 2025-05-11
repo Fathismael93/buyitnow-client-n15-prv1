@@ -3,6 +3,7 @@ import dynamic from 'next/dynamic';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { captureException } from '@/monitoring/sentry';
+import CartSkeleton from '@/components/skeletons/CartSkeleton';
 
 // Import dynamique du composant Cart avec fallback spécifique
 const Cart = dynamic(() => import('@/components/cart/Cart'), {
@@ -45,7 +46,7 @@ const CartPage = async () => {
     return (
       <div itemScope itemType="https://schema.org/ItemList">
         <meta itemProp="name" content="Shopping Cart" />
-        <Suspense>
+        <Suspense fallback={<CartSkeleton />}>
           <Cart />
         </Suspense>
       </div>

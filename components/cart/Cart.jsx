@@ -19,6 +19,7 @@ import CartItemSkeleton from '../skeletons/CartItemSkeleton';
 import EmptyCart from './components/EmptyCart';
 import CartSummary from './components/CartSummary';
 import useCartOperations from '../../hooks/useCartOperations';
+import CartSkeleton from '../skeletons/CartSkeleton';
 
 const Cart = () => {
   const { loading, cart, cartCount, setCartToState, cartTotal } =
@@ -75,7 +76,7 @@ const Cart = () => {
 
   // Afficher un écran de chargement pendant le chargement initial
   if (!initialLoadComplete) {
-    return <p>Loading...</p>;
+    return <CartSkeleton />;
   }
 
   return (
