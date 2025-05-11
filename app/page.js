@@ -3,6 +3,7 @@ import {
   getAllProducts,
   getCategories,
 } from '@/backend/utils/server-only-methods';
+import ListProductsSkeleton from '@/components/skeletons/ListProductsSkeleton';
 
 // Utilisation de lazy au lieu de dynamic pour éviter le conflit de nom
 const ListProducts = lazy(() => import('@/components/products/ListProducts'));
@@ -33,7 +34,7 @@ const HomePage = async ({ searchParams }) => {
   }));
 
   return (
-    <Suspense>
+    <Suspense fallback={<ListProductsSkeleton />}>
       <main>
         <ListProducts data={productsData?.data} categories={categories} />
       </main>
