@@ -1,11 +1,11 @@
 'use client';
 
-import { memo, useMemo } from 'react';
+import { useMemo } from 'react';
 import { signOut } from 'next-auth/react';
 import Link from 'next/link';
 import Image from 'next/image';
 
-const UserDropdown = memo(({ user }) => {
+const UserDropdown = ({ user }) => {
   const menuItems = useMemo(
     () => [
       { href: '/me', label: 'Mon profil' },
@@ -81,7 +81,7 @@ const UserDropdown = memo(({ user }) => {
       </div>
     </div>
   );
-});
+};
 
 UserDropdown.displayName = 'UserDropdown';
 
