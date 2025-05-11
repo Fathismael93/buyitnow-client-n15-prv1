@@ -10,6 +10,7 @@ import UpdateAddressSkeleton from '@/components/skeletons/UpdateAddressSkeleton'
 
 // Chargement dynamique avec configuration optimisée
 const UpdateAddress = lazy(() => import('@/components/user/UpdateAddress'), {
+  loading: () => <UpdateAddressSkeleton />,
   ssr: true, // Activer le SSR pour améliorer le premier chargement
 });
 

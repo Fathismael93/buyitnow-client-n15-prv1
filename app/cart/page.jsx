@@ -7,6 +7,7 @@ import CartSkeleton from '@/components/skeletons/CartSkeleton';
 
 // Import dynamique du composant Cart avec fallback spécifique
 const Cart = dynamic(() => import('@/components/cart/Cart'), {
+  loading: () => <CartSkeleton />,
   ssr: true,
 });
 

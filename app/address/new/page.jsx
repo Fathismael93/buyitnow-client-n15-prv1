@@ -8,6 +8,7 @@ import NewAddressSkeleton from '@/components/skeletons/NewAddressSkeleton';
 
 // Lazy load the NewAddress component with optimized configuration
 const NewAddress = lazy(() => import('@/components/user/NewAddress'), {
+  loading: () => <NewAddressSkeleton />,
   ssr: true, // Enable SSR for better initial load
 });
 
