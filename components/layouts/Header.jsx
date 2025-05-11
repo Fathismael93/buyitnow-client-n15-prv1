@@ -27,13 +27,18 @@ const Search = dynamic(() => import('./Search'), {
 
 // Sous-composants memoïsés pour éviter les re-rendus inutiles
 const CartButton = memo(({ cartCount, router }) => {
+  const handleClick = () => {
+    window.location.href === '/cart';
+    router.push('/cart');
+  };
+
   return (
     <Link
       href="/cart"
       className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors relative"
       aria-label="Panier"
       data-testid="cart-button"
-      onClick={() => window.location.href === '/cart' && router.push('/cart')}
+      onClick={handleClick}
     >
       <i className="text-gray-400 w-5 fa fa-shopping-cart"></i>
       <span className="ml-1">Panier ({cartCount > 0 ? cartCount : 0})</span>
@@ -63,6 +68,11 @@ const UserDropdown = memo(({ user, router }) => {
     signOut({ callbackUrl: '/login' });
   };
 
+  const handleClick = () => {
+    window.location.href === '/me';
+    router.push('/me');
+  };
+
   return (
     <div className="relative group">
       <Link
@@ -71,7 +81,7 @@ const UserDropdown = memo(({ user, router }) => {
         aria-expanded="false"
         aria-haspopup="true"
         id="user-menu-button"
-        onClick={() => window.location.href === '/me' && router.push('/me')}
+        onClick={handleClick}
       >
         <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
           <Image
