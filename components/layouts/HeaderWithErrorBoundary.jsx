@@ -1,6 +1,6 @@
 'use client';
 
-import Header from './Header/Header';
+import Header from './Header';
 import ErrorBoundary, { withErrorBoundary } from '../common/ErrorBoundary';
 import Link from 'next/link';
 
