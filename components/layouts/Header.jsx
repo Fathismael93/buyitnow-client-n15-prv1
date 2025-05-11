@@ -209,7 +209,7 @@ const Header = () => {
     }
   };
 
-  if (isLoggingClicked) {
+  if (isLoggingClicked && user !== null) {
     setIsLoggingClicked(false);
     window.location.reload();
   }
