@@ -11,6 +11,7 @@ import { throwEnrichedError, handleAsyncError } from '@/monitoring/errorUtils';
 import { useRouter } from 'next/navigation';
 import UserDropdown from './UserDropdown';
 import ShowHideCartButton from './ShowHideCartButton';
+import { set } from 'mongoose';
 
 // Chargement dynamique optimisé du composant Search
 const Search = dynamic(() => import('../Search'), {
@@ -34,6 +35,7 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // eslint-disable-next-line no-unused-vars
   const [isLoadingCart, setIsLoadingCart] = useState(false);
+  const [isLoginClicked, setIsLoginClicked] = useState(false);
   const { data } = useSession();
   const router = useRouter();
 
@@ -65,8 +67,6 @@ const Header = () => {
   useEffect(() => {
     if (data?.user) {
       try {
-        const currentPath = router.asPath;
-        console.log('Current path:', currentPath);
         setUser(data?.user);
         loadCart();
       } catch (error) {
@@ -100,6 +100,11 @@ const Header = () => {
       router.push('/login');
     }
   };
+
+  // if (isLoginClicked) {
+  //   setIsLoginClicked(false);
+  //   window.location.reload();
+  // }
 
   return (
     <header className="bg-white py-2 border-b sticky top-0 z-50 shadow-sm">
@@ -152,6 +157,11 @@ const Header = () => {
                 href="/login"
                 className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors"
                 data-testid="login"
+                onClick={() => setIsLoginClicked(true)}
+                aria-label="Connexion"
+                aria-expanded={isLoginClicked}
+                aria-haspopup="true"
+                aria-controls="login"
               >
                 <i className="text-gray-400 w-5 fa fa-user"></i>
                 <span className="ml-1">Connexion</span>
@@ -222,6 +232,12 @@ const Header = () => {
             <Link
               href="/login"
               className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              data-testid="login"
+              onClick={() => setIsLoginClicked(true)}
+              aria-label="Connexion"
+              aria-expanded={isLoginClicked}
+              aria-haspopup="true"
+              aria-controls="login"
             >
               Connexion
             </Link>

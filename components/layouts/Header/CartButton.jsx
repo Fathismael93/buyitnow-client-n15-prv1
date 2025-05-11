@@ -3,12 +3,17 @@
 import Link from 'next/link';
 
 const CartButton = ({ cartCount }) => {
+  const handleClick = () => {
+    window.location.href = '/cart';
+  };
+
   return (
     <Link
       href="/cart"
       className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors relative"
       aria-label="Panier"
       data-testid="cart-button"
+      onClick={handleClick}
     >
       <i className="text-gray-400 w-5 fa fa-shopping-cart"></i>
       <span className="ml-1">Panier ({cartCount > 0 ? cartCount : 0})</span>

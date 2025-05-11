@@ -104,7 +104,6 @@ const Login = ({ csrfToken }) => {
         // Connexion réussie
         toast.success('Connexion réussie!');
         router.push('/');
-        window.location.reload();
       }
     } catch (error) {
       // Gérer les erreurs de validation
