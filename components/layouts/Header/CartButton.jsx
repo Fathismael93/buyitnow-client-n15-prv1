@@ -10,10 +10,13 @@ const CartButton = memo(({ cartCount }) => {
 
   const handleClick = (e) => {
     e.preventDefault();
-    // Logique de gestion du clic sur le bouton du panier
-    console.log('Panier cliqué');
-    const currentPath = router.asPath;
-    console.log('Current path:', currentPath);
+
+    if (typeof window !== 'undefined') {
+      // Logique de gestion du clic sur le bouton du panier
+      console.log('Panier cliqué');
+      const currentPath = router.asPath;
+      console.log('Current path:', currentPath);
+    }
   };
 
   return (
