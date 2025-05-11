@@ -194,6 +194,7 @@ const Header = () => {
 
   const handleSignOut = async () => {
     try {
+      setMobileMenuOpen(false);
       // Réinitialiser les contextes
       clearUser();
       clearCartOnLogout();
@@ -201,6 +202,7 @@ const Header = () => {
       // Déconnexion Next-Auth
       signOut({ callbackUrl: '/login' });
     } catch (error) {
+      setMobileMenuOpen(false);
       console.error('Erreur lors de la déconnexion:', error);
       // Utiliser l'utilitaire avec une fonction de fallback
       handleAsyncError(error, 'Header', { action: 'handleSignOut' }, () => {
@@ -216,6 +218,7 @@ const Header = () => {
 
   const handleClick = () => {
     window.location.href = '/me';
+    setMobileMenuOpen(false);
   };
 
   return (
@@ -238,9 +241,7 @@ const Header = () => {
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
-            {user !== undefined && user !== null ? (
-              <CartButton cartCount={cartCount} />
-            ) : null}
+            {user && <CartButton cartCount={cartCount} />}
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
               type="button"
@@ -262,7 +263,7 @@ const Header = () => {
 
           {/* User navigation - Desktop */}
           <div className="hidden md:flex items-center space-x-3">
-            {user ? <CartButton cartCount={cartCount} /> : null}
+            {user && <CartButton cartCount={cartCount} />}
 
             {user ? (
               <UserDropdown user={user} />
@@ -322,12 +323,14 @@ const Header = () => {
               <Link
                 href="/me/orders"
                 className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
+                onClick={() => setMobileMenuOpen(false)}
               >
                 Mes commandes
               </Link>
               <Link
                 href="/me/contact"
                 className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
+                onClick={() => setMobileMenuOpen(false)}
               >
                 contacter le vendeur
               </Link>
