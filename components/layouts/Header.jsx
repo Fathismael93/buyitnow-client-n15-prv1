@@ -54,7 +54,6 @@ CartButton.displayName = 'CartButton';
 const UserDropdown = memo(({ user }) => {
   const menuItems = useMemo(
     () => [
-      { href: '/me', label: 'Mon profil' },
       { href: '/me/orders', label: 'Mes commandes' },
       { href: '/me/contact', label: 'Contacter le vendeur' },
     ],
@@ -66,7 +65,7 @@ const UserDropdown = memo(({ user }) => {
     signOut({ callbackUrl: '/login' });
   };
 
-  const handleClick = (e) => {
+  const handleClick = () => {
     window.location.href = '/me';
   };
 
