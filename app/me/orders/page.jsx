@@ -122,8 +122,7 @@ const MyOrdersPage = async ({ searchParams }) => {
 const OrdersData = async ({ ordersPromise }) => {
   try {
     const orders = await ordersPromise;
-    console.log('Orders fetched successfully', orders);
-    return <ListOrders orders={orders} />;
+    return <ListOrders orders={orders.data} />;
   } catch (error) {
     captureException(error, {
       tags: { component: 'OrdersData', action: 'data_fetch' },
