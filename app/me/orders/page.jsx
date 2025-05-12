@@ -76,7 +76,7 @@ const MyOrdersPage = async ({ searchParams }) => {
     };
 
     // Utiliser Suspense pour mieux gérer le chargement
-    const ordersPromise = getAllOrders(sanitizedSearchParams);
+    const ordersPromise = await getAllOrders(sanitizedSearchParams);
 
     console.log('Orders fetched', ordersPromise);
 
