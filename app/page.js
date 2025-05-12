@@ -29,9 +29,13 @@ const HomePage = async ({ searchParams }) => {
     totalPages: 0,
   }));
 
+  console.log('productsData', productsData);
+
   const categories = await getCategories().catch(() => ({
     categories: [],
   }));
+
+  console.log('categories', categories);
 
   return (
     <Suspense fallback={<ListProductsSkeleton />}>

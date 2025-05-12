@@ -743,7 +743,7 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
         });
 
         // Vérifier si des catégories sont présentes dans la réponse
-        if (responseBody.data?.categories?.length > 0) {
+        if (responseBody.data?.count > 0) {
           // Cas standard avec des catégories trouvées
           return {
             success: true,
