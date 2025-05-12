@@ -69,7 +69,7 @@ export default async function ProfilePage() {
 
   // Security: Sanitize address data to prevent XSS
   const sanitizedAddresses =
-    data?.addresses?.map((address) => ({
+    data?.data?.addresses?.map((address) => ({
       ...address,
       // Ensure text fields are strings and trim to prevent overflow attacks
       street: String(address.street || '').trim(),

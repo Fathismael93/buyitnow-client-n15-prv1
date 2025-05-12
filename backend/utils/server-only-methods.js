@@ -1623,7 +1623,7 @@ export const getAllAddresses = async (
             success: true,
             message: responseBody.message || 'Adresses récupérées avec succès',
             data: responseData,
-            addressCount: responseData?.data?.addresses?.length || 0,
+            addressCount: responseData?.addresses?.length || 0,
           };
         } else {
           // Cas de succès API mais données manquantes
