@@ -648,9 +648,6 @@ export const AuthProvider = ({ children }) => {
             setError(
               `Trop de tentatives de modification de mot de passe. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
             );
-            toast.error(
-              `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
-            );
             setLoading(false);
             return;
           }
@@ -666,6 +663,34 @@ export const AuthProvider = ({ children }) => {
           'Cache error during password update attempt tracking:',
           cacheError,
         );
+      }
+
+      // Validation des entrées côté client
+      if (!currentPassword || currentPassword.trim() === '') {
+        setError('Le mot de passe actuel est obligatoire');
+        setLoading(false);
+        return;
+      }
+
+      if (!newPassword || newPassword.trim() === '') {
+        setError('Le nouveau mot de passe est obligatoire');
+        setLoading(false);
+        return;
+      }
+
+      if (currentPassword === newPassword) {
+        setError(
+          'Le nouveau mot de passe doit être différent du mot de passe actuel',
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Vérification minimale de la complexité du mot de passe
+      if (newPassword.length < 8) {
+        setError('Le nouveau mot de passe doit contenir au moins 8 caractères');
+        setLoading(false);
+        return;
       }
 
       // Utiliser un AbortController pour pouvoir annuler la requête
@@ -684,14 +709,6 @@ export const AuthProvider = ({ children }) => {
       };
 
       try {
-        // Input validation - vérifier que les mots de passe sont fournis
-        if (!currentPassword || !newPassword) {
-          setError('Les mots de passe actuels et nouveaux sont requis');
-          toast.error('Veuillez remplir tous les champs requis');
-          setLoading(false);
-          return;
-        }
-
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me/update_password`,
           {
@@ -708,6 +725,16 @@ export const AuthProvider = ({ children }) => {
 
         clearTimeout(timeoutId);
 
+        // Traitement de la réponse
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonError) {
+          setError('Erreur lors du traitement de la réponse du serveur');
+          setLoading(false);
+          return;
+        }
+
         // Vérifier le rate limiting côté serveur
         if (res.status === 429) {
           // Extraire la durée d'attente depuis les headers
@@ -716,10 +743,7 @@ export const AuthProvider = ({ children }) => {
             10,
           );
           setError(
-            `Trop de tentatives. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
-          );
-          toast.error(
-            `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
+            `Trop de tentatives de modification de mot de passe. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
           );
 
           // Mettre à jour le cache des tentatives locales
@@ -736,114 +760,155 @@ export const AuthProvider = ({ children }) => {
         // Gestion des erreurs HTTP
         if (!res.ok) {
           const statusCode = res.status;
-          let errorData;
-
-          try {
-            errorData = await res.json();
-          } catch (e) {
-            errorData = { message: `Erreur HTTP: ${res.status}` };
-          }
 
           // Traitement unifié des erreurs HTTP
-          if (statusCode === 400) {
-            // Erreur de validation
-            setError(errorData.message || 'Données invalides');
-            toast.error(
-              errorData.message || 'Veuillez vérifier les informations saisies',
+          switch (statusCode) {
+            case 400:
+              // Erreur de validation ou mot de passe incorrect
+              if (data.message && data.message.includes('current password')) {
+                setError('Le mot de passe actuel est incorrect');
+              } else if (
+                data.message &&
+                data.message.includes('same as current')
+              ) {
+                setError(
+                  'Le nouveau mot de passe doit être différent du mot de passe actuel',
+                );
+              } else if (
+                data.errors &&
+                Array.isArray(data.errors) &&
+                data.errors.length > 0
+              ) {
+                setError(
+                  `Validation échouée: ${data.errors.map((e) => e.message || e).join(', ')}`,
+                );
+              } else {
+                setError(data.message || 'Données de mot de passe invalides');
+              }
+              break;
+            case 401:
+              // Mot de passe actuel incorrect
+              setError('Mot de passe actuel incorrect');
+              break;
+            case 403:
+              // Compte verrouillé ou non autorisé
+              if (data.message && data.message.includes('locked')) {
+                setError(
+                  'Compte temporairement verrouillé. Veuillez réessayer plus tard ou réinitialiser votre mot de passe.',
+                );
+              } else {
+                setError('Session expirée ou accès non autorisé');
+                // Rediriger vers la page de connexion après un court délai
+                setTimeout(() => router.push('/login'), 2000);
+              }
+              break;
+            case 404:
+              // Utilisateur non trouvé
+              setError('Utilisateur non trouvé');
+              break;
+            case 422:
+              // Erreur de validation détaillée
+              if (
+                data.errors &&
+                Array.isArray(data.errors) &&
+                data.errors.length > 0
+              ) {
+                setError(
+                  `Erreur de validation: ${data.errors.map((e) => e.message || e).join(', ')}`,
+                );
+              } else {
+                setError(data.message || 'Validation échouée');
+              }
+              break;
+            case 500:
+            case 502:
+            case 503:
+            case 504:
+              // Erreurs serveur
+              setError(
+                'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
+              );
+
+              // Capturer pour monitoring en production seulement
+              if (process.env.NODE_ENV === 'production') {
+                const serverError = new Error(
+                  data.message || `Erreur serveur (${statusCode})`,
+                );
+                serverError.statusCode = statusCode;
+                serverError.componentName = 'PasswordUpdate';
+                serverError.additionalInfo = {
+                  context: 'password',
+                  operation: 'update',
+                  statusCode,
+                  responseMessage: data.message,
+                };
+                captureException(serverError);
+              }
+              break;
+            default:
+              // Autres erreurs
+              setError(
+                data.message ||
+                  `Erreur lors de la mise à jour du mot de passe (${statusCode})`,
+              );
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Traitement des réponses avec JSON valide
+        if (data) {
+          if (data.success === true) {
+            // Succès - Réinitialiser le compteur de tentatives
+            if (appCache.ui) {
+              appCache.ui.delete(clientRateLimitKey);
+            }
+
+            // Journaliser de façon anonyme en production
+            if (process.env.NODE_ENV === 'production') {
+              console.info('Password updated successfully', {
+                userId: user?._id
+                  ? `${user._id.toString().substring(0, 2)}...${user._id.toString().slice(-2)}`
+                  : 'unknown',
+              });
+            }
+
+            // Afficher un message de réussite (seul toast autorisé)
+            toast.success(
+              data.message || 'Mot de passe mis à jour avec succès!',
             );
-          } else if (statusCode === 401) {
-            // Mot de passe actuel incorrect
-            setError('Mot de passe actuel incorrect');
-            toast.error(
-              'Le mot de passe actuel que vous avez saisi est incorrect',
-            );
-          } else if (statusCode === 403) {
-            // Non autorisé
-            setError('Session expirée ou accès non autorisé');
-            toast.error(
-              "Votre session a expiré ou vous n'êtes pas autorisé à effectuer cette action. Veuillez vous reconnecter.",
-            );
-            // Rediriger vers la page de connexion après un court délai
-            setTimeout(() => router.push('/login'), 2000);
-          } else if (statusCode >= 400 && statusCode < 500) {
-            // Autres erreurs client
-            setError(errorData.message || 'Erreur dans la requête');
-            toast.error(
-              errorData.message ||
-                'Une erreur est survenue lors de la modification du mot de passe',
-            );
+
+            // Redirection avec un délai pour que le toast soit visible
+            router.replace('/me');
+          } else if (data.success === false) {
+            // Cas où success est explicitement false
+            setError(data.message || 'Échec de la mise à jour du mot de passe');
+
+            // Si des erreurs détaillées sont disponibles, les agréger
+            if (
+              data.errors &&
+              Array.isArray(data.errors) &&
+              data.errors.length > 0
+            ) {
+              setError(
+                `${data.message || 'Échec de la mise à jour du mot de passe'}: ${data.errors.map((e) => e.message || e).join(', ')}`,
+              );
+            }
           } else {
-            // Erreurs serveur
-            setError('Erreur serveur');
-            toast.error(
-              'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
+            // Réponse JSON valide mais structure inattendue
+            setError(
+              'Réponse inattendue du serveur lors de la mise à jour du mot de passe',
             );
           }
-
-          setLoading(false);
-          return;
-        }
-
-        // Traitement de la réponse JSON avec gestion d'erreur
-        let data;
-        try {
-          data = await res.json();
-        } catch (jsonError) {
-          setError('Réponse du serveur invalide');
-          toast.error('Réponse du serveur invalide. Veuillez réessayer.');
-          setLoading(false);
-          return;
-        }
-
-        // Vérification de la structure de la réponse
-        if (!data) {
-          setError('Réponse du serveur vide');
-          toast.error('Erreur lors du traitement de la réponse.');
-          setLoading(false);
-          return;
-        }
-
-        if (data.success === false) {
-          // Erreur applicative
-          setError(data?.message || 'Échec de la mise à jour du mot de passe');
-          toast.error(
-            data?.message || 'Échec de la mise à jour du mot de passe',
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Succès
-        if (data.success) {
-          // Réinitialiser le compteur de tentatives en cas de succès
-          if (appCache.ui) {
-            appCache.ui.delete(clientRateLimitKey);
-          }
-
-          // Journaliser de façon anonyme en production
-          if (process.env.NODE_ENV === 'production') {
-            console.info('Password updated successfully', {
-              userId: user?._id
-                ? `${user._id.toString().substring(0, 2)}...${user._id.toString().slice(-2)}`
-                : 'unknown',
-            });
-          }
-
-          // Afficher un message de réussite
-          toast.success(data.message || 'Mot de passe mis à jour avec succès!');
-
-          // Redirection avec un délai pour que le toast soit visible
-          router.replace('/me');
         } else {
-          // Cas de succès mal formaté
-          setError('Réponse inattendue du serveur');
-          toast.warning('Opération terminée, mais le résultat est incertain');
-          setLoading(false);
+          // Réponse vide ou mal formatée
+          setError('Réponse vide ou invalide du serveur');
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
 
-        // Catégorisation des erreurs réseau
+        // Erreurs réseau - Toutes gérées via setError sans toast
         const isAborted = fetchError.name === 'AbortError';
         const isNetworkError =
           fetchError.message.includes('network') ||
@@ -853,66 +918,68 @@ export const AuthProvider = ({ children }) => {
 
         if (isTimeout) {
           // Timeout
-          setError('La requête a pris trop de temps');
-          toast.error(
-            'La connexion au serveur est trop lente. Veuillez réessayer plus tard.',
-          );
+          setError('La requête a pris trop de temps. Veuillez réessayer.');
         } else if (isNetworkError) {
-          // Erreur réseau
-          setError('Problème de connexion internet');
-          toast.error(
-            'Impossible de se connecter au serveur. Vérifiez votre connexion internet.',
+          // Erreur réseau simple
+          setError(
+            'Problème de connexion internet. Vérifiez votre connexion et réessayez.',
           );
         } else {
-          // Autres erreurs
-          setError('Erreur lors de la mise à jour du mot de passe');
-          toast.error(
-            'Une erreur inattendue est survenue. Veuillez réessayer.',
+          // Autres erreurs fetch
+          setError(
+            `Erreur lors de la mise à jour du mot de passe: ${fetchError.message}`,
           );
 
-          // Journalisation en dev uniquement
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Password update error:', fetchError);
+          // Enrichir l'erreur pour le boundary sans la lancer
+          if (!fetchError.componentName) {
+            fetchError.componentName = 'PasswordUpdate';
+            fetchError.additionalInfo = {
+              context: 'password',
+              operation: 'update',
+            };
           }
-        }
 
-        // Capturer l'exception pour Sentry en production avec contexte enrichi
-        if (process.env.NODE_ENV === 'production') {
-          captureException(fetchError, {
-            tags: {
-              component: 'UpdatePassword',
-              action: 'updatePassword',
-              errorType: isTimeout
-                ? 'timeout'
-                : isNetworkError
-                  ? 'network'
+          // Capture pour Sentry en production
+          if (process.env.NODE_ENV === 'production') {
+            captureException(fetchError, {
+              tags: {
+                component: 'UpdatePassword',
+                action: 'updatePassword',
+                errorType: isTimeout
+                  ? 'timeout'
+                  : isNetworkError
+                    ? 'network'
+                    : 'unknown',
+              },
+              extra: {
+                userAnonymized: user?.email
+                  ? `${user.email.charAt(0)}***${user.email.slice(user.email.indexOf('@'))}`
                   : 'unknown',
-            },
-            extra: {
-              userAnonymized: user?.email
-                ? `${user.email.charAt(0)}***${user.email.slice(user.email.indexOf('@'))}`
-                : 'unknown',
-            },
-          });
+              },
+            });
+          }
         }
       }
     } catch (error) {
-      // Erreurs générales non gérées
-      setError('Une erreur inattendue est survenue');
-      toast.error(
-        'Une erreur inattendue est survenue. Veuillez réessayer plus tard.',
+      // Pour toute erreur non gérée spécifiquement
+      setError(
+        'Une erreur inattendue est survenue lors de la mise à jour du mot de passe',
       );
 
-      // Journalisation en dev uniquement
+      // Journaliser localement en dev
       if (process.env.NODE_ENV === 'development') {
-        console.error('Password update unexpected error:', error);
+        console.error('Password update error:', error);
       }
 
-      // Capturer l'exception pour Sentry en production
+      // Capture pour Sentry en production
       if (process.env.NODE_ENV === 'production') {
-        captureException(error, {
-          tags: { component: 'UpdatePassword', action: 'updatePassword' },
-        });
+        if (!error.componentName) {
+          error.componentName = 'PasswordUpdate';
+          error.additionalInfo = {
+            context: 'password',
+          };
+        }
+        captureException(error);
       }
     } finally {
       setLoading(false);
