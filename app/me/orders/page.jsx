@@ -78,6 +78,8 @@ const MyOrdersPage = async ({ searchParams }) => {
     // Utiliser Suspense pour mieux gérer le chargement
     const ordersPromise = getAllOrders(sanitizedSearchParams);
 
+    console.log('Orders fetched', ordersPromise);
+
     return (
       <div className="container max-w-6xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-semibold mb-6">Mes commandes</h1>
