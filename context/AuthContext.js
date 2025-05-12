@@ -304,9 +304,6 @@ export const AuthProvider = ({ children }) => {
             setError(
               `Trop de tentatives de mise à jour de profil. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
             );
-            toast.error(
-              `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
-            );
             setLoading(false);
             return;
           }
@@ -322,6 +319,13 @@ export const AuthProvider = ({ children }) => {
           'Cache error during profile update attempt tracking:',
           cacheError,
         );
+      }
+
+      // Valider les entrées côté client
+      if (!name || name.trim() === '') {
+        setError('Le nom est obligatoire');
+        setLoading(false);
+        return;
       }
 
       // Utiliser un AbortController pour pouvoir annuler la requête
@@ -347,7 +351,7 @@ export const AuthProvider = ({ children }) => {
             headers,
             body: JSON.stringify({
               name: name.trim(),
-              phone: phone.trim(),
+              phone: phone ? phone.trim() : '',
               avatar,
             }),
             signal: controller.signal,
@@ -356,6 +360,16 @@ export const AuthProvider = ({ children }) => {
         );
 
         clearTimeout(timeoutId);
+
+        // Traitement de la réponse
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonError) {
+          setError('Erreur lors du traitement de la réponse du serveur');
+          setLoading(false);
+          return;
+        }
 
         // Vérifier le rate limiting côté serveur
         if (res.status === 429) {
@@ -366,9 +380,6 @@ export const AuthProvider = ({ children }) => {
           );
           setError(
             `Trop de tentatives de mise à jour. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
-          );
-          toast.error(
-            `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
           );
 
           // Mettre à jour le cache des tentatives locales
@@ -385,141 +396,157 @@ export const AuthProvider = ({ children }) => {
         // Gestion des erreurs HTTP
         if (!res.ok) {
           const statusCode = res.status;
-          let errorData;
-
-          try {
-            errorData = await res.json();
-          } catch (e) {
-            errorData = { message: `Erreur HTTP: ${res.status}` };
-          }
 
           // Traitement unifié des erreurs HTTP
-          if (statusCode === 400) {
-            // Erreur de validation
-            setError(errorData.message || 'Données invalides');
-            toast.error(
-              errorData.message || 'Veuillez vérifier les informations saisies',
-            );
-          } else if (statusCode === 401 || statusCode === 403) {
-            // Erreur d'authentification
-            setError('Session expirée ou accès non autorisé');
-            toast.error(
-              "Votre session a expiré ou vous n'êtes pas autorisé à effectuer cette action. Veuillez vous reconnecter.",
-            );
-            // Rediriger vers la page de connexion après un court délai
-            setTimeout(() => router.push('/login'), 2000);
-          } else if (statusCode >= 400 && statusCode < 500) {
-            // Autres erreurs client
-            setError(errorData.message || 'Erreur dans la requête');
-            toast.error(
-              errorData.message ||
-                'Une erreur est survenue lors de la mise à jour du profil',
-            );
-          } else {
-            // Erreurs serveur
-            setError('Erreur serveur');
-            toast.error(
-              'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
-            );
-
-            // Capturer l'exception pour Sentry en production
-            if (process.env.NODE_ENV === 'production') {
-              const serverError = new Error(
-                errorData.message || `Erreur serveur (${statusCode})`,
+          switch (statusCode) {
+            case 400:
+              // Erreur de validation
+              if (
+                data.errors &&
+                Array.isArray(data.errors) &&
+                data.errors.length > 0
+              ) {
+                setError(`Validation échouée: ${data.errors.join(', ')}`);
+              } else {
+                setError(data.message || 'Données de profil invalides');
+              }
+              break;
+            case 401:
+            case 403:
+              // Erreur d'authentification
+              setError('Session expirée ou accès non autorisé');
+              // Rediriger vers la page de connexion après un court délai
+              setTimeout(() => router.push('/login'), 2000);
+              break;
+            case 404:
+              // Utilisateur non trouvé
+              setError('Utilisateur non trouvé');
+              break;
+            case 413:
+              // Taille de requête excessive
+              setError('Image de profil trop volumineuse');
+              break;
+            case 422:
+              // Erreur de validation détaillée
+              if (
+                data.errors &&
+                Array.isArray(data.errors) &&
+                data.errors.length > 0
+              ) {
+                setError(`Erreur de validation: ${data.errors.join(', ')}`);
+              } else {
+                setError(data.message || 'Validation échouée');
+              }
+              break;
+            case 500:
+            case 502:
+            case 503:
+            case 504:
+              // Erreurs serveur
+              setError(
+                'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
               );
-              serverError.statusCode = statusCode;
-              serverError.componentName = 'ProfileUpdate';
-              serverError.additionalInfo = {
-                context: 'profile',
-                operation: 'update',
-                statusCode,
-                responseMessage: errorData.message,
-              };
-              captureException(serverError);
+
+              // Capturer pour monitoring en production seulement
+              if (process.env.NODE_ENV === 'production') {
+                const serverError = new Error(
+                  data.message || `Erreur serveur (${statusCode})`,
+                );
+                serverError.statusCode = statusCode;
+                serverError.componentName = 'ProfileUpdate';
+                serverError.additionalInfo = {
+                  context: 'profile',
+                  operation: 'update',
+                  statusCode,
+                  responseMessage: data.message,
+                };
+                captureException(serverError);
+              }
+              break;
+            default:
+              // Autres erreurs
+              setError(
+                data.message ||
+                  `Erreur lors de la mise à jour du profil (${statusCode})`,
+              );
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Traitement des réponses avec JSON valide
+        if (data) {
+          if (data.success === true && data.data) {
+            // Réinitialiser le compteur de tentatives en cas de succès
+            if (appCache.ui) {
+              appCache.ui.delete(clientRateLimitKey);
             }
-          }
 
-          setLoading(false);
-          return;
-        }
+            // Invalidation des caches pertinents
+            try {
+              // Utiliser getCacheKey pour générer des clés de cache cohérentes
+              const userProfileCacheKey = getCacheKey('user_profile', {
+                userId: user?._id?.toString() || '',
+              });
 
-        // Traitement de la réponse JSON avec gestion d'erreur
-        let data;
-        try {
-          data = await res.json();
-        } catch (jsonError) {
-          setError('Réponse du serveur invalide');
-          toast.error('Réponse du serveur invalide. Veuillez réessayer.');
-          setLoading(false);
-          return;
-        }
-
-        // Vérification de la structure de la réponse
-        if (!data) {
-          setError('Réponse du serveur vide');
-          toast.error('Erreur lors du traitement de la réponse.');
-          setLoading(false);
-          return;
-        }
-
-        if (data.success === false) {
-          // Erreur applicative
-          setError(data?.message || 'Échec de la mise à jour du profil');
-          toast.error(data?.message || 'Échec de la mise à jour du profil');
-          setLoading(false);
-          return;
-        }
-
-        // Succès
-        if (data.data) {
-          // Réinitialiser le compteur de tentatives en cas de succès
-          if (appCache.ui) {
-            appCache.ui.delete(clientRateLimitKey);
-          }
-
-          // Invalidation des caches pertinents
-          try {
-            // Utiliser getCacheKey pour générer des clés de cache cohérentes
-            const userProfileCacheKey = getCacheKey('user_profile', {
-              userId: user?._id?.toString() || '',
-            });
-
-            // Invalider le cache du profil utilisateur
-            if (appCache.products) {
-              appCache.products.delete(userProfileCacheKey);
-              appCache.products.invalidatePattern(/^user:/);
+              // Invalider le cache du profil utilisateur
+              if (appCache.products) {
+                appCache.products.delete(userProfileCacheKey);
+                appCache.products.invalidatePattern(/^user:/);
+              }
+            } catch (cacheError) {
+              // Erreur non critique, juste logger en dev
+              if (process.env.NODE_ENV === 'development') {
+                console.warn('Cache invalidation error:', cacheError);
+              }
             }
-          } catch (cacheError) {
-            // Erreur non critique, juste logger en dev
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('Cache invalidation error:', cacheError);
+
+            // Journaliser de façon anonyme en production
+            if (process.env.NODE_ENV === 'production') {
+              console.info('Profile updated successfully', {
+                userId: user?._id
+                  ? `${user._id.toString().substring(0, 2)}...${user._id.toString().slice(-2)}`
+                  : 'unknown',
+              });
             }
+
+            // Mise à jour de l'état utilisateur
+            setUser(data.data.updatedUser);
+
+            // Afficher un message de réussite (seul toast autorisé)
+            toast.success(data.message || 'Profil mis à jour avec succès!');
+
+            // Rediriger vers la page de profil
+            router.push('/me');
+          } else if (data.success === false) {
+            // Cas où success est explicitement false
+            setError(data.message || 'Échec de la mise à jour du profil');
+
+            // Si des erreurs détaillées sont disponibles, les agréger
+            if (
+              data.errors &&
+              Array.isArray(data.errors) &&
+              data.errors.length > 0
+            ) {
+              setError(
+                `${data.message || 'Échec de la mise à jour du profil'}: ${data.errors.join(', ')}`,
+              );
+            }
+          } else {
+            // Réponse JSON valide mais structure inattendue
+            setError(
+              'Réponse inattendue du serveur lors de la mise à jour du profil',
+            );
           }
-
-          // Journaliser de façon anonyme en production
-          if (process.env.NODE_ENV === 'production') {
-            console.info('Profile updated successfully', {
-              userId: user?._id
-                ? `${user._id.toString().substring(0, 2)}...${user._id.toString().slice(-2)}`
-                : 'unknown',
-            });
-          }
-
-          setUser(data.data.updatedUser); // Mettre à jour l'état utilisateur avec les nouvelles données
-          router.push('/me'); // Rediriger vers la page de profil
-
-          // Afficher un message de réussite
-          toast.success(data.message || 'Profil mis à jour avec succès!');
         } else {
-          // Cas de succès mal formaté
-          setError('Réponse inattendue du serveur');
-          toast.warning('Opération terminée, mais le résultat est incertain');
-          setLoading(false);
+          // Réponse vide ou mal formatée
+          setError('Réponse vide ou invalide du serveur');
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
 
-        // Catégorisation des erreurs réseau
+        // Erreurs réseau - Toutes gérées via setError sans toast
         const isAborted = fetchError.name === 'AbortError';
         const isNetworkError =
           fetchError.message.includes('network') ||
@@ -529,66 +556,68 @@ export const AuthProvider = ({ children }) => {
 
         if (isTimeout) {
           // Timeout
-          setError('La requête a pris trop de temps');
-          toast.error(
-            'La connexion au serveur est trop lente. Veuillez réessayer plus tard.',
-          );
+          setError('La requête a pris trop de temps. Veuillez réessayer.');
         } else if (isNetworkError) {
-          // Erreur réseau
-          setError('Problème de connexion internet');
-          toast.error(
-            'Impossible de se connecter au serveur. Vérifiez votre connexion internet.',
+          // Erreur réseau simple
+          setError(
+            'Problème de connexion internet. Vérifiez votre connexion et réessayez.',
           );
         } else {
-          // Autres erreurs
-          setError('Erreur lors de la mise à jour du profil');
-          toast.error(
-            'Une erreur inattendue est survenue. Veuillez réessayer.',
+          // Autres erreurs fetch
+          setError(
+            `Erreur lors de la mise à jour du profil: ${fetchError.message}`,
           );
 
-          // Journalisation en dev uniquement
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Profile update error:', fetchError);
+          // Enrichir l'erreur pour le boundary sans la lancer
+          if (!fetchError.componentName) {
+            fetchError.componentName = 'ProfileUpdate';
+            fetchError.additionalInfo = {
+              context: 'profile',
+              operation: 'update',
+            };
           }
-        }
 
-        // Capturer l'exception pour Sentry en production avec contexte enrichi
-        if (process.env.NODE_ENV === 'production') {
-          captureException(fetchError, {
-            tags: {
-              component: 'ProfileUpdate',
-              action: 'updateProfile',
-              errorType: isTimeout
-                ? 'timeout'
-                : isNetworkError
-                  ? 'network'
+          // Capture pour Sentry en production
+          if (process.env.NODE_ENV === 'production') {
+            captureException(fetchError, {
+              tags: {
+                component: 'ProfileUpdate',
+                action: 'updateProfile',
+                errorType: isTimeout
+                  ? 'timeout'
+                  : isNetworkError
+                    ? 'network'
+                    : 'unknown',
+              },
+              extra: {
+                userAnonymized: user?.email
+                  ? `${user.email.charAt(0)}***${user.email.slice(user.email.indexOf('@'))}`
                   : 'unknown',
-            },
-            extra: {
-              userAnonymized: user?.email
-                ? `${user.email.charAt(0)}***${user.email.slice(user.email.indexOf('@'))}`
-                : 'unknown',
-            },
-          });
+              },
+            });
+          }
         }
       }
     } catch (error) {
-      // Erreurs générales non gérées
-      setError('Une erreur inattendue est survenue');
-      toast.error(
-        'Une erreur inattendue est survenue. Veuillez réessayer plus tard.',
+      // Pour toute erreur non gérée spécifiquement
+      setError(
+        'Une erreur inattendue est survenue lors de la mise à jour du profil',
       );
 
-      // Journalisation en dev uniquement
+      // Journaliser localement en dev
       if (process.env.NODE_ENV === 'development') {
-        console.error('Profile update unexpected error:', error);
+        console.error('Profile update error:', error);
       }
 
-      // Capturer l'exception pour Sentry en production
+      // Capture pour Sentry en production
       if (process.env.NODE_ENV === 'production') {
-        captureException(error, {
-          tags: { component: 'ProfileUpdate', action: 'updateProfile' },
-        });
+        if (!error.componentName) {
+          error.componentName = 'ProfileUpdate';
+          error.additionalInfo = {
+            context: 'profile',
+          };
+        }
+        captureException(error);
       }
     } finally {
       setLoading(false);
