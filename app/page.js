@@ -40,7 +40,10 @@ const HomePage = async ({ searchParams }) => {
   return (
     <Suspense fallback={<ListProductsSkeleton />}>
       <main>
-        <ListProducts data={productsData?.data} categories={categories} />
+        <ListProducts
+          data={productsData?.data}
+          categories={categories.categories}
+        />
       </main>
     </Suspense>
   );
