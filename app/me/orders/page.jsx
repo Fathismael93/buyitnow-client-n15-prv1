@@ -76,9 +76,7 @@ const MyOrdersPage = async ({ searchParams }) => {
     };
 
     // Utiliser Suspense pour mieux gérer le chargement
-    const ordersPromise = await getAllOrders(sanitizedSearchParams);
-
-    console.log('Orders fetched', ordersPromise);
+    const ordersPromise = getAllOrders(sanitizedSearchParams);
 
     return (
       <div className="container max-w-6xl mx-auto px-4 py-8">
@@ -124,6 +122,7 @@ const MyOrdersPage = async ({ searchParams }) => {
 const OrdersData = async ({ ordersPromise }) => {
   try {
     const orders = await ordersPromise;
+    console.log('Orders fetched successfully', orders);
     return <ListOrders orders={orders} />;
   } catch (error) {
     captureException(error, {
