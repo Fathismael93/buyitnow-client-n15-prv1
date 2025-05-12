@@ -1010,9 +1010,6 @@ export const AuthProvider = ({ children }) => {
             setError(
               `Trop de tentatives d'ajout d'adresse. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute.`,
             );
-            toast.error(
-              `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute.`,
-            );
             setLoading(false);
             return;
           }
@@ -1028,6 +1025,30 @@ export const AuthProvider = ({ children }) => {
           'Cache error during address attempt tracking:',
           cacheError,
         );
+      }
+
+      // Validation des données d'adresse côté client
+      if (!address) {
+        setError("Les données d'adresse sont manquantes");
+        setLoading(false);
+        return;
+      }
+
+      // Vérification des champs obligatoires
+      const requiredFields = [
+        'firstName',
+        'lastName',
+        'street',
+        'city',
+        'zipCode',
+        'country',
+      ];
+      const missingFields = requiredFields.filter((field) => !address[field]);
+
+      if (missingFields.length > 0) {
+        setError(`Champs obligatoires manquants: ${missingFields.join(', ')}`);
+        setLoading(false);
+        return;
       }
 
       // Utiliser un AbortController pour pouvoir annuler la requête
@@ -1059,6 +1080,16 @@ export const AuthProvider = ({ children }) => {
 
         clearTimeout(timeoutId);
 
+        // Traitement de la réponse
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonError) {
+          setError('Erreur lors du traitement de la réponse du serveur');
+          setLoading(false);
+          return;
+        }
+
         // Vérifier le rate limiting côté serveur
         if (res.status === 429) {
           // Extraire la durée d'attente depuis les headers
@@ -1067,10 +1098,7 @@ export const AuthProvider = ({ children }) => {
             10,
           );
           setError(
-            `Trop de tentatives. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
-          );
-          toast.error(
-            `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
+            `Trop de tentatives d'ajout d'adresse. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
           );
 
           // Mettre à jour le cache des tentatives locales
@@ -1087,94 +1115,164 @@ export const AuthProvider = ({ children }) => {
         // Gestion des erreurs HTTP
         if (!res.ok) {
           const statusCode = res.status;
-          let errorData;
-
-          try {
-            errorData = await res.json();
-          } catch (e) {
-            errorData = { message: `Erreur HTTP: ${res.status}` };
-          }
 
           // Traitement unifié des erreurs HTTP
-          if (statusCode === 400) {
-            // Erreur de validation
-            setError(errorData.message || 'Données invalides');
-            toast.error(
-              errorData.message || 'Veuillez vérifier les informations saisies',
-            );
-          } else if (statusCode === 401 || statusCode === 403) {
-            // Erreur d'authentification
-            setError('Session expirée ou accès non autorisé');
-            toast.error(
-              "Votre session a expiré ou vous n'êtes pas autorisé à effectuer cette action. Veuillez vous reconnecter.",
-            );
-            // Rediriger vers la page de connexion après un court délai
-            setTimeout(() => router.push('/login'), 2000);
-          } else if (statusCode === 413) {
-            // Requête trop grande
-            setError('Données trop volumineuses');
-            toast.error('Les données envoyées sont trop volumineuses');
-          } else if (statusCode >= 400 && statusCode < 500) {
-            // Autres erreurs client
-            setError(errorData.message || 'Erreur dans la requête');
-            toast.error(
-              errorData.message ||
-                "Une erreur est survenue lors de l'ajout de l'adresse",
-            );
+          switch (statusCode) {
+            case 400:
+              // Erreur de validation ou requête incorrecte
+              if (
+                data.errors &&
+                Array.isArray(data.errors) &&
+                data.errors.length > 0
+              ) {
+                setError(
+                  `Validation échouée: ${data.errors.map((e) => e.message || e.field + ': ' + e.message || e).join(', ')}`,
+                );
+              } else {
+                setError(data.message || "Données d'adresse invalides");
+              }
+              break;
+            case 401:
+              // Non authentifié
+              setError('Authentification requise. Veuillez vous connecter.');
+              // Rediriger vers la page de connexion après un court délai
+              setTimeout(
+                () => router.push('/login?callbackUrl=/address/new'),
+                2000,
+              );
+              break;
+            case 403:
+              // Accès interdit
+              setError("Vous n'avez pas l'autorisation d'ajouter une adresse");
+              break;
+            case 404:
+              // Ressource non trouvée
+              setError('Service non disponible');
+              break;
+            case 413:
+              // Payload trop grand
+              setError('Les données envoyées sont trop volumineuses');
+              break;
+            case 422:
+              // Erreur de validation avec détails
+              if (
+                data.errors &&
+                Array.isArray(data.errors) &&
+                data.errors.length > 0
+              ) {
+                setError(
+                  `Erreur de validation: ${data.errors.map((e) => e.message || e).join(', ')}`,
+                );
+              } else {
+                setError(data.message || 'Validation échouée');
+              }
+              break;
+            case 500:
+            case 502:
+            case 503:
+            case 504:
+              // Erreurs serveur
+              setError(
+                'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
+              );
+
+              // Capture d'erreur pour monitoring en production seulement
+              if (process.env.NODE_ENV === 'production') {
+                const serverError = new Error(
+                  data.message || `Erreur serveur (${statusCode})`,
+                );
+                serverError.statusCode = statusCode;
+                serverError.componentName = 'AddressCreation';
+                serverError.additionalInfo = {
+                  context: 'address',
+                  operation: 'create',
+                  statusCode,
+                  responseMessage: data.message,
+                };
+                captureException(serverError);
+              }
+              break;
+            default:
+              // Autres erreurs
+              setError(
+                data.message ||
+                  `Erreur lors de l'ajout de l'adresse (${statusCode})`,
+              );
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Traitement des réponses avec JSON valide
+        if (data) {
+          if (data.success === true) {
+            // Cas de succès - Réinitialiser le compteur de tentatives
+            if (appCache.ui) {
+              appCache.ui.delete(clientRateLimitKey);
+            }
+
+            // Invalider les caches pertinents
+            try {
+              // Utiliser getCacheKey pour générer des clés de cache cohérentes
+              const addressListCacheKey = getCacheKey('addresses', {
+                userId: user?._id?.toString() || '',
+              });
+
+              // Invalider le cache des adresses
+              if (appCache.products) {
+                appCache.products.delete(addressListCacheKey);
+                appCache.products.invalidatePattern(/^address:/);
+              }
+            } catch (cacheError) {
+              // Erreur non critique, juste logger en dev
+              if (process.env.NODE_ENV === 'development') {
+                console.warn('Cache invalidation error:', cacheError);
+              }
+            }
+
+            // Journaliser en production (anonymisé)
+            if (process.env.NODE_ENV === 'production') {
+              console.info('Address added successfully', {
+                userId: user?._id
+                  ? `${user._id.toString().substring(0, 2)}...${user._id.toString().slice(-2)}`
+                  : 'unknown',
+              });
+            }
+
+            // Afficher un message de réussite (seul toast autorisé)
+            toast.success(data.message || 'Adresse ajoutée avec succès!');
+
+            // Redirection avec un délai pour que le toast soit visible
+            setTimeout(() => router.push('/me'), 1000);
+          } else if (data.success === false) {
+            // Cas où success est explicitement false
+            setError(data.message || "Échec de l'ajout d'adresse");
+
+            // Si des erreurs détaillées sont disponibles, les agréger
+            if (
+              data.errors &&
+              Array.isArray(data.errors) &&
+              data.errors.length > 0
+            ) {
+              setError(
+                `${data.message || "Échec de l'ajout d'adresse"}: ${data.errors.map((e) => e.message || e).join(', ')}`,
+              );
+            }
           } else {
-            // Erreurs serveur
-            setError('Erreur serveur');
-            toast.error(
-              'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
+            // Réponse JSON valide mais structure inattendue
+            setError(
+              "Réponse inattendue du serveur lors de l'ajout de l'adresse",
             );
           }
-
-          setLoading(false);
-          return;
-        }
-
-        // Traitement de la réponse JSON avec gestion d'erreur
-        let data;
-        try {
-          data = await res.json();
-        } catch (jsonError) {
-          setError('Réponse du serveur invalide');
-          toast.error('Réponse du serveur invalide. Veuillez réessayer.');
-          setLoading(false);
-          return;
-        }
-
-        // Vérification de la structure de la réponse
-        if (!data || data.success === false) {
-          // Erreur applicative
-          setError(data?.message || "Échec de l'ajout d'adresse");
-          toast.error(data?.message || "Échec de l'ajout d'adresse");
-          setLoading(false);
-          return;
-        }
-
-        // Succès
-        if (data.data) {
-          // Réinitialiser le compteur de tentatives en cas de succès
-          if (appCache.ui) {
-            appCache.ui.delete(clientRateLimitKey);
-          }
-
-          // Afficher un message de réussite
-          toast.success(data.message || 'Adresse ajoutée avec succès!');
-
-          // Redirection avec un délai pour que le toast soit visible
-          setTimeout(() => router.push('/me'), 1000);
         } else {
-          // Cas de succès mal formaté
-          setError('Réponse inattendue du serveur');
-          toast.warning('Opération terminée, mais le résultat est incertain');
-          setLoading(false);
+          // Réponse vide ou mal formatée
+          setError('Réponse vide ou invalide du serveur');
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
 
-        // Catégorisation des erreurs réseau
+        // Erreurs réseau - Toutes gérées via setError sans toast
         const isAborted = fetchError.name === 'AbortError';
         const isNetworkError =
           fetchError.message.includes('network') ||
@@ -1184,39 +1282,70 @@ export const AuthProvider = ({ children }) => {
 
         if (isTimeout) {
           // Timeout
-          setError('La requête a pris trop de temps');
-          toast.error(
-            'La connexion au serveur est trop lente. Veuillez réessayer plus tard.',
+          setError(
+            "La requête d'ajout d'adresse a pris trop de temps. Veuillez réessayer.",
           );
         } else if (isNetworkError) {
-          // Erreur réseau
-          setError('Problème de connexion internet');
-          toast.error(
-            'Impossible de se connecter au serveur. Vérifiez votre connexion internet.',
+          // Erreur réseau simple
+          setError(
+            'Problème de connexion internet. Vérifiez votre connexion et réessayez.',
           );
         } else {
-          // Autres erreurs
-          setError("Erreur lors de l'ajout de l'adresse");
-          toast.error(
-            'Une erreur inattendue est survenue. Veuillez réessayer.',
+          // Autres erreurs fetch
+          setError(
+            `Erreur lors de l'ajout de l'adresse: ${fetchError.message}`,
           );
 
-          // Journalisation en dev uniquement
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Address addition error:', fetchError);
+          // Enrichir l'erreur pour le boundary sans la lancer
+          if (!fetchError.componentName) {
+            fetchError.componentName = 'AddNewAddress';
+            fetchError.additionalInfo = {
+              context: 'address',
+              operation: 'create',
+            };
+          }
+
+          // Capture pour Sentry en production
+          if (process.env.NODE_ENV === 'production') {
+            captureException(fetchError, {
+              tags: {
+                component: 'AddNewAddress',
+                action: 'addNewAddress',
+                errorType: isTimeout
+                  ? 'timeout'
+                  : isNetworkError
+                    ? 'network'
+                    : 'unknown',
+              },
+              extra: {
+                userAnonymized: user?.email
+                  ? `${user.email.charAt(0)}***${user.email.slice(user.email.indexOf('@'))}`
+                  : 'unknown',
+              },
+            });
           }
         }
       }
     } catch (error) {
-      // Erreurs générales non gérées
-      setError('Une erreur inattendue est survenue');
-      toast.error(
-        'Une erreur inattendue est survenue. Veuillez réessayer plus tard.',
+      // Pour toute erreur non gérée spécifiquement
+      setError(
+        "Une erreur inattendue est survenue lors de l'ajout de l'adresse",
       );
 
-      // Journalisation en dev uniquement
+      // Journaliser localement en dev
       if (process.env.NODE_ENV === 'development') {
-        console.error('Address addition unexpected error:', error);
+        console.error('Address creation error:', error);
+      }
+
+      // Capture pour Sentry en production
+      if (process.env.NODE_ENV === 'production') {
+        if (!error.componentName) {
+          error.componentName = 'AddNewAddress';
+          error.additionalInfo = {
+            context: 'address',
+          };
+        }
+        captureException(error);
       }
     } finally {
       setLoading(false);
