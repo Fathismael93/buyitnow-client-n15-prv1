@@ -521,6 +521,9 @@ export const getAllProducts = async (
 
 export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
   const controller = new AbortController();
+  const requestId = `categories-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+  // Timeout de 5 secondes pour les catégories
   const timeoutId = setTimeout(() => {
     controller.abort();
     logger.warn('Request timeout in getCategories', {
@@ -528,10 +531,7 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
       timeoutMs: 5000,
       action: 'request_timeout',
     });
-  }, 5000); // 5 secondes pour les catégories (plus court que pour les produits)
-
-  // Générer un ID de requête unique pour suivre les retries dans les logs
-  const requestId = `categories-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  }, 5000);
 
   logger.info('Starting getCategories request', {
     requestId,
@@ -553,7 +553,7 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
     const res = await fetch(apiUrl, {
       signal: controller.signal,
       next: {
-        revalidate: CACHE_CONFIGS.categories?.staleWhileRevalidate || 3600, // 1 heure par défaut
+        revalidate: CACHE_CONFIGS.categories?.staleWhileRevalidate || 3600,
         tags: ['categories'],
       },
       headers: {
@@ -569,19 +569,43 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
       action: 'api_request_complete',
     });
 
-    if (!res.ok) {
-      const errorText = await res.text();
+    // Tenter de récupérer le corps de la réponse, que ce soit JSON ou texte
+    let responseBody;
+    let isJsonResponse = true;
+    let parseErrorMessage = null;
 
-      logger.error('API request failed', {
+    try {
+      responseBody = await res.json();
+    } catch (parseError) {
+      isJsonResponse = false;
+      parseErrorMessage = parseError.message;
+      logger.error('JSON parsing error in getCategories', {
         requestId,
-        status: res.status,
-        error: errorText,
+        error: parseError.message,
         retryAttempt,
-        action: 'api_request_error',
+        action: 'parse_error',
       });
 
-      // Déterminer si l'erreur est récupérable (5xx ou certaines 4xx)
-      const isRetryable = res.status >= 500 || [408, 429].includes(res.status);
+      try {
+        // Si ce n'est pas du JSON, essayer de récupérer comme texte
+        responseBody = await res.clone().text();
+      } catch (textError) {
+        logger.error('Failed to get response text after JSON parse failure', {
+          requestId,
+          error: textError.message,
+          action: 'text_extraction_failed',
+        });
+        responseBody = 'Impossible de lire la réponse';
+      }
+    }
+
+    // Gestion différenciée des cas de réponse
+    if (!res.ok) {
+      // Gestion des cas d'erreur HTTP
+      const statusCode = res.status;
+
+      // Déterminer si l'erreur est récupérable pour les retries
+      const isRetryable = statusCode >= 500 || [408, 429].includes(statusCode);
 
       if (isRetryable && retryAttempt < maxRetries) {
         // Calculer le délai de retry avec backoff exponentiel
@@ -607,70 +631,210 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
         return getCategories(retryAttempt + 1, maxRetries);
       }
 
-      return [];
+      // Erreurs spécifiques après épuisement des retries ou erreurs non-récupérables
+      switch (statusCode) {
+        case 400: // Bad Request
+          return {
+            success: false,
+            code:
+              isJsonResponse && responseBody.code
+                ? responseBody.code
+                : 'BAD_REQUEST',
+            message:
+              isJsonResponse && responseBody.message
+                ? responseBody.message
+                : 'Requête invalide',
+            categories: [],
+          };
+
+        case 401: // Unauthorized
+          return {
+            success: false,
+            code: 'UNAUTHORIZED',
+            message: 'Authentification requise',
+            categories: [],
+          };
+
+        case 403: // Forbidden
+          return {
+            success: false,
+            code: 'FORBIDDEN',
+            message: 'Accès interdit',
+            categories: [],
+          };
+
+        case 404: // Not Found
+          return {
+            success: false,
+            code: 'NOT_FOUND',
+            message: 'Ressource non trouvée',
+            categories: [],
+          };
+
+        case 429: // Too Many Requests
+          toast.info('Trop de requêtes, veuillez réessayer plus tard');
+          return {
+            success: false,
+            code: 'RATE_LIMIT_EXCEEDED',
+            message: 'Trop de requêtes, veuillez réessayer plus tard',
+            retryAfter: res.headers.get('Retry-After')
+              ? parseInt(res.headers.get('Retry-After'))
+              : 60,
+            categories: [],
+          };
+
+        case 500: // Internal Server Error
+          toast.error(
+            'Une erreur est survenue lors du chargement des catégories',
+          );
+          return {
+            success: false,
+            code: 'INTERNAL_SERVER_ERROR',
+            message:
+              'Une erreur interne est survenue, veuillez réessayer ultérieurement',
+            categories: [],
+          };
+
+        case 503: // Service Unavailable
+          toast.error('Service temporairement indisponible');
+          return {
+            success: false,
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'Service temporairement indisponible',
+            categories: [],
+          };
+
+        case 504: // Gateway Timeout
+          toast.error('La requête a pris trop de temps');
+          return {
+            success: false,
+            code: 'TIMEOUT',
+            message: 'La requête a pris trop de temps',
+            categories: [],
+          };
+
+        default: // Autres erreurs
+          toast.error('Erreur lors du chargement des catégories');
+          return {
+            success: false,
+            code: 'API_ERROR',
+            message:
+              isJsonResponse && responseBody.message
+                ? responseBody.message
+                : `Erreur ${statusCode}`,
+            status: statusCode,
+            categories: [],
+          };
+      }
     }
 
-    try {
-      const data = await res.json();
+    // Traitement de la réponse en cas de succès HTTP (200)
+    if (isJsonResponse) {
+      // Si JSON valide
+      if (responseBody.success === true) {
+        // Cas de succès API explicite
+        logger.info('Successfully fetched categories', {
+          requestId,
+          categoryCount: responseBody.data?.categories?.length || 0,
+          action: 'api_success',
+        });
 
-      if (data?.success === false) {
+        // Vérifier si des catégories sont présentes dans la réponse
+        if (responseBody.data?.categories?.length > 0) {
+          // Cas standard avec des catégories trouvées
+          return {
+            success: true,
+            message:
+              responseBody.message || 'Catégories récupérées avec succès',
+            categories: responseBody.data.categories,
+            cached: responseBody.data?.cached || false,
+            timestamp: responseBody.data?.timestamp,
+            count:
+              responseBody.data?.count || responseBody.data?.categories?.length,
+          };
+        } else {
+          // Cas spécifique où aucune catégorie n'est trouvée mais la requête est réussie
+          return {
+            success: true,
+            message: responseBody.message || 'Aucune catégorie trouvée',
+            categories: [],
+            count: 0,
+          };
+        }
+      } else if (responseBody.success === false) {
+        // Cas d'erreur API explicite mais avec statut HTTP 200
         logger.warn('API returned success: false', {
           requestId,
-          message: data?.message,
+          message: responseBody.message,
+          code: responseBody.code,
           action: 'api_business_error',
         });
 
-        toast.info(data?.message);
-        return [];
-      }
+        toast.info(
+          responseBody.message || 'Erreur lors du chargement des catégories',
+        );
 
-      logger.info('Successfully fetched categories', {
+        return {
+          success: false,
+          code: responseBody.code || 'API_BUSINESS_ERROR',
+          message: responseBody.message || 'Erreur côté serveur',
+          categories: [],
+        };
+      } else {
+        // Structure de réponse inattendue
+        logger.error('Unexpected API response structure', {
+          requestId,
+          responseBody: JSON.stringify(responseBody).substring(0, 200),
+          action: 'unexpected_response_structure',
+        });
+
+        // Tenter d'extraire les catégories même si la structure est inattendue
+        const categories = Array.isArray(responseBody.data?.categories)
+          ? responseBody.data.categories
+          : Array.isArray(responseBody.categories)
+            ? responseBody.categories
+            : [];
+
+        if (categories.length > 0) {
+          // Des catégories ont été trouvées malgré la structure inattendue
+          return {
+            success: true,
+            code: 'UNEXPECTED_STRUCTURE',
+            message:
+              'Structure de réponse inattendue, mais des catégories ont été trouvées',
+            categories: categories,
+          };
+        } else {
+          toast.error('Format de réponse incorrect');
+          return {
+            success: false,
+            code: 'UNEXPECTED_RESPONSE',
+            message: 'Format de réponse inattendu',
+            categories: [],
+          };
+        }
+      }
+    } else {
+      // Réponse non-JSON mais statut HTTP 200
+      logger.error('Non-JSON response with HTTP 200', {
         requestId,
-        categoryCount: data?.data?.categories?.length || 0,
-        action: 'api_success',
+        parseError: parseErrorMessage,
+        responseBodyPreview:
+          typeof responseBody === 'string'
+            ? responseBody.substring(0, 200)
+            : 'Unknown response type',
+        action: 'non_json_response',
       });
 
-      return data?.data?.categories || [];
-    } catch (parseError) {
-      logger.error('JSON parsing error in getCategories', {
-        requestId,
-        error: parseError.message,
-        retryAttempt,
-        action: 'parse_error',
-      });
+      toast.error('Erreur lors de la récupération des catégories');
 
-      // Si erreur de parsing et retries disponibles
-      if (retryAttempt < maxRetries) {
-        const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
-        logger.warn(`Retrying after parse error (${retryDelay}ms)`, {
-          requestId,
-          retryAttempt: retryAttempt + 1,
-          action: 'retry_scheduled',
-        });
-
-        clearTimeout(timeoutId);
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
-        return getCategories(retryAttempt + 1, maxRetries);
-      }
-
-      try {
-        const rawText = await res.clone().text();
-
-        logger.error('Raw response text', {
-          requestId,
-          text: rawText.substring(0, 200) + '...',
-          action: 'raw_response',
-        });
-      } catch (textError) {
-        logger.error('Failed to get raw response text', {
-          requestId,
-          error: textError.message,
-          action: 'raw_response_failed',
-        });
-      }
-
-      toast.error('Something went wrong loading categories');
-      return [];
+      return {
+        success: false,
+        code: 'INVALID_RESPONSE_FORMAT',
+        message: 'Le serveur a répondu avec un format invalide',
+        errorDetails: parseErrorMessage,
+        categories: [],
+      };
     }
   } catch (error) {
     logger.error('Exception in getCategories', {
@@ -707,8 +871,38 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
       extra: { requestId, retryAttempt },
     });
 
-    toast.error('Something went wrong loading categories');
-    return [];
+    // Retourner une erreur typée en fonction de la nature de l'exception
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+      toast.error('La récupération des catégories a pris trop de temps');
+      return {
+        success: false,
+        code: 'CLIENT_TIMEOUT',
+        message:
+          "La requête a été interrompue en raison d'un délai d'attente excessif",
+        categories: [],
+      };
+    } else if (
+      error.message.includes('network') ||
+      error.message.includes('connection')
+    ) {
+      toast.error('Problème de connexion réseau');
+      return {
+        success: false,
+        code: 'NETWORK_ERROR',
+        message: 'Problème de connexion réseau',
+        categories: [],
+      };
+    } else {
+      toast.error('Erreur lors du chargement des catégories');
+      return {
+        success: false,
+        code: 'CLIENT_ERROR',
+        message:
+          "Une erreur s'est produite lors de la récupération des catégories",
+        errorDetails: error.message,
+        categories: [],
+      };
+    }
   } finally {
     clearTimeout(timeoutId);
   }
