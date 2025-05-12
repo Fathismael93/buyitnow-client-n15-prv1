@@ -2287,7 +2287,7 @@ export const getAllOrders = async (
   const controller = new AbortController();
   const requestId = `orders-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-  // Timeout pour éviter les requêtes bloquées
+  // Timeout de 8 secondes
   const timeoutId = setTimeout(() => {
     controller.abort();
     logger.warn('Request timeout in getAllOrders', {
@@ -2295,7 +2295,7 @@ export const getAllOrders = async (
       timeoutMs: 8000,
       action: 'request_timeout',
     });
-  }, 8000); // 8 secondes pour les commandes
+  }, 8000);
 
   logger.info('Starting getAllOrders request', {
     requestId,
@@ -2305,22 +2305,113 @@ export const getAllOrders = async (
   });
 
   try {
-    // Extraction et validation des paramètres
-    let page = 1;
+    // Créer un objet pour stocker les paramètres validés
+    const urlParams = {};
+    const validationErrors = [];
 
-    if (searchParams?.page) {
-      // Valider que la page est un nombre
-      const parsedPage = parseInt(searchParams.page, 10);
-      if (!isNaN(parsedPage) && parsedPage > 0 && parsedPage <= 100) {
-        page = parsedPage;
-      } else {
-        logger.warn('Invalid page parameter in getAllOrders', {
-          requestId,
-          providedPage: searchParams.page,
-          action: 'invalid_page_param',
-        });
-        // Utiliser la valeur par défaut (1)
+    // Vérifier si searchParams est défini avant d'y accéder
+    if (searchParams) {
+      // Validation et stockage du paramètre page
+      if (searchParams.page) {
+        try {
+          // Validation simple pour la page
+          const parsedPage = parseInt(searchParams.page, 10);
+          if (!isNaN(parsedPage) && parsedPage > 0 && parsedPage <= 100) {
+            urlParams.page = parsedPage;
+          } else {
+            validationErrors.push({
+              field: 'page',
+              message: 'Le numéro de page doit être un nombre entre 1 et 100',
+            });
+          }
+        } catch (err) {
+          validationErrors.push({
+            field: 'page',
+            message: 'Format de page invalide',
+          });
+        }
       }
+
+      // Validation pour d'autres paramètres potentiels
+      // Ex: status de commande, date, etc.
+      // if (searchParams.status) {
+      //   const validStatuses = [
+      //     'processing',
+      //     'shipped',
+      //     'delivered',
+      //     'cancelled',
+      //   ];
+      //   if (validStatuses.includes(searchParams.status)) {
+      //     urlParams.status = searchParams.status;
+      //   } else {
+      //     validationErrors.push({
+      //       field: 'status',
+      //       message: 'Statut de commande invalide',
+      //     });
+      //   }
+      // }
+
+      // Traitement des paramètres de date le cas échéant
+      // if (searchParams.startDate) {
+      //   try {
+      //     const date = new Date(searchParams.startDate);
+      //     if (!isNaN(date.getTime())) {
+      //       urlParams.startDate = searchParams.startDate;
+      //     } else {
+      //       validationErrors.push({
+      //         field: 'startDate',
+      //         message: 'Format de date de début invalide',
+      //       });
+      //     }
+      //   } catch (err) {
+      //     validationErrors.push({
+      //       field: 'startDate',
+      //       message: 'Date de début invalide',
+      //     });
+      //   }
+      // }
+
+      // if (searchParams.endDate) {
+      //   try {
+      //     const date = new Date(searchParams.endDate);
+      //     if (!isNaN(date.getTime())) {
+      //       urlParams.endDate = searchParams.endDate;
+      //     } else {
+      //       validationErrors.push({
+      //         field: 'endDate',
+      //         message: 'Format de date de fin invalide',
+      //       });
+      //     }
+      //   } catch (err) {
+      //     validationErrors.push({
+      //       field: 'endDate',
+      //       message: 'Date de fin invalide',
+      //     });
+      //   }
+      // }
+    }
+
+    // Si des erreurs de validation sont trouvées, retourner immédiatement
+    if (validationErrors?.length > 0) {
+      logger.warn('Validation errors in getAllOrders', {
+        requestId,
+        validationErrors,
+        action: 'validation_failed',
+      });
+
+      captureException(new Error('Validation failed'), {
+        tags: { action: 'validation_failed' },
+        extra: { validationErrors, searchParams },
+      });
+
+      // Format de réponse standardisé avec statut d'erreur
+      return {
+        success: false,
+        code: 'VALIDATION_ERROR',
+        message: 'Paramètres de requête invalides',
+        errors: validationErrors,
+        data: { orders: [], totalPages: 0, deliveryPrice: [] },
+      };
     }
 
     // Obtenir les cookies pour l'authentification
@@ -2333,37 +2424,43 @@ export const getAllOrders = async (
         requestId,
         action: 'missing_auth_token',
       });
-      return { orders: [], totalPages: 0, deliveryPrice: [] };
+
+      return {
+        success: false,
+        code: 'UNAUTHORIZED',
+        message: 'Authentification requise',
+        data: { orders: [], totalPages: 0, deliveryPrice: [] },
+      };
     }
 
-    // Clé de cache basée sur l'utilisateur et la page
-    const cacheKey = `orders_${nextAuthSessionToken.value.substring(0, 10)}_page_${page}`;
+    // Clé de cache basée sur l'utilisateur et les paramètres
+    const userIdentifier = nextAuthSessionToken.value.substring(0, 10);
+    const queryString = new URLSearchParams(urlParams).toString();
+    const cacheKey = `orders_${userIdentifier}_${queryString || 'default'}`;
 
     // Vérifier le cache
     const cachedData = appCache.products.get(cacheKey);
     if (cachedData && !retryAttempt) {
       logger.debug('Orders cache hit', {
         requestId,
-        page,
+        page: urlParams.page || 1,
         action: 'cache_hit',
       });
       return cachedData;
     }
 
-    // Construction de l'URL avec paramètres validés
-    const urlParams = { page };
-    const searchQuery = queryString.stringify(urlParams);
-    const apiUrl = `${process.env.API_URL}/api/orders/me?${searchQuery}`;
+    // Construire la chaîne de requête
+    const searchQuery = new URLSearchParams(urlParams).toString();
+    const apiUrl = `${process.env.API_URL || ''}/api/orders/me${searchQuery ? `?${searchQuery}` : ''}`;
 
     // Avant l'appel API
     logger.debug('Fetching orders from API', {
       requestId,
-      page,
+      url: apiUrl,
       retryAttempt,
       action: 'api_request_start',
     });
 
-    // Appel API avec gestion du timeout
     const res = await fetch(apiUrl, {
       signal: controller.signal,
       headers: {
@@ -2385,29 +2482,43 @@ export const getAllOrders = async (
       action: 'api_request_complete',
     });
 
-    // Gestion des erreurs HTTP
-    if (!res.ok) {
-      const errorStatus = res.status;
-      let errorText;
+    // Tenter de récupérer le corps de la réponse, que ce soit JSON ou texte
+    let responseBody;
+    let isJsonResponse = true;
+    let parseErrorMessage = null;
 
-      try {
-        errorText = await res.text();
-        // eslint-disable-next-line no-unused-vars
-      } catch (textError) {
-        errorText = 'Failed to read error response';
-      }
-
-      logger.error('API request failed in getAllOrders', {
+    try {
+      responseBody = await res.json();
+    } catch (parseError) {
+      isJsonResponse = false;
+      parseErrorMessage = parseError.message;
+      logger.error('JSON parsing error in getAllOrders', {
         requestId,
-        status: errorStatus,
-        error: errorText,
+        error: parseError.message,
         retryAttempt,
-        action: 'api_request_error',
+        action: 'parse_error',
       });
 
-      // Déterminer si l'erreur est récupérable
-      const isRetryable =
-        errorStatus >= 500 || [408, 429].includes(errorStatus);
+      try {
+        // Si ce n'est pas du JSON, essayer de récupérer comme texte
+        responseBody = await res.clone().text();
+      } catch (textError) {
+        logger.error('Failed to get response text after JSON parse failure', {
+          requestId,
+          error: textError.message,
+          action: 'text_extraction_failed',
+        });
+        responseBody = 'Impossible de lire la réponse';
+      }
+    }
+
+    // Gestion différenciée des cas de réponse
+    if (!res.ok) {
+      // Gestion des cas d'erreur HTTP
+      const statusCode = res.status;
+
+      // Déterminer si l'erreur est récupérable pour les retries
+      const isRetryable = statusCode >= 500 || [408, 429].includes(statusCode);
 
       if (isRetryable && retryAttempt < maxRetries) {
         // Calculer le délai de retry avec backoff exponentiel
@@ -2433,151 +2544,220 @@ export const getAllOrders = async (
         return getAllOrders(searchParams, retryAttempt + 1, maxRetries);
       }
 
-      // Traitement selon le type d'erreur
-      if (errorStatus === 401 || errorStatus === 403) {
-        logger.warn('Authentication error in getAllOrders', {
-          requestId,
-          status: errorStatus,
-          action: 'auth_error',
-        });
-        // Ne pas afficher de message toast ici, la redirection sera gérée par le middleware d'authentification
-      } else if (errorStatus === 404) {
-        logger.info('No orders found', {
-          requestId,
-          action: 'orders_not_found',
-        });
-      } else {
-        // Autres erreurs
-        captureException(new Error(`API Error ${errorStatus}: ${errorText}`), {
-          tags: { action: 'get_all_orders', status: errorStatus },
-          extra: { requestId, retryAttempt },
-        });
-      }
+      // Erreurs spécifiques après épuisement des retries ou erreurs non-récupérables
+      switch (statusCode) {
+        case 400: // Bad Request
+          return {
+            success: false,
+            code:
+              isJsonResponse && responseBody.code
+                ? responseBody.code
+                : 'BAD_REQUEST',
+            message:
+              isJsonResponse && responseBody.message
+                ? responseBody.message
+                : 'Requête invalide',
+            errors:
+              isJsonResponse && responseBody.errors ? responseBody.errors : [],
+            data: { orders: [], totalPages: 0, deliveryPrice: [] },
+          };
 
-      return { orders: [], totalPages: 0, deliveryPrice: [] };
+        case 401: // Unauthorized
+          return {
+            success: false,
+            code: 'UNAUTHORIZED',
+            message: 'Authentification requise',
+            data: { orders: [], totalPages: 0, deliveryPrice: [] },
+          };
+
+        case 403: // Forbidden
+          return {
+            success: false,
+            code: 'FORBIDDEN',
+            message: 'Accès interdit',
+            data: { orders: [], totalPages: 0, deliveryPrice: [] },
+          };
+
+        case 404: // Not Found
+          return {
+            success: false,
+            code: 'NOT_FOUND',
+            message: 'Ressource non trouvée',
+            data: { orders: [], totalPages: 0, deliveryPrice: [] },
+          };
+
+        case 429: // Too Many Requests
+          return {
+            success: false,
+            code: 'RATE_LIMIT_EXCEEDED',
+            message: 'Trop de requêtes, veuillez réessayer plus tard',
+            retryAfter: res.headers.get('Retry-After')
+              ? parseInt(res.headers.get('Retry-After'))
+              : 60,
+            data: { orders: [], totalPages: 0, deliveryPrice: [] },
+          };
+
+        case 500: // Internal Server Error
+          return {
+            success: false,
+            code: 'INTERNAL_SERVER_ERROR',
+            message:
+              'Une erreur interne est survenue, veuillez réessayer ultérieurement',
+            data: { orders: [], totalPages: 0, deliveryPrice: [] },
+          };
+
+        case 503: // Service Unavailable
+          return {
+            success: false,
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'Service temporairement indisponible',
+            data: { orders: [], totalPages: 0, deliveryPrice: [] },
+          };
+
+        case 504: // Gateway Timeout
+          return {
+            success: false,
+            code: 'TIMEOUT',
+            message: 'La requête a pris trop de temps',
+            data: { orders: [], totalPages: 0, deliveryPrice: [] },
+          };
+
+        default: // Autres erreurs
+          return {
+            success: false,
+            code: 'API_ERROR',
+            message:
+              isJsonResponse && responseBody.message
+                ? responseBody.message
+                : `Erreur ${statusCode}`,
+            status: statusCode,
+            data: { orders: [], totalPages: 0, deliveryPrice: [] },
+          };
+      }
     }
 
-    // Traitement de la réponse avec gestion des erreurs de parsing
-    try {
-      const data = await res.json();
-
-      // Vérifier les erreurs business
-      if (data?.success === false) {
-        logger.warn('API returned success: false in getAllOrders', {
+    // Traitement de la réponse en cas de succès HTTP (200)
+    if (isJsonResponse) {
+      // Si JSON valide
+      if (responseBody.success === true) {
+        // Cas de succès API explicite
+        logger.info('Successfully fetched orders', {
           requestId,
-          message: data?.message,
+          orderCount: responseBody.data?.orders?.length || 0,
+          action: 'api_success',
+        });
+
+        // Vérifier si des commandes sont présentes dans la réponse
+        if (responseBody.data?.orders?.length > 0) {
+          // Traitement des données pour masquer les informations sensibles
+          const sanitizedOrders = responseBody.data.orders.map((order) => ({
+            ...order,
+            // Masquer les détails sensibles des informations de paiement
+            paymentInfo: order.paymentInfo
+              ? {
+                  ...order.paymentInfo,
+                  // Assurer que le numéro de compte est masqué
+                  paymentAccountNumber:
+                    order.paymentInfo.paymentAccountNumber?.includes('••••••')
+                      ? order.paymentInfo.paymentAccountNumber
+                      : '••••••' +
+                        (order.paymentInfo.paymentAccountNumber?.slice(-4) ||
+                          ''),
+                }
+              : order.paymentInfo,
+          }));
+
+          // Structurer la réponse
+          const result = {
+            success: true,
+            message: responseBody.message || 'Commandes récupérées avec succès',
+            data: {
+              orders: sanitizedOrders,
+              currentPage: responseBody.data.currentPage || 1,
+              totalPages: responseBody.data.totalPages || 0,
+              count: responseBody.data.count || sanitizedOrders.length,
+              perPage: responseBody.data.perPage || 10,
+              deliveryPrice: responseBody.data.deliveryPrice || [],
+            },
+          };
+
+          // Mettre en cache les résultats pour 2 minutes (durée de vie courte pour les données utilisateur)
+          appCache.products.set(cacheKey, result, { ttl: 2 * 60 * 1000 });
+
+          return result;
+        } else {
+          // Cas spécifique où aucune commande n'est trouvée mais la requête est réussie
+          return {
+            success: true,
+            message:
+              responseBody.message ||
+              'Aucune commande ne correspond aux critères',
+            data: {
+              orders: [],
+              totalPages: 0,
+              currentPage: 1,
+              count: 0,
+              perPage: 10,
+              deliveryPrice: responseBody.data?.deliveryPrice || [],
+            },
+          };
+        }
+      } else if (responseBody.success === false) {
+        // Cas d'erreur API explicite mais avec statut HTTP 200
+        logger.warn('API returned success: false', {
+          requestId,
+          message: responseBody.message,
+          code: responseBody.code,
           action: 'api_business_error',
         });
 
-        // Ne pas afficher automatiquement le message d'erreur
-        // Laisser l'UI décider comment présenter l'erreur
         return {
-          orders: [],
-          totalPages: 0,
-          deliveryPrice: [],
-          error: data?.message,
+          success: false,
+          code: responseBody.code || 'API_BUSINESS_ERROR',
+          message: responseBody.message || 'Erreur côté serveur',
+          errors: responseBody.errors || [],
+          data: { orders: [], totalPages: 0, deliveryPrice: [] },
+        };
+      } else {
+        // Structure de réponse inattendue
+        logger.error('Unexpected API response structure', {
+          requestId,
+          responseBody: JSON.stringify(responseBody).substring(0, 200),
+          action: 'unexpected_response_structure',
+        });
+
+        return {
+          success: false,
+          code: 'UNEXPECTED_RESPONSE',
+          message: 'Format de réponse inattendu',
+          data: {
+            orders: Array.isArray(responseBody.data?.orders)
+              ? responseBody.data.orders
+              : [],
+            totalPages: responseBody.data?.totalPages || 0,
+            deliveryPrice: responseBody.data?.deliveryPrice || [],
+          },
         };
       }
+    } else {
+      // Réponse non-JSON mais statut HTTP 200
+      logger.error('Non-JSON response with HTTP 200', {
+        requestId,
+        parseError: parseErrorMessage,
+        responseBodyPreview:
+          typeof responseBody === 'string'
+            ? responseBody.substring(0, 200)
+            : 'Unknown response type',
+        action: 'non_json_response',
+      });
 
-      // Vérifier que les données existent
-      if (!data?.data) {
-        logger.error('Orders data missing in response', {
-          requestId,
-          action: 'orders_data_missing',
-        });
-        return { orders: [], totalPages: 0, deliveryPrice: [] };
-      }
-
-      // Valider et normaliser les données
-      const orders = Array.isArray(data.data.orders) ? data.data.orders : [];
-      const totalPages =
-        typeof data.data.totalPages === 'number' ? data.data.totalPages : 0;
-      const deliveryPrice = Array.isArray(data.data.deliveryPrice)
-        ? data.data.deliveryPrice
-        : [];
-
-      // Masquer les informations sensibles de paiement
-      const sanitizedOrders = orders.map((order) => ({
-        ...order,
-        // Sécurité : masquer les détails sensibles des informations de paiement
-        paymentInfo: order.paymentInfo
-          ? {
-              ...order.paymentInfo,
-              // Assurer que le numéro de compte est masqué
-              paymentAccountNumber:
-                order.paymentInfo.paymentAccountNumber?.includes('••••••')
-                  ? order.paymentInfo.paymentAccountNumber
-                  : '••••••' +
-                    (order.paymentInfo.paymentAccountNumber?.slice(-4) || ''),
-            }
-          : order.paymentInfo,
-      }));
-
-      const result = {
-        orders: sanitizedOrders,
-        totalPages,
-        deliveryPrice,
-        currentPage: page,
+      return {
+        success: false,
+        code: 'INVALID_RESPONSE_FORMAT',
+        message: 'Le serveur a répondu avec un format invalide',
+        errorDetails: parseErrorMessage,
+        data: { orders: [], totalPages: 0, deliveryPrice: [] },
       };
-
-      // Mettre en cache pour 2 minutes (historique de commandes change peu)
-      appCache.products.set(cacheKey, result, { ttl: 2 * 60 * 1000 });
-
-      logger.info('Successfully fetched orders', {
-        requestId,
-        page,
-        orderCount: orders.length,
-        totalPages,
-        action: 'api_success',
-        duration: Math.round(
-          performance.now() - parseInt(requestId.split('-')[1]),
-        ),
-      });
-
-      return result;
-    } catch (parseError) {
-      logger.error('JSON parsing error in getAllOrders', {
-        requestId,
-        error: parseError.message,
-        retryAttempt,
-        action: 'parse_error',
-      });
-
-      // Si erreur de parsing et retries disponibles
-      if (retryAttempt < maxRetries) {
-        const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
-        logger.warn(`Retrying after parse error (${retryDelay}ms)`, {
-          requestId,
-          retryAttempt: retryAttempt + 1,
-          action: 'retry_scheduled',
-        });
-
-        clearTimeout(timeoutId);
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
-        return getAllOrders(searchParams, retryAttempt + 1, maxRetries);
-      }
-
-      try {
-        const rawText = await res.clone().text();
-        logger.error('Raw response text', {
-          requestId,
-          text: rawText.substring(0, 200) + '...',
-          action: 'raw_response',
-        });
-      } catch (textError) {
-        logger.error('Failed to get raw response text', {
-          requestId,
-          error: textError.message,
-          action: 'raw_response_failed',
-        });
-      }
-
-      captureException(parseError, {
-        tags: { action: 'get_all_orders', error: 'parse_error' },
-        extra: { requestId, retryAttempt },
-      });
-
-      return { orders: [], totalPages: 0, deliveryPrice: [] };
     }
   } catch (error) {
     logger.error('Exception in getAllOrders', {
@@ -2614,7 +2794,35 @@ export const getAllOrders = async (
       extra: { searchParams, requestId, retryAttempt },
     });
 
-    return { orders: [], totalPages: 0, deliveryPrice: [] };
+    // Retourner une erreur typée en fonction de la nature de l'exception
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+      return {
+        success: false,
+        code: 'CLIENT_TIMEOUT',
+        message:
+          "La requête a été interrompue en raison d'un délai d'attente excessif",
+        data: { orders: [], totalPages: 0, deliveryPrice: [] },
+      };
+    } else if (
+      error.message.includes('network') ||
+      error.message.includes('connection')
+    ) {
+      return {
+        success: false,
+        code: 'NETWORK_ERROR',
+        message: 'Problème de connexion réseau',
+        data: { orders: [], totalPages: 0, deliveryPrice: [] },
+      };
+    } else {
+      return {
+        success: false,
+        code: 'CLIENT_ERROR',
+        message:
+          "Une erreur s'est produite lors de la récupération des commandes",
+        errorDetails: error.message,
+        data: { orders: [], totalPages: 0, deliveryPrice: [] },
+      };
+    }
   } finally {
     clearTimeout(timeoutId);
   }

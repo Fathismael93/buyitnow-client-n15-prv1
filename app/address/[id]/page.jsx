@@ -109,8 +109,6 @@ async function UpdateAddressPage({ params }) {
       );
     });
 
-    console.log('Address fetched successfully', address);
-
     // Vérifier si l'adresse existe
     if (!address) {
       console.warn(`Address not found: ${addressId}`);
