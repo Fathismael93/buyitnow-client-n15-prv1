@@ -1593,6 +1593,9 @@ export const getAllAddresses = async (
       }
     }
 
+    console.log('Response body:', responseBody);
+    console.log('isJsonResponse:', isJsonResponse);
+
     // Traitement de la réponse en cas de succès HTTP (200)
     if (isJsonResponse) {
       // Si JSON valide
