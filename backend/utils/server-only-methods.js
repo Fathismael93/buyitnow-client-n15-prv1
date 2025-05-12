@@ -23,6 +23,9 @@ export const getAllProducts = async (
   maxRetries = 3,
 ) => {
   const controller = new AbortController();
+  const requestId = `products-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+  // Timeout de 10 secondes
   const timeoutId = setTimeout(() => {
     controller.abort();
     logger.warn('Request timeout in getAllProducts', {
@@ -30,10 +33,7 @@ export const getAllProducts = async (
       timeoutMs: 10000,
       action: 'request_timeout',
     });
-  }, 10000); // 10 secondes
-
-  // Générer un ID de requête unique pour suivre les retries dans les logs
-  const requestId = `products-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  }, 10000);
 
   logger.info('Starting getAllProducts request', {
     requestId,
@@ -147,7 +147,7 @@ export const getAllProducts = async (
       }
     }
 
-    // Si des erreurs de validation sont trouvées, retourner immédiatement
+    // Si des erreurs de validation sont trouvées, retourner immédiatement avec un format cohérent
     if (validationErrors?.length > 0) {
       logger.warn('Validation errors in getAllProducts', {
         requestId,
@@ -159,7 +159,15 @@ export const getAllProducts = async (
         tags: { action: 'validation_failed' },
         extra: { validationErrors, searchParams },
       });
-      return { products: [], totalPages: 0, errors: validationErrors };
+
+      // Format de réponse standardisé avec statut d'erreur
+      return {
+        success: false,
+        code: 'VALIDATION_ERROR',
+        message: 'Paramètres de requête invalides',
+        errors: validationErrors,
+        data: { products: [], totalPages: 0 },
+      };
     }
 
     // Construire la chaîne de requête
@@ -199,19 +207,44 @@ export const getAllProducts = async (
       action: 'api_request_complete',
     });
 
-    if (!res.ok) {
-      const errorText = await res.text();
+    // Tenter de récupérer le corps de la réponse, que ce soit JSON ou texte
+    let responseBody;
+    let isJsonResponse = true;
+    let parseErrorMessage = null;
 
-      logger.error('API request failed', {
+    try {
+      responseBody = await res.json();
+    } catch (parseError) {
+      isJsonResponse = false;
+      isJsonResponse = false;
+      parseErrorMessage = parseError.message;
+      logger.error('JSON parsing error in getAllProducts', {
         requestId,
-        status: res.status,
-        error: errorText,
+        error: parseErrorMessage,
         retryAttempt,
-        action: 'api_request_error',
+        action: 'parse_error',
       });
 
-      // Déterminer si l'erreur est récupérable (5xx ou certaines 4xx)
-      const isRetryable = res.status >= 500 || [408, 429].includes(res.status);
+      try {
+        // Si ce n'est pas du JSON, essayer de récupérer comme texte
+        responseBody = await res.clone().text();
+      } catch (textError) {
+        logger.error('Failed to get response text after JSON parse failure', {
+          requestId,
+          error: textError.message,
+          action: 'text_extraction_failed',
+        });
+        responseBody = 'Impossible de lire la réponse';
+      }
+    }
+
+    // Gestion différenciée des cas de réponse
+    if (!res.ok) {
+      // Gestion des cas d'erreur HTTP
+      const statusCode = res.status;
+
+      // Déterminer si l'erreur est récupérable pour les retries
+      const isRetryable = statusCode >= 500 || [408, 429].includes(statusCode);
 
       if (isRetryable && retryAttempt < maxRetries) {
         // Calculer le délai de retry avec backoff exponentiel
@@ -237,50 +270,185 @@ export const getAllProducts = async (
         return getAllProducts(searchParams, retryAttempt + 1, maxRetries);
       }
 
-      return { products: [], totalPages: 0 };
+      // Erreurs spécifiques après épuisement des retries ou erreurs non-récupérables
+      switch (statusCode) {
+        case 400: // Bad Request
+          return {
+            success: false,
+            code:
+              isJsonResponse && responseBody.code
+                ? responseBody.code
+                : 'BAD_REQUEST',
+            message:
+              isJsonResponse && responseBody.message
+                ? responseBody.message
+                : 'Requête invalide',
+            errors:
+              isJsonResponse && responseBody.errors ? responseBody.errors : [],
+            data: { products: [], totalPages: 0 },
+          };
+
+        case 401: // Unauthorized
+          return {
+            success: false,
+            code: 'UNAUTHORIZED',
+            message: 'Authentification requise',
+            data: { products: [], totalPages: 0 },
+          };
+
+        case 403: // Forbidden
+          return {
+            success: false,
+            code: 'FORBIDDEN',
+            message: 'Accès interdit',
+            data: { products: [], totalPages: 0 },
+          };
+
+        case 404: // Not Found
+          return {
+            success: false,
+            code: 'NOT_FOUND',
+            message: 'Ressource non trouvée',
+            data: { products: [], totalPages: 0 },
+          };
+
+        case 429: // Too Many Requests
+          return {
+            success: false,
+            code: 'RATE_LIMIT_EXCEEDED',
+            message: 'Trop de requêtes, veuillez réessayer plus tard',
+            retryAfter: res.headers.get('Retry-After')
+              ? parseInt(res.headers.get('Retry-After'))
+              : 60,
+            data: { products: [], totalPages: 0 },
+          };
+
+        case 500: // Internal Server Error
+          return {
+            success: false,
+            code: 'INTERNAL_SERVER_ERROR',
+            message:
+              'Une erreur interne est survenue, veuillez réessayer ultérieurement',
+            data: { products: [], totalPages: 0 },
+          };
+
+        case 503: // Service Unavailable
+          return {
+            success: false,
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'Service temporairement indisponible',
+            data: { products: [], totalPages: 0 },
+          };
+
+        case 504: // Gateway Timeout
+          return {
+            success: false,
+            code: 'TIMEOUT',
+            message: 'La requête a pris trop de temps',
+            data: { products: [], totalPages: 0 },
+          };
+
+        default: // Autres erreurs
+          return {
+            success: false,
+            code: 'API_ERROR',
+            message:
+              isJsonResponse && responseBody.message
+                ? responseBody.message
+                : `Erreur ${statusCode}`,
+            status: statusCode,
+            data: { products: [], totalPages: 0 },
+          };
+      }
     }
 
-    try {
-      const data = await res.json();
-
-      logger.info('Successfully fetched products', {
-        requestId,
-        productCount: data.products?.length || 0,
-        action: 'api_success',
-      });
-
-      return data;
-    } catch (parseError) {
-      logger.error('JSON parsing error in getAllProducts', {
-        requestId,
-        error: parseError.message,
-        retryAttempt,
-        action: 'parse_error',
-      });
-
-      // Si erreur de parsing et retries disponibles
-      if (retryAttempt < maxRetries) {
-        const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
-        logger.warn(`Retrying after parse error (${retryDelay}ms)`, {
+    // Traitement de la réponse en cas de succès HTTP (200)
+    if (isJsonResponse) {
+      // Si JSON valide
+      if (responseBody.success === true) {
+        // Cas de succès API explicite
+        logger.info('Successfully fetched products', {
           requestId,
-          retryAttempt: retryAttempt + 1,
-          action: 'retry_scheduled',
+          productCount: responseBody.data?.products?.length || 0,
+          action: 'api_success',
         });
 
-        clearTimeout(timeoutId);
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
-        return getAllProducts(searchParams, retryAttempt + 1, maxRetries);
+        // Vérifier si des produits sont présents dans la réponse
+        if (responseBody.data?.products?.length > 0) {
+          // Cas standard avec des produits trouvés
+          return {
+            success: true,
+            message: responseBody.message || 'Produits récupérés avec succès',
+            data: responseBody.data,
+          };
+        } else {
+          // Cas spécifique où aucun produit n'est trouvé mais la requête est réussie
+          return {
+            success: true,
+            message:
+              responseBody.message ||
+              'Aucun produit ne correspond aux critères',
+            data: {
+              products: [],
+              totalPages: 0,
+            },
+          };
+        }
+      } else if (responseBody.success === false) {
+        // Cas d'erreur API explicite mais avec statut HTTP 200
+        logger.warn('API returned success: false', {
+          requestId,
+          message: responseBody.message,
+          code: responseBody.code,
+          action: 'api_business_error',
+        });
+
+        return {
+          success: false,
+          code: responseBody.code || 'API_BUSINESS_ERROR',
+          message: responseBody.message || 'Erreur côté serveur',
+          errors: responseBody.errors || [],
+          data: { products: [], totalPages: 0 },
+        };
+      } else {
+        // Structure de réponse inattendue
+        logger.error('Unexpected API response structure', {
+          requestId,
+          responseBody: JSON.stringify(responseBody).substring(0, 200),
+          action: 'unexpected_response_structure',
+        });
+
+        return {
+          success: false,
+          code: 'UNEXPECTED_RESPONSE',
+          message: 'Format de réponse inattendu',
+          data: {
+            products: Array.isArray(responseBody.data?.products)
+              ? responseBody.data.products
+              : [],
+            totalPages: responseBody.data?.totalPages || 0,
+          },
+        };
       }
-
-      const rawText = await res.clone().text();
-
-      logger.error('Raw response text', {
+    } else {
+      // Réponse non-JSON mais statut HTTP 200
+      logger.error('Non-JSON response with HTTP 200', {
         requestId,
-        text: rawText.substring(0, 200) + '...',
-        action: 'raw_response',
+        parseError: parseErrorMessage,
+        responseBodyPreview:
+          typeof responseBody === 'string'
+            ? responseBody.substring(0, 200)
+            : 'Unknown response type',
+        action: 'non_json_response',
       });
 
-      return { products: [], totalPages: 0 };
+      return {
+        success: false,
+        code: 'INVALID_RESPONSE_FORMAT',
+        message: 'Le serveur a répondu avec un format invalide',
+        errorDetails: parseErrorMessage,
+        data: { products: [], totalPages: 0 },
+      };
     }
   } catch (error) {
     logger.error('Exception in getAllProducts', {
@@ -317,8 +485,35 @@ export const getAllProducts = async (
       extra: { searchParams, requestId, retryAttempt },
     });
 
-    // Renvoyer un objet vide pour éviter de planter l'application
-    return { products: [], totalPages: 0 };
+    // Retourner une erreur typée en fonction de la nature de l'exception
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+      return {
+        success: false,
+        code: 'CLIENT_TIMEOUT',
+        message:
+          "La requête a été interrompue en raison d'un délai d'attente excessif",
+        data: { products: [], totalPages: 0 },
+      };
+    } else if (
+      error.message.includes('network') ||
+      error.message.includes('connection')
+    ) {
+      return {
+        success: false,
+        code: 'NETWORK_ERROR',
+        message: 'Problème de connexion réseau',
+        data: { products: [], totalPages: 0 },
+      };
+    } else {
+      return {
+        success: false,
+        code: 'CLIENT_ERROR',
+        message:
+          "Une erreur s'est produite lors de la récupération des produits",
+        errorDetails: error.message,
+        data: { products: [], totalPages: 0 },
+      };
+    }
   } finally {
     clearTimeout(timeoutId);
   }
