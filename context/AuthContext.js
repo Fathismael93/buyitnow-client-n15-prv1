@@ -1354,57 +1354,89 @@ export const AuthProvider = ({ children }) => {
 
   const updateAddress = async (id, address) => {
     try {
-      // Update loading state
+      // Mettre à jour l'état de chargement
       setLoading(true);
       setError(null);
 
-      // Client-side rate limiting check
+      // Vérifier le rate limiting côté client
       const clientRateLimitKey = `address:update:${user?.email || 'anonymous'}:${id}`;
-      const maxClientAttempts = 3; // Maximum 3 attempts per minute
+      const maxClientAttempts = 3; // 3 tentatives maximum par minute
 
-      // Use cache to track address update attempts
+      // Utiliser le cache pour suivre les tentatives de mise à jour d'adresse
       let updateAttempts = 0;
 
       try {
-        // Use PersistentCache to store update attempts
+        // Utilisation du PersistentCache pour stocker les tentatives
         if (appCache.ui) {
           updateAttempts = appCache.ui.get(clientRateLimitKey) || 0;
 
-          // If too many attempts, temporarily block
+          // Si trop de tentatives, bloquer temporairement
           if (updateAttempts >= maxClientAttempts) {
-            const retryAfter = 60; // 1 minute in seconds
+            const retryAfter = 60; // 1 minute en secondes
             setError(
-              `Too many address update attempts. Please try again in ${Math.ceil(retryAfter / 60)} minute.`,
-            );
-            toast.error(
-              `Rate limit reached. Please try again in ${Math.ceil(retryAfter / 60)} minute.`,
+              `Trop de tentatives de modification d'adresse. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute.`,
             );
             setLoading(false);
             return;
           }
 
-          // Increment attempt counter
+          // Incrémenter le compteur de tentatives
           appCache.ui.set(clientRateLimitKey, updateAttempts + 1, {
             ttl: 60 * 1000, // 1 minute
           });
         }
       } catch (cacheError) {
-        // If cache error, continue anyway (fail open)
+        // Si erreur de cache, continuer quand même (fail open)
         console.warn(
           'Cache error during address update attempt tracking:',
           cacheError,
         );
       }
 
-      // Use AbortController to cancel the request if needed
+      // Validation des entrées côté client
+      if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
+        setError("Format d'identifiant d'adresse invalide");
+        setLoading(false);
+        return;
+      }
+
+      // Vérification de la présence et validité de l'objet adresse
+      if (
+        !address ||
+        typeof address !== 'object' ||
+        Object.keys(address).length === 0
+      ) {
+        setError("Les données d'adresse sont invalides ou vides");
+        setLoading(false);
+        return;
+      }
+
+      // Vérification des champs obligatoires
+      const requiredFields = [
+        'firstName',
+        'lastName',
+        'street',
+        'city',
+        'zipCode',
+        'country',
+      ];
+      const missingFields = requiredFields.filter((field) => !address[field]);
+
+      if (missingFields.length > 0) {
+        setError(`Champs obligatoires manquants: ${missingFields.join(', ')}`);
+        setLoading(false);
+        return;
+      }
+
+      // Utiliser un AbortController pour pouvoir annuler la requête
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-      // Configure headers with protection against attacks
+      // Configuration des headers avec protection contre les attaques
       const headers = {
         'Content-Type': 'application/json',
         Accept: 'application/json',
-        'X-Requested-With': 'XMLHttpRequest', // Extra CSRF protection
+        'X-Requested-With': 'XMLHttpRequest', // Protection CSRF supplémentaire
         'Cache-Control':
           'no-store, no-cache, must-revalidate, proxy-revalidate',
         Pragma: 'no-cache',
@@ -1412,26 +1444,6 @@ export const AuthProvider = ({ children }) => {
       };
 
       try {
-        // Input validation - ensure ID is valid
-        if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
-          setError('Invalid address ID format');
-          toast.error('Invalid address format. Please try again.');
-          setLoading(false);
-          return;
-        }
-
-        // Check if address object is valid
-        if (
-          !address ||
-          typeof address !== 'object' ||
-          Object.keys(address).length === 0
-        ) {
-          setError('Address data is invalid');
-          toast.error('Address data is invalid. Please try again.');
-          setLoading(false);
-          return;
-        }
-
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/address/${id}`,
           {
@@ -1439,27 +1451,34 @@ export const AuthProvider = ({ children }) => {
             headers,
             body: JSON.stringify(address),
             signal: controller.signal,
-            credentials: 'include', // Include cookies for sessions
+            credentials: 'include', // Inclure les cookies pour les sessions
           },
         );
 
         clearTimeout(timeoutId);
 
-        // Check server-side rate limiting
+        // Traitement de la réponse
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonError) {
+          setError('Erreur lors du traitement de la réponse du serveur');
+          setLoading(false);
+          return;
+        }
+
+        // Vérifier le rate limiting côté serveur
         if (res.status === 429) {
-          // Extract wait time from headers
+          // Extraire la durée d'attente depuis les headers
           const retryAfter = parseInt(
             res.headers.get('Retry-After') || '60',
             10,
           );
           setError(
-            `Too many attempts. Please try again in ${Math.ceil(retryAfter / 60)} minute(s).`,
-          );
-          toast.error(
-            `Rate limit reached. Please try again in ${Math.ceil(retryAfter / 60)} minute(s).`,
+            `Trop de tentatives. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
           );
 
-          // Update local attempt cache
+          // Mettre à jour le cache des tentatives locales
           if (appCache.ui) {
             appCache.ui.set(clientRateLimitKey, maxClientAttempts, {
               ttl: retryAfter * 1000,
@@ -1470,103 +1489,186 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        // Handle HTTP errors
+        // Gestion des erreurs HTTP
         if (!res.ok) {
           const statusCode = res.status;
-          let errorData;
 
-          try {
-            errorData = await res.json();
-          } catch (e) {
-            errorData = { message: `HTTP Error: ${res.status}` };
+          // Traitement unifié des erreurs HTTP
+          switch (statusCode) {
+            case 400:
+              // Erreur de validation ou requête incorrecte
+              if (
+                data.errors &&
+                Array.isArray(data.errors) &&
+                data.errors.length > 0
+              ) {
+                setError(
+                  `Validation échouée: ${data.errors.map((e) => (e.field ? `${e.field}: ${e.message}` : e.message || e)).join(', ')}`,
+                );
+              } else {
+                setError(data.message || "Données d'adresse invalides");
+              }
+              break;
+            case 401:
+              // Non authentifié
+              setError('Authentification requise. Veuillez vous connecter.');
+              // Rediriger vers la page de connexion après un court délai
+              setTimeout(
+                () => router.push(`/login?callbackUrl=/address/${id}/edit`),
+                2000,
+              );
+              break;
+            case 403:
+              // Accès interdit
+              setError(
+                "Vous n'avez pas l'autorisation de modifier cette adresse",
+              );
+              break;
+            case 404:
+              // Adresse non trouvée
+              setError("L'adresse que vous essayez de modifier n'existe pas");
+              // Rediriger vers la page de profil
+              setTimeout(() => router.push('/me'), 2000);
+              break;
+            case 409:
+              // Conflit (duplication)
+              setError('Cette adresse existe déjà');
+              break;
+            case 413:
+              // Payload trop grand
+              setError('Les données envoyées sont trop volumineuses');
+              break;
+            case 422:
+              // Erreur de validation avec détails
+              if (
+                data.errors &&
+                Array.isArray(data.errors) &&
+                data.errors.length > 0
+              ) {
+                setError(
+                  `Erreur de validation: ${data.errors.map((e) => e.message || e).join(', ')}`,
+                );
+              } else {
+                setError(data.message || 'Validation échouée');
+              }
+              break;
+            case 500:
+            case 502:
+            case 503:
+            case 504:
+              // Erreurs serveur
+              setError(
+                'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
+              );
+
+              // Capture d'erreur pour monitoring en production seulement
+              if (process.env.NODE_ENV === 'production') {
+                const serverError = new Error(
+                  data.message || `Erreur serveur (${statusCode})`,
+                );
+                serverError.statusCode = statusCode;
+                serverError.componentName = 'AddressUpdate';
+                serverError.additionalInfo = {
+                  context: 'address',
+                  operation: 'update',
+                  statusCode,
+                  responseMessage: data.message,
+                };
+                captureException(serverError);
+              }
+              break;
+            default:
+              // Autres erreurs
+              setError(
+                data.message ||
+                  `Erreur lors de la modification de l'adresse (${statusCode})`,
+              );
           }
 
-          // Unified HTTP error handling
-          if (statusCode === 400) {
-            // Validation error
-            setError(errorData.message || 'Invalid data');
-            toast.error(
-              errorData.message || 'Please check the information entered',
-            );
-          } else if (statusCode === 401 || statusCode === 403) {
-            // Authentication error
-            setError('Session expired or unauthorized access');
-            toast.error(
-              'Your session has expired or you are not authorized to perform this action. Please login again.',
-            );
-            // Redirect to login page after a short delay
-            setTimeout(() => router.push('/login'), 2000);
-          } else if (statusCode === 404) {
-            // Address not found
-            setError('Address not found');
-            toast.error('The address you are trying to update does not exist.');
-            setTimeout(() => router.push('/me'), 2000);
-          } else if (statusCode === 413) {
-            // Request too large
-            setError('Data too large');
-            toast.error('The data sent is too large');
-          } else if (statusCode >= 400 && statusCode < 500) {
-            // Other client errors
-            setError(errorData.message || 'Request error');
-            toast.error(
-              errorData.message ||
-                'An error occurred while updating the address',
-            );
+          setLoading(false);
+          return;
+        }
+
+        // Traitement des réponses avec JSON valide
+        if (data) {
+          if (data.success === true) {
+            // Cas de succès - Réinitialiser le compteur de tentatives
+            if (appCache.ui) {
+              appCache.ui.delete(clientRateLimitKey);
+            }
+
+            // Invalider les caches pertinents
+            try {
+              // Cache de l'adresse individuelle
+              const addressDetailCacheKey = getCacheKey('address_detail', {
+                userId: user?._id?.toString() || '',
+                addressId: id,
+              });
+
+              // Cache de la liste des adresses
+              const addressListCacheKey = getCacheKey('addresses', {
+                userId: user?._id?.toString() || '',
+              });
+
+              // Invalider les caches
+              if (appCache.products) {
+                appCache.products.delete(addressDetailCacheKey);
+                appCache.products.delete(addressListCacheKey);
+                appCache.products.invalidatePattern(/^address:/);
+              }
+            } catch (cacheError) {
+              // Erreur non critique, juste logger en dev
+              if (process.env.NODE_ENV === 'development') {
+                console.warn('Cache invalidation error:', cacheError);
+              }
+            }
+
+            // Journaliser en production (anonymisé)
+            if (process.env.NODE_ENV === 'production') {
+              console.info('Address updated successfully', {
+                userId: user?._id
+                  ? `${user._id.toString().substring(0, 2)}...${user._id.toString().slice(-2)}`
+                  : 'unknown',
+                addressId: id.substring(0, 2) + '...' + id.slice(-2),
+              });
+            }
+
+            // Afficher un message de réussite (seul toast autorisé)
+            toast.success(data.message || 'Adresse modifiée avec succès!');
+
+            // Mettre à jour l'état local
+            setUpdated(true);
+
+            // Redirection avec un délai pour que le toast soit visible
+            setTimeout(() => router.replace(`/address/${id}`), 1000);
+          } else if (data.success === false) {
+            // Cas où success est explicitement false
+            setError(data.message || "Échec de la modification de l'adresse");
+
+            // Si des erreurs détaillées sont disponibles, les agréger
+            if (
+              data.errors &&
+              Array.isArray(data.errors) &&
+              data.errors.length > 0
+            ) {
+              setError(
+                `${data.message || "Échec de la modification de l'adresse"}: ${data.errors.map((e) => e.message || e).join(', ')}`,
+              );
+            }
           } else {
-            // Server errors
-            setError('Server error');
-            toast.error(
-              'The service is temporarily unavailable. Please try again later.',
+            // Réponse JSON valide mais structure inattendue
+            setError(
+              "Réponse inattendue du serveur lors de la modification de l'adresse",
             );
           }
-
-          setLoading(false);
-          return;
-        }
-
-        // Process JSON response with error handling
-        let data;
-        try {
-          data = await res.json();
-        } catch (jsonError) {
-          setError('Invalid server response');
-          toast.error('Invalid server response. Please try again.');
-          setLoading(false);
-          return;
-        }
-
-        // Check response structure
-        if (!data || data.success === false) {
-          // Application error
-          setError(data?.message || 'Failed to update address');
-          toast.error(data?.message || 'Failed to update address');
-          setLoading(false);
-          return;
-        }
-
-        // Success
-        if (data.data) {
-          // Reset attempt counter on success
-          if (appCache.ui) {
-            appCache.ui.delete(clientRateLimitKey);
-          }
-
-          // Show success message
-          toast.success(data.message || 'Address updated successfully!');
-
-          // Update state and redirect
-          setUpdated(true);
-          setTimeout(() => router.replace(`/address/${id}`), 1000);
         } else {
-          // Malformatted success
-          setError('Unexpected server response');
-          toast.warning('Operation completed, but the result is uncertain');
-          setLoading(false);
+          // Réponse vide ou mal formatée
+          setError('Réponse vide ou invalide du serveur');
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
 
-        // Network error categorization
+        // Erreurs réseau - Toutes gérées via setError sans toast
         const isAborted = fetchError.name === 'AbortError';
         const isNetworkError =
           fetchError.message.includes('network') ||
@@ -1576,35 +1678,73 @@ export const AuthProvider = ({ children }) => {
 
         if (isTimeout) {
           // Timeout
-          setError('Request took too long');
-          toast.error(
-            'The connection to the server is too slow. Please try again later.',
+          setError(
+            "La requête de modification d'adresse a pris trop de temps. Veuillez réessayer.",
           );
         } else if (isNetworkError) {
-          // Network error
-          setError('Internet connection problem');
-          toast.error(
-            'Unable to connect to the server. Check your internet connection.',
+          // Erreur réseau simple
+          setError(
+            'Problème de connexion internet. Vérifiez votre connexion et réessayez.',
           );
         } else {
-          // Other errors
-          setError('Error updating address');
-          toast.error('An unexpected error occurred. Please try again.');
+          // Autres erreurs fetch
+          setError(
+            `Erreur lors de la modification de l'adresse: ${fetchError.message}`,
+          );
 
-          // Log in dev only
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Address update error:', fetchError);
+          // Enrichir l'erreur pour le boundary sans la lancer
+          if (!fetchError.componentName) {
+            fetchError.componentName = 'AddressUpdate';
+            fetchError.additionalInfo = {
+              context: 'address',
+              operation: 'update',
+              addressId: id,
+            };
+          }
+
+          // Capture pour Sentry en production
+          if (process.env.NODE_ENV === 'production') {
+            captureException(fetchError, {
+              tags: {
+                component: 'AddressUpdate',
+                action: 'updateAddress',
+                errorType: isTimeout
+                  ? 'timeout'
+                  : isNetworkError
+                    ? 'network'
+                    : 'unknown',
+                addressId: id,
+              },
+              extra: {
+                userAnonymized: user?.email
+                  ? `${user.email.charAt(0)}***${user.email.slice(user.email.indexOf('@'))}`
+                  : 'unknown',
+              },
+            });
           }
         }
       }
     } catch (error) {
-      // Unhandled general errors
-      setError('An unexpected error occurred');
-      toast.error('An unexpected error occurred. Please try again later.');
+      // Pour toute erreur non gérée spécifiquement
+      setError(
+        "Une erreur inattendue est survenue lors de la modification de l'adresse",
+      );
 
-      // Log in dev only
+      // Journaliser localement en dev
       if (process.env.NODE_ENV === 'development') {
-        console.error('Address update unexpected error:', error);
+        console.error('Address update error:', error);
+      }
+
+      // Capture pour Sentry en production
+      if (process.env.NODE_ENV === 'production') {
+        if (!error.componentName) {
+          error.componentName = 'AddressUpdate';
+          error.additionalInfo = {
+            context: 'address',
+            addressId: id,
+          };
+        }
+        captureException(error);
       }
     } finally {
       setLoading(false);
