@@ -1719,57 +1719,61 @@ export const AuthProvider = ({ children }) => {
 
   const deleteAddress = async (id) => {
     try {
-      // Update loading state
+      // Mettre à jour l'état de chargement
       setLoading(true);
       setError(null);
 
-      // Client-side rate limiting check
+      // Vérifier le rate limiting côté client
       const clientRateLimitKey = `address:delete:${user?.email || 'anonymous'}:${id}`;
-      const maxClientAttempts = 3; // Maximum 3 attempts per minute
+      const maxClientAttempts = 3; // 3 tentatives maximum par minute
 
-      // Use cache to track address deletion attempts
+      // Utiliser le cache pour suivre les tentatives de suppression d'adresse
       let deleteAttempts = 0;
 
       try {
-        // Use PersistentCache to store deletion attempts
+        // Utilisation du PersistentCache pour stocker les tentatives
         if (appCache.ui) {
           deleteAttempts = appCache.ui.get(clientRateLimitKey) || 0;
 
-          // If too many attempts, temporarily block
+          // Si trop de tentatives, bloquer temporairement
           if (deleteAttempts >= maxClientAttempts) {
-            const retryAfter = 60; // 1 minute in seconds
+            const retryAfter = 60; // 1 minute en secondes
             setError(
               `Trop de tentatives de suppression d'adresse. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute.`,
-            );
-            toast.error(
-              `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute.`,
             );
             setLoading(false);
             return;
           }
 
-          // Increment attempt counter
+          // Incrémenter le compteur de tentatives
           appCache.ui.set(clientRateLimitKey, deleteAttempts + 1, {
             ttl: 60 * 1000, // 1 minute
           });
         }
       } catch (cacheError) {
-        // If cache error, continue anyway (fail open)
+        // Si erreur de cache, continuer quand même (fail open)
         console.warn(
           'Cache error during address deletion attempt tracking:',
           cacheError,
         );
       }
 
-      // Use AbortController to cancel the request if needed
+      // Validation des entrées côté client
+      if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
+        setError("Format d'identifiant d'adresse invalide");
+        setLoading(false);
+        return;
+      }
+
+      // Utiliser un AbortController pour pouvoir annuler la requête
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-      // Configure headers with protection against attacks
+      // Configuration des headers avec protection contre les attaques
       const headers = {
         'Content-Type': 'application/json',
         Accept: 'application/json',
-        'X-Requested-With': 'XMLHttpRequest', // Extra CSRF protection
+        'X-Requested-With': 'XMLHttpRequest', // Protection CSRF supplémentaire
         'Cache-Control':
           'no-store, no-cache, must-revalidate, proxy-revalidate',
         Pragma: 'no-cache',
@@ -1777,29 +1781,31 @@ export const AuthProvider = ({ children }) => {
       };
 
       try {
-        // Input validation - ensure ID is valid
-        if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
-          setError("Format d'identifiant d'adresse non valide");
-          toast.error("Format d'adresse non valide. Veuillez réessayer.");
-          setLoading(false);
-          return;
-        }
-
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/address/${id}`,
           {
             method: 'DELETE',
             headers,
             signal: controller.signal,
-            credentials: 'include', // Include cookies for sessions
+            credentials: 'include', // Inclure les cookies pour les sessions
           },
         );
 
         clearTimeout(timeoutId);
 
-        // Check server-side rate limiting
+        // Traitement de la réponse
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonError) {
+          setError('Erreur lors du traitement de la réponse du serveur');
+          setLoading(false);
+          return;
+        }
+
+        // Vérifier le rate limiting côté serveur
         if (res.status === 429) {
-          // Extract wait time from headers
+          // Extraire la durée d'attente depuis les headers
           const retryAfter = parseInt(
             res.headers.get('Retry-After') || '60',
             10,
@@ -1807,11 +1813,8 @@ export const AuthProvider = ({ children }) => {
           setError(
             `Trop de tentatives. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
           );
-          toast.error(
-            `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
-          );
 
-          // Update local attempt cache
+          // Mettre à jour le cache des tentatives locales
           if (appCache.ui) {
             appCache.ui.set(clientRateLimitKey, maxClientAttempts, {
               ttl: retryAfter * 1000,
@@ -1822,121 +1825,150 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        // Handle HTTP errors
+        // Gestion des erreurs HTTP
         if (!res.ok) {
           const statusCode = res.status;
-          let errorData;
 
-          try {
-            errorData = await res.json();
-          } catch (e) {
-            errorData = { message: `Erreur HTTP: ${res.status}` };
-          }
+          // Traitement unifié des erreurs HTTP
+          switch (statusCode) {
+            case 400:
+              // Erreur de validation ou requête incorrecte
+              setError(
+                data.message || "Format d'identifiant d'adresse invalide",
+              );
+              break;
+            case 401:
+              // Non authentifié
+              setError('Authentification requise. Veuillez vous connecter.');
+              // Rediriger vers la page de connexion après un court délai
+              setTimeout(() => router.push('/login'), 2000);
+              break;
+            case 403:
+              // Accès interdit
+              setError(
+                "Vous n'avez pas l'autorisation de supprimer cette adresse",
+              );
+              break;
+            case 404:
+              // Adresse non trouvée
+              setError("L'adresse que vous essayez de supprimer n'existe pas");
+              // Rediriger vers la page de profil
+              setTimeout(() => router.push('/me'), 2000);
+              break;
+            case 500:
+            case 502:
+            case 503:
+            case 504:
+              // Erreurs serveur
+              setError(
+                'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
+              );
 
-          // Unified HTTP error handling
-          if (statusCode === 400) {
-            // Validation error
-            setError(errorData.message || 'Données invalides');
-            toast.error(
-              errorData.message || 'Données invalides pour la suppression',
-            );
-          } else if (statusCode === 401 || statusCode === 403) {
-            // Authentication error
-            setError('Session expirée ou accès non autorisé');
-            toast.error(
-              "Votre session a expiré ou vous n'êtes pas autorisé à effectuer cette action. Veuillez vous reconnecter.",
-            );
-            // Redirect to login page after a short delay
-            setTimeout(() => router.push('/login'), 2000);
-          } else if (statusCode === 404) {
-            // Address not found
-            setError('Adresse non trouvée');
-            toast.error(
-              "L'adresse que vous essayez de supprimer n'existe pas.",
-            );
-            setTimeout(() => router.push('/me'), 2000);
-          } else if (statusCode >= 400 && statusCode < 500) {
-            // Other client errors
-            setError(errorData.message || 'Erreur dans la requête');
-            toast.error(
-              errorData.message ||
-                "Une erreur est survenue lors de la suppression de l'adresse",
-            );
-          } else {
-            // Server errors
-            setError('Erreur serveur');
-            toast.error(
-              'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
-            );
+              // Capturer pour monitoring en production seulement
+              if (process.env.NODE_ENV === 'production') {
+                const serverError = new Error(
+                  data.message || `Erreur serveur (${statusCode})`,
+                );
+                serverError.statusCode = statusCode;
+                serverError.componentName = 'AddressDelete';
+                serverError.additionalInfo = {
+                  context: 'address',
+                  operation: 'delete',
+                  statusCode,
+                  responseMessage: data.message,
+                };
+                captureException(serverError);
+              }
+              break;
+            default:
+              // Autres erreurs
+              setError(
+                data.message ||
+                  `Erreur lors de la suppression de l'adresse (${statusCode})`,
+              );
           }
 
           setLoading(false);
           return;
         }
 
-        // Process JSON response with error handling
-        let data;
-        try {
-          data = await res.json();
-        } catch (jsonError) {
-          setError('Réponse du serveur invalide');
-          toast.error('Réponse du serveur invalide. Veuillez réessayer.');
-          setLoading(false);
-          return;
-        }
-
-        // Check response structure
-        if (!data || data.success === false) {
-          // Application error
-          setError(data?.message || "Échec de la suppression d'adresse");
-          toast.error(data?.message || "Échec de la suppression d'adresse");
-          setLoading(false);
-          return;
-        }
-
-        // Success
-        if (data.success) {
-          // Reset attempt counter on success
-          if (appCache.ui) {
-            appCache.ui.delete(clientRateLimitKey);
-          }
-
-          // Invalidate related cache entries
-          try {
-            // Clear address detail cache
-            const detailCacheKey = getCacheKey('address_detail', {
-              userId: user?._id?.toString() || '',
-              addressId: id,
-            });
-            appCache.products.delete(detailCacheKey);
-
-            // Clear address list cache
-            const listCacheKey = getCacheKey('addresses', {
-              userId: user?._id?.toString() || '',
-            });
-            appCache.products.delete(listCacheKey);
-          } catch (cacheError) {
-            // Non-critical error, just log in dev
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('Cache invalidation error:', cacheError);
+        // Traitement des réponses avec JSON valide
+        if (data) {
+          if (data.success === true) {
+            // Cas de succès - Réinitialiser le compteur de tentatives
+            if (appCache.ui) {
+              appCache.ui.delete(clientRateLimitKey);
             }
+
+            // Invalider les caches pertinents
+            try {
+              // Cache de l'adresse individuelle
+              const addressDetailCacheKey = getCacheKey('address_detail', {
+                userId: user?._id?.toString() || '',
+                addressId: id,
+              });
+
+              // Cache de la liste des adresses
+              const addressListCacheKey = getCacheKey('addresses', {
+                userId: user?._id?.toString() || '',
+              });
+
+              // Invalider les caches
+              if (appCache.products) {
+                appCache.products.delete(addressDetailCacheKey);
+                appCache.products.delete(addressListCacheKey);
+                appCache.products.invalidatePattern(/^address:/);
+              }
+            } catch (cacheError) {
+              // Erreur non critique, juste logger en dev
+              if (process.env.NODE_ENV === 'development') {
+                console.warn('Cache invalidation error:', cacheError);
+              }
+            }
+
+            // Journaliser en production (anonymisé)
+            if (process.env.NODE_ENV === 'production') {
+              console.info('Address deleted successfully', {
+                userId: user?._id
+                  ? `${user._id.toString().substring(0, 2)}...${user._id.toString().slice(-2)}`
+                  : 'unknown',
+                addressId: id.substring(0, 2) + '...' + id.slice(-2),
+              });
+            }
+
+            // Afficher un message de réussite (seul toast autorisé)
+            toast.success(data.message || 'Adresse supprimée avec succès!');
+
+            // Redirection avec un délai pour que le toast soit visible
+            setTimeout(() => router.push('/me'), 1000);
+          } else if (data.success === false) {
+            // Cas où success est explicitement false
+            setError(data.message || "Échec de la suppression de l'adresse");
+
+            // Si des erreurs détaillées sont disponibles, les agréger
+            if (
+              data.errors &&
+              Array.isArray(data.errors) &&
+              data.errors.length > 0
+            ) {
+              setError(
+                `${data.message || "Échec de la suppression de l'adresse"}: ${data.errors.map((e) => e.message || e).join(', ')}`,
+              );
+            }
+          } else {
+            // Réponse JSON valide mais structure inattendue
+            setError(
+              "Réponse inattendue du serveur lors de la suppression de l'adresse",
+            );
           }
-
-          // Show success message
-          toast.success(data.message || 'Adresse supprimée avec succès!');
-
-          // Redirect to addresses page
-          setTimeout(() => router.push('/me'), 1000);
         } else {
-          // Malformatted success
-          setError('Réponse inattendue du serveur');
-          toast.warning('Opération terminée, mais le résultat est incertain');
-          setLoading(false);
+          // Réponse vide ou mal formatée
+          setError('Réponse vide ou invalide du serveur');
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
 
-        // Network error categorization
+        // Erreurs réseau - Toutes gérées via setError sans toast
         const isAborted = fetchError.name === 'AbortError';
         const isNetworkError =
           fetchError.message.includes('network') ||
@@ -1946,39 +1978,73 @@ export const AuthProvider = ({ children }) => {
 
         if (isTimeout) {
           // Timeout
-          setError('La requête a pris trop de temps');
-          toast.error(
-            'La connexion au serveur est trop lente. Veuillez réessayer plus tard.',
+          setError(
+            "La requête de suppression d'adresse a pris trop de temps. Veuillez réessayer.",
           );
         } else if (isNetworkError) {
-          // Network error
-          setError('Problème de connexion internet');
-          toast.error(
-            'Impossible de se connecter au serveur. Vérifiez votre connexion internet.',
+          // Erreur réseau simple
+          setError(
+            'Problème de connexion internet. Vérifiez votre connexion et réessayez.',
           );
         } else {
-          // Other errors
-          setError("Erreur lors de la suppression de l'adresse");
-          toast.error(
-            'Une erreur inattendue est survenue. Veuillez réessayer.',
+          // Autres erreurs fetch
+          setError(
+            `Erreur lors de la suppression de l'adresse: ${fetchError.message}`,
           );
 
-          // Log in dev only
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Address deletion error:', fetchError);
+          // Enrichir l'erreur pour le boundary sans la lancer
+          if (!fetchError.componentName) {
+            fetchError.componentName = 'AddressDelete';
+            fetchError.additionalInfo = {
+              context: 'address',
+              operation: 'delete',
+              addressId: id,
+            };
+          }
+
+          // Capture pour Sentry en production
+          if (process.env.NODE_ENV === 'production') {
+            captureException(fetchError, {
+              tags: {
+                component: 'AddressDelete',
+                action: 'deleteAddress',
+                errorType: isTimeout
+                  ? 'timeout'
+                  : isNetworkError
+                    ? 'network'
+                    : 'unknown',
+                addressId: id,
+              },
+              extra: {
+                userAnonymized: user?.email
+                  ? `${user.email.charAt(0)}***${user.email.slice(user.email.indexOf('@'))}`
+                  : 'unknown',
+              },
+            });
           }
         }
       }
     } catch (error) {
-      // Unhandled general errors
-      setError('Une erreur inattendue est survenue');
-      toast.error(
-        'Une erreur inattendue est survenue. Veuillez réessayer plus tard.',
+      // Pour toute erreur non gérée spécifiquement
+      setError(
+        "Une erreur inattendue est survenue lors de la suppression de l'adresse",
       );
 
-      // Log in dev only
+      // Journaliser localement en dev
       if (process.env.NODE_ENV === 'development') {
-        console.error('Address deletion unexpected error:', error);
+        console.error('Address deletion error:', error);
+      }
+
+      // Capture pour Sentry en production
+      if (process.env.NODE_ENV === 'production') {
+        if (!error.componentName) {
+          error.componentName = 'AddressDelete';
+          error.additionalInfo = {
+            context: 'address',
+            addressId: id,
+          };
+        }
+        captureException(error);
       }
     } finally {
       setLoading(false);
