@@ -42,9 +42,6 @@ export const AuthProvider = ({ children }) => {
             setError(
               `Trop de tentatives d'inscription. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
             );
-            toast.error(
-              `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
-            );
             setLoading(false);
             return;
           }
@@ -101,9 +98,6 @@ export const AuthProvider = ({ children }) => {
           setError(
             `Trop de tentatives d'inscription. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
           );
-          toast.error(
-            `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
-          );
 
           // Mettre à jour le cache des tentatives locales
           if (appCache.ui) {
@@ -116,106 +110,116 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
+        // Traitement de la réponse
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonError) {
+          setError('Erreur lors du traitement de la réponse du serveur');
+          setLoading(false);
+          return;
+        }
+
         // Gestion des erreurs HTTP
         if (!res.ok) {
           const statusCode = res.status;
-          let errorData;
-
-          try {
-            errorData = await res.json();
-          } catch (e) {
-            errorData = { message: `Erreur HTTP: ${res.status}` };
-          }
 
           // Traitement unifié des erreurs HTTP
-          if (statusCode === 409) {
-            // Conflit (email déjà utilisé)
-            setError('Cet email est déjà utilisé');
-            toast.error(
-              'Cet email est déjà utilisé. Veuillez vous connecter ou utiliser un autre email.',
-            );
+          switch (statusCode) {
+            case 400:
+              // Erreur de validation ou requête incorrecte
+              setError(data.message || "Données d'inscription invalides");
+              break;
+            case 409:
+              // Conflit (email déjà utilisé)
+              setError('Cet email est déjà utilisé');
 
-            // Réinitialiser le compteur de tentatives pour cet email
+              // Réinitialiser le compteur de tentatives pour cet email
+              if (appCache.ui) {
+                appCache.ui.delete(clientRateLimitKey);
+              }
+              break;
+            case 401:
+            case 403:
+              // Erreur d'authentification
+              setError("Erreur de sécurité lors de l'inscription");
+              break;
+            case 422:
+              // Erreur de validation avec détails
+              if (
+                data.errors &&
+                Array.isArray(data.errors) &&
+                data.errors.length > 0
+              ) {
+                setError(data.errors.join(', '));
+              } else {
+                setError(data.message || 'Erreur de validation des données');
+              }
+              break;
+            case 500:
+            case 502:
+            case 503:
+            case 504:
+              // Erreurs serveur
+              setError(
+                "Le service d'inscription est temporairement indisponible. Veuillez réessayer plus tard.",
+              );
+              break;
+            default:
+              // Autres erreurs
+              setError(
+                data.message || `Erreur lors de l'inscription (${statusCode})`,
+              );
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Traitement des réponses avec JSON valide
+        if (data) {
+          if (data.success === true) {
+            // Cas de succès - Réinitialiser le compteur de tentatives
             if (appCache.ui) {
               appCache.ui.delete(clientRateLimitKey);
             }
-          } else if (statusCode === 401 || statusCode === 403) {
-            // Erreur d'authentification
-            setError('Erreur de sécurité');
-            toast.error(
-              'Erreur de sécurité. Veuillez rafraîchir la page et réessayer.',
+
+            // Loguer le succès (uniquement en local)
+            console.info('User registered successfully', {
+              component: 'auth',
+              action: 'register',
+            });
+
+            // Afficher un message de réussite (seul toast autorisé)
+            toast.success(
+              'Inscription réussie! Vous pouvez maintenant vous connecter.',
             );
-          } else if (statusCode >= 400 && statusCode < 500) {
-            // Autres erreurs client (incluant 400 - Bad Request)
-            setError(errorData.message || 'Erreur dans les données envoyées');
-            toast.error(
-              errorData.message || 'Erreur dans les données envoyées',
-            );
+
+            // Redirection avec un délai pour que le toast soit visible
+            setTimeout(() => router.push('/login'), 1000);
           } else {
-            // Erreurs serveur
-            const serverError = new Error(
-              errorData.message || `Erreur serveur (${statusCode})`,
-            );
-            serverError.statusCode = statusCode;
-            serverError.componentName = 'RegisterPage';
-            serverError.additionalInfo = {
-              context: 'registration',
-              operation: 'fetch',
-              statusCode,
-              responseMessage: errorData.message,
-            };
+            // Cas où success est explicitement false
+            setError(data.message || "Échec de l'inscription");
 
-            throw serverError;
+            // Si des erreurs détaillées sont disponibles, les agréger
+            if (
+              data.errors &&
+              Array.isArray(data.errors) &&
+              data.errors.length > 0
+            ) {
+              setError(
+                `${data.message || "Échec de l'inscription"}: ${data.errors.join(', ')}`,
+              );
+            }
           }
-
-          setLoading(false);
-          return;
-        }
-
-        const data = await res.json();
-
-        if (data?.success === false) {
-          // Erreur applicative
-          setError(data?.message || "Échec de l'inscription");
-          toast.error(data?.message || "Échec de l'inscription");
-          setLoading(false);
-          return;
-        }
-
-        if (data?.data) {
-          // Réinitialiser le compteur de tentatives en cas de succès
-          if (appCache.ui) {
-            appCache.ui.delete(clientRateLimitKey);
-          }
-
-          // Loguer le succès (uniquement en local)
-          console.info('User registered successfully', {
-            component: 'auth',
-            action: 'register',
-          });
-
-          // Afficher un message de réussite
-          toast.success(
-            'Inscription réussie! Vous pouvez maintenant vous connecter.',
-          );
-
-          // Redirection avec un délai pour que le toast soit visible
-          setTimeout(() => router.push('/login'), 1000);
         } else {
-          // Cas où success n'est pas false mais data?.data est undefined
-          const unexpectedError = new Error('Réponse inattendue du serveur');
-          unexpectedError.componentName = 'RegisterPage';
-          unexpectedError.additionalInfo = {
-            context: 'registration',
-            operation: 'processResponse',
-          };
-
-          throw unexpectedError;
+          // Réponse vide ou mal formatée
+          setError("Réponse inattendue du serveur lors de l'inscription");
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
 
-        // Erreurs réseau - Gérer certaines par toast, d'autres par le composant d'erreur
+        // Erreurs réseau - Toutes gérées via setError sans toast
         const isAborted = fetchError.name === 'AbortError';
         const isNetworkError =
           fetchError.message.includes('network') ||
@@ -224,19 +228,20 @@ export const AuthProvider = ({ children }) => {
         const isTimeout = isAborted || fetchError.message.includes('timeout');
 
         if (isTimeout) {
-          // Timeout - Gérer par toast
-          setError('La requête a pris trop de temps');
-          toast.error(
-            'La connexion au serveur est trop lente. Veuillez réessayer plus tard.',
+          // Timeout
+          setError(
+            "La requête d'inscription a pris trop de temps. Veuillez réessayer.",
           );
         } else if (isNetworkError) {
-          // Erreur réseau simple - Gérer par toast
-          setError('Problème de connexion internet');
-          toast.error(
-            'Impossible de se connecter au serveur. Vérifiez votre connexion internet.',
+          // Erreur réseau simple
+          setError(
+            'Problème de connexion internet. Vérifiez votre connexion et réessayez.',
           );
         } else {
-          // Autres erreurs - laisser remonter au boundary d'erreur
+          // Autres erreurs fetch
+          setError(`Erreur lors de l'inscription: ${fetchError.message}`);
+
+          // Enrichir l'erreur pour le boundary sans la lancer
           if (!fetchError.componentName) {
             fetchError.componentName = 'RegisterPage';
             fetchError.additionalInfo = {
@@ -245,29 +250,31 @@ export const AuthProvider = ({ children }) => {
             };
           }
 
-          throw fetchError;
+          // Capture pour Sentry en production
+          if (process.env.NODE_ENV === 'production') {
+            captureException(fetchError);
+          }
         }
-
-        setLoading(false);
-        return;
       }
     } catch (error) {
-      // Pour toute erreur non gérée spécifiquement, l'enrichir de contexte
-      if (!error.componentName) {
-        error.componentName = 'RegisterPage';
-        error.additionalInfo = {
-          ...(error.additionalInfo || {}),
-          context: 'registration',
-        };
-      }
+      // Pour toute erreur non gérée spécifiquement
+      setError("Une erreur inattendue est survenue lors de l'inscription");
 
       // Journaliser localement en dev
       if (process.env.NODE_ENV === 'development') {
         console.error('Registration error:', error);
       }
 
-      // La relancer pour que le boundary d'erreur la traite
-      throw error;
+      // Capture pour Sentry en production
+      if (process.env.NODE_ENV === 'production') {
+        if (!error.componentName) {
+          error.componentName = 'RegisterPage';
+          error.additionalInfo = {
+            context: 'registration',
+          };
+        }
+        captureException(error);
+      }
     } finally {
       setLoading(false);
     }
