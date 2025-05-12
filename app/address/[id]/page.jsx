@@ -143,7 +143,7 @@ async function UpdateAddressPage({ params }) {
               <Suspense fallback={<UpdateAddressSkeleton />}>
                 <UpdateAddress
                   id={addressId}
-                  address={address}
+                  address={address.address}
                   userId={session.user._id}
                   referer={referer}
                 />
