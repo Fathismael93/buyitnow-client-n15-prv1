@@ -65,6 +65,8 @@ export default async function ProfilePage() {
     return notFound();
   }
 
+  console.log('Profile data:', data);
+
   // Security: Sanitize address data to prevent XSS
   const sanitizedAddresses =
     data?.addresses?.map((address) => ({

@@ -1593,9 +1593,6 @@ export const getAllAddresses = async (
       }
     }
 
-    console.log('Response body:', responseBody);
-    console.log('isJsonResponse:', isJsonResponse);
-
     // Traitement de la réponse en cas de succès HTTP (200)
     if (isJsonResponse) {
       // Si JSON valide
@@ -1626,7 +1623,7 @@ export const getAllAddresses = async (
             success: true,
             message: responseBody.message || 'Adresses récupérées avec succès',
             data: responseData,
-            addressCount: responseData?.addresses?.length || 0,
+            addressCount: responseData?.data?.addresses?.length || 0,
           };
         } else {
           // Cas de succès API mais données manquantes
