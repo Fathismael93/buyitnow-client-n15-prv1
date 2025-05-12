@@ -728,6 +728,9 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
       }
     }
 
+    console.log('Response body:', responseBody);
+    console.log('Is JSON response:', isJsonResponse);
+
     // Traitement de la réponse en cas de succès HTTP (200)
     if (isJsonResponse) {
       // Si JSON valide
