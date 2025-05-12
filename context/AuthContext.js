@@ -1034,23 +1034,6 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      // Vérification des champs obligatoires
-      const requiredFields = [
-        'firstName',
-        'lastName',
-        'street',
-        'city',
-        'zipCode',
-        'country',
-      ];
-      const missingFields = requiredFields.filter((field) => !address[field]);
-
-      if (missingFields.length > 0) {
-        setError(`Champs obligatoires manquants: ${missingFields.join(', ')}`);
-        setLoading(false);
-        return;
-      }
-
       // Utiliser un AbortController pour pouvoir annuler la requête
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
@@ -1407,23 +1390,6 @@ export const AuthProvider = ({ children }) => {
         Object.keys(address).length === 0
       ) {
         setError("Les données d'adresse sont invalides ou vides");
-        setLoading(false);
-        return;
-      }
-
-      // Vérification des champs obligatoires
-      const requiredFields = [
-        'firstName',
-        'lastName',
-        'street',
-        'city',
-        'zipCode',
-        'country',
-      ];
-      const missingFields = requiredFields.filter((field) => !address[field]);
-
-      if (missingFields.length > 0) {
-        setError(`Champs obligatoires manquants: ${missingFields.join(', ')}`);
         setLoading(false);
         return;
       }
