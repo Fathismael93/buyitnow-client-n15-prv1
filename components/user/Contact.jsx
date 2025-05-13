@@ -23,7 +23,7 @@ const Contact = ({ referrerValidated = true }) => {
   const formRef = useRef(null);
 
   // Contexte d'authentification
-  const { sendEmail } = useContext(AuthContext);
+  const { sendEmail, error, clearErrors } = useContext(AuthContext);
 
   // Focus sur le premier champ au chargement
   useEffect(() => {
@@ -38,6 +38,14 @@ const Contact = ({ referrerValidated = true }) => {
       window.localStorage.setItem('contactFormLoadTime', loadTime.toString());
     };
   }, []);
+
+  // Handle auth context updates
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      clearErrors();
+    }
+  }, [error, clearErrors]);
 
   // Mise à jour du compteur de caractères
   useEffect(() => {

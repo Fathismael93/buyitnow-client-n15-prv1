@@ -401,7 +401,8 @@ const RelatedProducts = memo(function RelatedProducts({
 // Composant principal
 function ProductDetails({ product, sameCategoryProducts }) {
   const { user } = useContext(AuthContext);
-  const { addItemToCart, updateCart, cart } = useContext(CartContext);
+  const { addItemToCart, updateCart, cart, error, clearError } =
+    useContext(CartContext);
 
   // État pour l'image sélectionnée
   const [selectedImage, setSelectedImage] = useState(null);
@@ -417,6 +418,14 @@ function ProductDetails({ product, sameCategoryProducts }) {
       setSelectedImage('/images/default_product.png');
     }
   }, [product]);
+
+  // Handle auth context updates
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      clearError();
+    }
+  }, [error, clearError]);
 
   // Vérifier si le produit est en stock - memoized
   const inStock = useMemo(() => {

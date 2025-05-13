@@ -71,6 +71,8 @@ const Payment = () => {
     shippingInfo,
     deliveryPrice,
     shippingStatus,
+    error,
+    clearErrors,
   } = useContext(OrderContext);
 
   const router = useRouter();
@@ -222,6 +224,14 @@ const Payment = () => {
 
     validateForm();
   }, [paymentType, accountName, accountNumber, paymentTypes]);
+
+  // Handle auth context updates
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      clearErrors();
+    }
+  }, [error, clearErrors]);
 
   // Handlers pour les changements de champs
   const handlePaymentTypeChange = useCallback((value) => {

@@ -78,7 +78,6 @@ const UpdateAddress = ({ id, address, userId, referer }) => {
   // Handle auth context updates
   useEffect(() => {
     if (updated) {
-      toast.success('Adresse mise à jour avec succès');
       setUpdated(false);
       setFormTouched(false);
     }
@@ -212,8 +211,6 @@ const UpdateAddress = ({ id, address, userId, referer }) => {
       }
 
       await deleteAddress(id);
-
-      toast.success('Adresse supprimée avec succès');
 
       // Redirect after successful deletion
       setTimeout(() => {

@@ -16,6 +16,7 @@ import { signOut, useSession } from 'next-auth/react';
 import AuthContext from '@/context/AuthContext';
 import { throwEnrichedError, handleAsyncError } from '@/monitoring/errorUtils';
 import { usePathname, useRouter } from 'next/navigation';
+import { toast } from 'react-toastify';
 
 // Chargement dynamique optimisé du composant Search
 const Search = dynamic(() => import('./Search'), {
@@ -152,7 +153,7 @@ const Header = () => {
     clearUser,
   } = useContext(AuthContext);
 
-  const { setCartToState, cartCount, clearCartOnLogout } =
+  const { error, clearError, setCartToState, cartCount, clearCartOnLogout } =
     useContext(CartContext);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -180,11 +181,13 @@ const Header = () => {
     }
   }, []);
 
+  // Handle auth context updates
   useEffect(() => {
-    router.prefetch('/cart');
-    router.prefetch('/me');
-    router.prefetch('/login');
-  }, []);
+    if (error) {
+      toast.error(error);
+      clearError();
+    }
+  }, [error, clearError]);
 
   // Effet pour charger les données utilisateur et panier
   useEffect(() => {

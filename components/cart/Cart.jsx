@@ -22,8 +22,15 @@ import useCartOperations from '../../hooks/useCartOperations';
 import CartSkeleton from '../skeletons/CartSkeleton';
 
 const Cart = () => {
-  const { loading, cart, cartCount, setCartToState, cartTotal } =
-    useContext(CartContext);
+  const {
+    loading,
+    cart,
+    cartCount,
+    setCartToState,
+    cartTotal,
+    error,
+    clearError,
+  } = useContext(CartContext);
 
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const router = useRouter();
@@ -67,6 +74,14 @@ const Cart = () => {
         setInitialLoadComplete(true);
       }
     };
+
+    // Handle auth context updates
+    useEffect(() => {
+      if (error) {
+        toast.error(error);
+        clearError();
+      }
+    }, [error, clearError]);
 
     // Ne charger qu'une seule fois au montage du composant
     // if (!initialLoadComplete && !isLoadingCart.current) {
