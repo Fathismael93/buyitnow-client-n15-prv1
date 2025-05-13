@@ -28,9 +28,11 @@ const Search = dynamic(() => import('./Search'), {
 // Sous-composants memoïsés pour éviter les re-rendus inutiles
 const CartButton = memo(({ cartCount, pathname }) => {
   const handleClick = () => {
-    if ([pathname].includes('/cart') === false) {
-      window.location.href = '/cart';
-    }
+    // if ([pathname].includes('/cart') === false) {
+    //   window.location.href = '/cart';
+    // }
+
+    window.location.href = '/cart';
   };
   return (
     <Link
