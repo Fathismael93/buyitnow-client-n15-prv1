@@ -28,7 +28,9 @@ const Search = dynamic(() => import('./Search'), {
 // Sous-composants memoïsés pour éviter les re-rendus inutiles
 const CartButton = memo(({ cartCount, pathname }) => {
   const handleClick = () => {
-    console.log('pathname', pathname);
+    if ([pathname].includes('/cart')) {
+      return;
+    }
     window.location.href = '/cart';
   };
   return (
@@ -52,7 +54,7 @@ const CartButton = memo(({ cartCount, pathname }) => {
 
 CartButton.displayName = 'CartButton';
 
-const UserDropdown = memo(({ user }) => {
+const UserDropdown = memo(({ user, pathname }) => {
   const menuItems = useMemo(
     () => [
       { href: '/me/orders', label: 'Mes commandes' },
@@ -67,6 +69,9 @@ const UserDropdown = memo(({ user }) => {
   };
 
   const handleClick = () => {
+    if ([pathname].includes('/me')) {
+      return;
+    }
     window.location.href = '/me';
   };
 
@@ -219,8 +224,11 @@ const Header = () => {
   };
 
   const handleClick = () => {
+    if ([pathname].includes('/me')) {
+      setMobileMenuOpen(false);
+      return;
+    }
     window.location.href = '/me';
-    setMobileMenuOpen(false);
   };
 
   return (
@@ -268,7 +276,7 @@ const Header = () => {
             {user && <CartButton cartCount={cartCount} />}
 
             {user ? (
-              <UserDropdown user={user} />
+              <UserDropdown user={user} pathname={pathname} />
             ) : (
               <Link
                 href="/login"
