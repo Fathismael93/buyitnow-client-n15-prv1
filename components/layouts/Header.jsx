@@ -28,10 +28,9 @@ const Search = dynamic(() => import('./Search'), {
 // Sous-composants memoïsés pour éviter les re-rendus inutiles
 const CartButton = memo(({ cartCount, pathname }) => {
   const handleClick = () => {
-    if ([pathname].includes('/cart')) {
-      return;
+    if ([pathname].includes('/cart') === false) {
+      window.location.href = '/cart';
     }
-    window.location.href = '/cart';
   };
   return (
     <Link
@@ -69,10 +68,9 @@ const UserDropdown = memo(({ user, pathname }) => {
   };
 
   const handleClick = () => {
-    if ([pathname].includes('/me')) {
-      return;
+    if ([pathname].includes('/me') === false) {
+      window.location.href = '/me';
     }
-    window.location.href = '/me';
   };
 
   return (
@@ -224,11 +222,10 @@ const Header = () => {
   };
 
   const handleClick = () => {
-    if ([pathname].includes('/me')) {
+    if ([pathname].includes('/me') === false) {
       setMobileMenuOpen(false);
-      return;
-    }
-    window.location.href = '/me';
+      window.location.href = '/me';
+    } else setMobileMenuOpen(false);
   };
 
   return (
