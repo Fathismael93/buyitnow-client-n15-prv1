@@ -36,8 +36,17 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     // N'exécuter qu'au premier montage
     if (isFirstLoad.current && cart.length === 0) {
-      setCartToState();
+      loadCart();
       isFirstLoad.current = false;
+    }
+  }, []);
+
+  // Fonction sécurisée pour charger le panier
+  const loadCart = useCallback(async () => {
+    try {
+      await setCartToState();
+    } catch (error) {
+      console.error('Error loading cart:', error);
     }
   }, []);
 
