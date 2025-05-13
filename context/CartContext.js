@@ -43,63 +43,60 @@ export const CartProvider = ({ children }) => {
 
   // Fonction utilitaire pour les requêtes API avec retry
   // Dans CartContext.js
-  const fetchWithRetry = useCallback(
-    async (url, options, attemptNumber = 0) => {
-      const requestId = `${options.method || 'GET'}-${url}-${Date.now()}`;
+  const fetchWithRetry = async (url, options, attemptNumber = 0) => {
+    const requestId = `${options.method || 'GET'}-${url}-${Date.now()}`;
 
-      // Éviter les requêtes en double
-      if (pendingRequests.current.has(requestId)) {
-        return null;
+    // Éviter les requêtes en double
+    if (pendingRequests.current.has(requestId)) {
+      return null;
+    }
+
+    pendingRequests.current.add(requestId);
+
+    try {
+      // Ajouter un timeout à la requête
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
+
+      clearTimeout(timeoutId);
+
+      // Vérifier explicitement si la réponse est OK avant de traiter
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Erreur ${response.status}`);
       }
 
-      pendingRequests.current.add(requestId);
-
-      try {
-        // Ajouter un timeout à la requête
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
-
-        const response = await fetch(url, {
-          ...options,
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            ...options.headers,
-          },
-        });
-
-        clearTimeout(timeoutId);
-
-        // Vérifier explicitement si la réponse est OK avant de traiter
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `Erreur ${response.status}`);
-        }
-
-        return await response.json();
-      } catch (error) {
-        // Gérer les timeouts et les erreurs réseau avec retry
-        if (
-          (error.name === 'AbortError' || error.message.includes('network')) &&
-          attemptNumber < RETRY_ATTEMPTS
-        ) {
-          pendingRequests.current.delete(requestId);
-
-          // Attendre avant de réessayer
-          await new Promise((resolve) =>
-            setTimeout(resolve, RETRY_DELAY * (attemptNumber + 1)),
-          );
-
-          return fetchWithRetry(url, options, attemptNumber + 1);
-        }
-
-        throw error;
-      } finally {
+      return await response.json();
+    } catch (error) {
+      // Gérer les timeouts et les erreurs réseau avec retry
+      if (
+        (error.name === 'AbortError' || error.message.includes('network')) &&
+        attemptNumber < RETRY_ATTEMPTS
+      ) {
         pendingRequests.current.delete(requestId);
+
+        // Attendre avant de réessayer
+        await new Promise((resolve) =>
+          setTimeout(resolve, RETRY_DELAY * (attemptNumber + 1)),
+        );
+
+        return fetchWithRetry(url, options, attemptNumber + 1);
       }
-    },
-    [],
-  );
+
+      throw error;
+    } finally {
+      pendingRequests.current.delete(requestId);
+    }
+  };
 
   const setCartToState = async () => {
     // Éviter les appels multiples si déjà en cours de chargement
@@ -508,7 +505,7 @@ export const CartProvider = ({ children }) => {
         if (data) {
           if (data.success === true) {
             // Mise à jour du panier avec les nouvelles données
-            remoteDataInState(data);
+            await setCartToState();
 
             // Notification de succès
             toast.success(data.message || 'Produit ajouté au panier', {
@@ -660,35 +657,6 @@ export const CartProvider = ({ children }) => {
       const previousCart = [...cart];
       const previousCount = cartCount;
       const previousTotal = cartTotal;
-
-      // Mise à jour optimiste (avant réponse serveur)
-      let updatedCart = cart.map((item) => {
-        if (item.id === product.id) {
-          // Copie profonde de l'élément du panier pour éviter la mutation
-          const updatedItem = { ...item };
-
-          if (action === INCREASE) {
-            updatedItem.quantity = item.quantity + 1;
-            updatedItem.subtotal = updatedItem.quantity * updatedItem.price;
-          } else if (action === DECREASE) {
-            updatedItem.quantity = Math.max(1, item.quantity - 1);
-            updatedItem.subtotal = updatedItem.quantity * updatedItem.price;
-          }
-
-          return updatedItem;
-        }
-        return item;
-      });
-
-      // Mettre à jour temporairement l'interface
-      setCart(updatedCart);
-
-      // Recalculer le total et le nombre d'articles
-      const tempCartTotal = updatedCart.reduce(
-        (sum, item) => sum + item.subtotal,
-        0,
-      );
-      setCartTotal(tempCartTotal);
 
       // Utiliser un AbortController pour pouvoir annuler la requête
       const controller = new AbortController();
@@ -886,7 +854,7 @@ export const CartProvider = ({ children }) => {
         if (data) {
           if (data.success === true) {
             // Mise à jour du panier avec les nouvelles données du serveur
-            remoteDataInState(data);
+            await setCartToState();
 
             // Notification de succès selon l'action
             if (action === INCREASE) {
@@ -1064,19 +1032,6 @@ export const CartProvider = ({ children }) => {
       const previousCart = [...cart];
       const previousCount = cartCount;
       const previousTotal = cartTotal;
-
-      // Mise à jour optimiste (avant réponse serveur)
-      const updatedCart = cart.filter((item) => item.id !== id);
-      const updatedCount = updatedCart.length;
-      const updatedTotal = updatedCart.reduce(
-        (sum, item) => sum + item.subtotal,
-        0,
-      );
-
-      // Mettre à jour temporairement l'interface
-      setCart(updatedCart);
-      setCartCount(updatedCount);
-      setCartTotal(updatedTotal);
 
       // Utiliser un AbortController pour pouvoir annuler la requête
       const controller = new AbortController();
@@ -1263,7 +1218,7 @@ export const CartProvider = ({ children }) => {
         if (data) {
           if (data.success === true) {
             // Mise à jour du panier avec les nouvelles données du serveur
-            remoteDataInState(data);
+            await setCartToState();
 
             // Notification de succès
             toast.success(data.message || 'Article supprimé du panier', {
