@@ -85,6 +85,8 @@ const ShippingChoice = ({
         router.prefetch('/payment');
         router.prefetch('/shipping');
 
+        console.log('Adresses:', addresses);
+
         // Validation des données
         if (isArrayEmpty(addresses)) {
           toast.error(
