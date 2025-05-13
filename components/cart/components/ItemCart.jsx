@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatPrice } from '@/helpers/helpers';
@@ -13,9 +13,25 @@ const ItemCart = memo(
     increaseQty,
     deleteInProgress,
   }) => {
+    const [imageSource, setImageSource] = useState(null);
+    const [totalPrice, setTotalPrice] = useState(0);
+    const [isStockLow, setIsStockLow] = useState(false);
+    const [isOutOfStock, setIsOutOfStock] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isImageError, setIsImageError] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+    useEffect(() => {
+      // Source de l'image avec fallback
+      isImageError || !cartItem?.imageUrl
+        ? setImageSource('/images/default_product.png')
+        : setImageSource(cartItem?.imageUrl);
+
+      // Calculs pour l'affichage
+      setTotalPrice(cartItem?.subtotal);
+      setIsStockLow(cartItem?.stock <= 5 && cartItem?.stock > 0);
+      setIsOutOfStock(cartItem?.stock === 0);
+    }, [cartItem]);
 
     // Gestion optimisée de la suppression
     const handleDelete = async () => {
@@ -26,17 +42,6 @@ const ItemCart = memo(
       setIsDeleting(false);
       setShowDeleteConfirm(false);
     };
-
-    // Source de l'image avec fallback
-    const imageSource =
-      isImageError || !cartItem?.imageUrl
-        ? '/images/default_product.png'
-        : cartItem?.imageUrl;
-
-    // Calculs pour l'affichage
-    const totalPrice = cartItem?.subtotal;
-    const isStockLow = cartItem?.stock <= 5 && cartItem?.stock > 0;
-    const isOutOfStock = cartItem?.stock === 0;
 
     return (
       <div className="group relative">
