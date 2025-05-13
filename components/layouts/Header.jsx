@@ -15,7 +15,7 @@ import CartContext from '@/context/CartContext';
 import { signOut, useSession } from 'next-auth/react';
 import AuthContext from '@/context/AuthContext';
 import { throwEnrichedError, handleAsyncError } from '@/monitoring/errorUtils';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 // Chargement dynamique optimisé du composant Search
 const Search = dynamic(() => import('./Search'), {
@@ -26,8 +26,9 @@ const Search = dynamic(() => import('./Search'), {
 });
 
 // Sous-composants memoïsés pour éviter les re-rendus inutiles
-const CartButton = memo(({ cartCount }) => {
+const CartButton = memo(({ cartCount, pathname }) => {
   const handleClick = () => {
+    console.log('pathname', pathname);
     window.location.href = '/cart';
   };
   return (
@@ -151,6 +152,7 @@ const Header = () => {
   const [isLoadingCart, setIsLoadingCart] = useState(false);
   const { data } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
 
   // Nous utilisons maintenant les utilitaires centralisés pour gérer les erreurs
 
@@ -241,7 +243,7 @@ const Header = () => {
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
-            {user && <CartButton cartCount={cartCount} />}
+            {user && <CartButton cartCount={cartCount} pathname={pathname} />}
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
               type="button"
