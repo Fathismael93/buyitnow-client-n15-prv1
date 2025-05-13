@@ -2051,7 +2051,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const sendEmail = async (newEmail) => {
+  const sendEmail = async ({ subject, message }) => {
     try {
       // Mettre à jour l'état de chargement
       setLoading(true);
@@ -2075,9 +2075,6 @@ export const AuthProvider = ({ children }) => {
             setError(
               `Trop de tentatives d'envoi d'email. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
             );
-            toast.error(
-              `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
-            );
             setLoading(false);
             return;
           }
@@ -2095,9 +2092,35 @@ export const AuthProvider = ({ children }) => {
         );
       }
 
+      // Validation des entrées côté client
+      if (!subject || subject.trim() === '') {
+        setError('Le sujet est obligatoire');
+        setLoading(false);
+        return;
+      }
+
+      if (!message || message.trim() === '') {
+        setError('Le message est obligatoire');
+        setLoading(false);
+        return;
+      }
+
+      // Limiter la taille des entrées
+      if (subject.length > 200) {
+        setError('Le sujet ne peut pas dépasser 200 caractères');
+        setLoading(false);
+        return;
+      }
+
+      if (message.length > 5000) {
+        setError('Le message ne peut pas dépasser 5000 caractères');
+        setLoading(false);
+        return;
+      }
+
       // Utiliser un AbortController pour pouvoir annuler la requête
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
       // Configuration des headers avec protection contre les attaques
       const headers = {
@@ -2116,7 +2139,7 @@ export const AuthProvider = ({ children }) => {
           {
             method: 'POST',
             headers,
-            body: JSON.stringify(newEmail),
+            body: JSON.stringify({ subject, message }),
             signal: controller.signal,
             credentials: 'include', // Inclure les cookies pour les sessions
           },
@@ -2124,18 +2147,25 @@ export const AuthProvider = ({ children }) => {
 
         clearTimeout(timeoutId);
 
+        // Traitement de la réponse
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonError) {
+          setError('Erreur lors du traitement de la réponse du serveur');
+          setLoading(false);
+          return;
+        }
+
         // Vérifier le rate limiting côté serveur
         if (res.status === 429) {
           // Extraire la durée d'attente depuis les headers
           const retryAfter = parseInt(
-            res.headers.get('Retry-After') || '60',
+            res.headers.get('Retry-After') || '600',
             10,
           );
           setError(
-            `Trop de tentatives. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
-          );
-          toast.error(
-            `Limite de tentatives atteinte. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
+            `Trop de tentatives d'envoi. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
           );
 
           // Mettre à jour le cache des tentatives locales
@@ -2152,102 +2182,150 @@ export const AuthProvider = ({ children }) => {
         // Gestion des erreurs HTTP
         if (!res.ok) {
           const statusCode = res.status;
-          let errorData;
-
-          try {
-            errorData = await res.json();
-          } catch (e) {
-            errorData = { message: `Erreur HTTP: ${res.status}` };
-          }
 
           // Traitement unifié des erreurs HTTP
-          if (statusCode === 400) {
-            // Erreur de validation
-            setError(errorData.message || 'Données invalides');
-            toast.error(
-              errorData.message || 'Veuillez vérifier les informations saisies',
-            );
-          } else if (statusCode === 401 || statusCode === 403) {
-            // Erreur d'authentification
-            setError('Session expirée ou accès non autorisé');
-            toast.error(
-              "Votre session a expiré ou vous n'êtes pas autorisé à effectuer cette action. Veuillez vous reconnecter.",
-            );
-            // Rediriger vers la page de connexion après un court délai
-            setTimeout(() => router.push('/login'), 2000);
-          } else if (statusCode >= 400 && statusCode < 500) {
-            // Autres erreurs client
-            setError(errorData.message || 'Erreur dans la requête');
-            toast.error(
-              errorData.message ||
-                "Une erreur est survenue lors de l'envoi de l'email",
-            );
-          } else {
-            // Erreurs serveur
-            setError('Erreur serveur');
-            toast.error(
-              'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
-            );
-
-            // Capturer l'exception pour Sentry en production
-            if (process.env.NODE_ENV === 'production') {
-              const serverError = new Error(
-                errorData.message || `Erreur serveur (${statusCode})`,
+          switch (statusCode) {
+            case 400:
+              // Erreur de validation ou requête incorrecte
+              if (
+                data.errors &&
+                Array.isArray(data.errors) &&
+                data.errors.length > 0
+              ) {
+                setError(
+                  `Validation échouée: ${data.errors.map((e) => e.message || e).join(', ')}`,
+                );
+              } else {
+                setError(data.message || 'Données de message invalides');
+              }
+              break;
+            case 401:
+              // Non authentifié
+              setError('Authentification requise. Veuillez vous connecter.');
+              // Rediriger vers la page de connexion après un court délai
+              setTimeout(
+                () => router.push('/login?callbackUrl=/contact'),
+                2000,
               );
-              serverError.statusCode = statusCode;
-              serverError.componentName = 'EmailSend';
-              serverError.additionalInfo = {
-                context: 'email',
-                operation: 'send',
-                statusCode,
-                responseMessage: errorData.message,
-              };
-              captureException(serverError);
+              break;
+            case 403:
+              // Accès interdit
+              setError("Vous n'avez pas l'autorisation d'envoyer un message");
+              break;
+            case 404:
+              // Utilisateur non trouvé
+              setError('Utilisateur non trouvé');
+              break;
+            case 413:
+              // Payload trop grand
+              setError('Le message est trop volumineux');
+              break;
+            case 422:
+              // Erreur de validation avec détails
+              if (
+                data.errors &&
+                Array.isArray(data.errors) &&
+                data.errors.length > 0
+              ) {
+                setError(
+                  `Erreur de validation: ${data.errors.map((e) => e.message || e).join(', ')}`,
+                );
+              } else {
+                setError(data.message || 'Validation échouée');
+              }
+              break;
+            case 500:
+              // Erreur serveur interne
+              setError(
+                'Une erreur est survenue lors du traitement de votre message. Veuillez réessayer plus tard.',
+              );
+
+              // Capturer pour monitoring en production seulement
+              if (process.env.NODE_ENV === 'production') {
+                const serverError = new Error(
+                  data.message || `Erreur serveur (${statusCode})`,
+                );
+                serverError.statusCode = statusCode;
+                serverError.componentName = 'EmailSend';
+                serverError.additionalInfo = {
+                  context: 'email',
+                  operation: 'send',
+                  statusCode,
+                  responseMessage: data.message,
+                  requestId: data.requestId,
+                };
+                captureException(serverError);
+              }
+              break;
+            case 503:
+              // Service indisponible (souvent erreur de connexion à la BD ou au service d'email)
+              setError(
+                "Le service d'envoi d'email est temporairement indisponible. Veuillez réessayer plus tard.",
+              );
+              break;
+            default:
+              // Autres erreurs
+              setError(
+                data.message ||
+                  `Erreur lors de l'envoi du message (${statusCode})`,
+              );
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Traitement des réponses avec JSON valide
+        if (data) {
+          if (data.success === true) {
+            // Succès - Réinitialiser le compteur de tentatives
+            if (appCache.ui) {
+              appCache.ui.delete(clientRateLimitKey);
             }
+
+            // Journaliser de façon anonyme en production
+            if (process.env.NODE_ENV === 'production') {
+              console.info('Email sent successfully', {
+                userId: user?._id
+                  ? `${user._id.toString().substring(0, 2)}...${user._id.toString().slice(-2)}`
+                  : 'unknown',
+                requestId: data.requestId,
+              });
+            }
+
+            // Afficher un message de réussite
+            toast.success(data.message || 'Message envoyé avec succès!');
+
+            // Redirection avec un délai pour que le toast soit visible
+            setTimeout(() => router.push('/me'), 1000);
+          } else if (data.success === false) {
+            // Cas où success est explicitement false
+            setError(data.message || "Échec de l'envoi du message");
+
+            // Si des erreurs détaillées sont disponibles, les agréger
+            if (
+              data.errors &&
+              Array.isArray(data.errors) &&
+              data.errors.length > 0
+            ) {
+              setError(
+                `${data.message || "Échec de l'envoi du message"}: ${data.errors.map((e) => e.message || e).join(', ')}`,
+              );
+            }
+          } else {
+            // Réponse JSON valide mais structure inattendue
+            setError(
+              "Réponse inattendue du serveur lors de l'envoi du message",
+            );
           }
-
-          setLoading(false);
-          return;
-        }
-
-        // Traitement de la réponse JSON avec gestion d'erreur
-        let data;
-        try {
-          data = await res.json();
-        } catch (jsonError) {
-          setError('Réponse du serveur invalide');
-          toast.error('Réponse du serveur invalide. Veuillez réessayer.');
-          setLoading(false);
-          return;
-        }
-
-        // Vérification de la structure de la réponse
-        if (!data) {
-          setError('Réponse du serveur vide');
-          toast.error('Erreur lors du traitement de la réponse.');
-          setLoading(false);
-          return;
-        }
-
-        // Succès
-        if (data.success) {
-          // Réinitialiser le compteur de tentatives en cas de succès
-          if (appCache.ui) {
-            appCache.ui.delete(clientRateLimitKey);
-          }
-
-          toast.success(data.message || 'Email envoyé avec succès!');
-          setTimeout(() => router.push('/me'), 1000);
         } else {
-          // Cas d'erreur applicative
-          setError(data?.message || "Échec de l'envoi d'email");
-          toast.info(data?.message || "Échec de l'envoi d'email");
-          setLoading(false);
+          // Réponse vide ou mal formatée
+          setError('Réponse vide ou invalide du serveur');
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
 
-        // Catégorisation des erreurs réseau
+        // Erreurs réseau - Toutes gérées via setError sans toast
         const isAborted = fetchError.name === 'AbortError';
         const isNetworkError =
           fetchError.message.includes('network') ||
@@ -2257,33 +2335,32 @@ export const AuthProvider = ({ children }) => {
 
         if (isTimeout) {
           // Timeout
-          setError('La requête a pris trop de temps');
-          toast.error(
-            'La connexion au serveur est trop lente. Veuillez réessayer plus tard.',
+          setError(
+            "La requête d'envoi de message a pris trop de temps. Veuillez réessayer.",
           );
         } else if (isNetworkError) {
-          // Erreur réseau
-          setError('Problème de connexion internet');
-          toast.error(
-            'Impossible de se connecter au serveur. Vérifiez votre connexion internet.',
+          // Erreur réseau simple
+          setError(
+            'Problème de connexion internet. Vérifiez votre connexion et réessayez.',
           );
         } else {
-          // Autres erreurs
-          setError("Erreur lors de l'envoi de l'email");
-          toast.error(
-            'Une erreur inattendue est survenue. Veuillez réessayer.',
-          );
+          // Autres erreurs fetch
+          setError(`Erreur lors de l'envoi du message: ${fetchError.message}`);
 
-          // Journalisation en dev uniquement
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Email send error:', fetchError);
+          // Enrichir l'erreur pour le boundary sans la lancer
+          if (!fetchError.componentName) {
+            fetchError.componentName = 'ContactForm';
+            fetchError.additionalInfo = {
+              context: 'contact',
+              operation: 'send',
+            };
           }
 
-          // Capturer l'exception pour Sentry en production
+          // Capture pour Sentry en production
           if (process.env.NODE_ENV === 'production') {
             captureException(fetchError, {
               tags: {
-                component: 'EmailSend',
+                component: 'ContactForm',
                 action: 'sendEmail',
                 errorType: isTimeout
                   ? 'timeout'
@@ -2291,27 +2368,33 @@ export const AuthProvider = ({ children }) => {
                     ? 'network'
                     : 'unknown',
               },
+              extra: {
+                userAnonymized: user?.email
+                  ? `${user.email.charAt(0)}***${user.email.slice(user.email.indexOf('@'))}`
+                  : 'unknown',
+              },
             });
           }
         }
       }
     } catch (error) {
-      // Erreurs générales non gérées
-      setError('Une erreur inattendue est survenue');
-      toast.error(
-        'Une erreur inattendue est survenue. Veuillez réessayer plus tard.',
-      );
+      // Pour toute erreur non gérée spécifiquement
+      setError("Une erreur inattendue est survenue lors de l'envoi du message");
 
-      // Journalisation en dev uniquement
+      // Journaliser localement en dev
       if (process.env.NODE_ENV === 'development') {
-        console.error('Email send unexpected error:', error);
+        console.error('Email send error:', error);
       }
 
-      // Capturer l'exception pour Sentry en production
+      // Capture pour Sentry en production
       if (process.env.NODE_ENV === 'production') {
-        captureException(error, {
-          tags: { component: 'EmailSend', action: 'sendEmail' },
-        });
+        if (!error.componentName) {
+          error.componentName = 'ContactForm';
+          error.additionalInfo = {
+            context: 'contact',
+          };
+        }
+        captureException(error);
       }
     } finally {
       setLoading(false);
