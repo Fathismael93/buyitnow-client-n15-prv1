@@ -117,27 +117,242 @@ export const CartProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      const response = await fetchWithRetry(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/cart`,
-        {
-          method: 'GET',
-          headers: {
-            'Cache-Control': 'no-cache',
-          },
-        },
-      );
+      // Utiliser un AbortController pour pouvoir annuler la requête
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-      if (response.success) {
-        // Normaliser les données du panier
-        remoteDataInState(response);
+      // Configuration des headers avec protection contre les attaques
+      const headers = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest', // Protection CSRF supplémentaire
+        'Cache-Control':
+          'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
+      };
+
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart`, {
+          method: 'GET',
+          headers,
+          signal: controller.signal,
+          credentials: 'include', // Inclure les cookies pour les sessions
+        });
+
+        clearTimeout(timeoutId);
+
+        // Traitement de la réponse
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonError) {
+          setError('Erreur lors du traitement de la réponse du serveur');
+
+          // En cas d'erreur, utiliser les données du localStorage comme fallback
+          if (localCart.items.length > 0) {
+            localDataInState();
+            toast.info('Utilisation des données de panier locales', {
+              autoClose: 3000,
+            });
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Vérifier le rate limiting côté serveur
+        if (res.status === 429) {
+          // Extraire la durée d'attente depuis les headers
+          const retryAfter = parseInt(
+            res.headers.get('Retry-After') || '60',
+            10,
+          );
+          setError(
+            `Trop de requêtes. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
+          );
+
+          // En cas d'erreur, utiliser les données du localStorage comme fallback
+          if (localCart.items.length > 0) {
+            localDataInState();
+            toast.info('Utilisation des données de panier locales', {
+              autoClose: 3000,
+            });
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Gestion des erreurs HTTP
+        if (!res.ok) {
+          const statusCode = res.status;
+
+          // Traitement unifié des erreurs HTTP
+          switch (statusCode) {
+            case 400:
+              // Erreur de validation ou requête incorrecte
+              setError(data.message || 'Requête invalide');
+              break;
+            case 401:
+              // Non authentifié
+              setError('Authentification requise. Veuillez vous connecter.');
+
+              // Rediriger vers la page de connexion si nécessaire
+              // setTimeout(() => router.push('/login'), 2000);
+              break;
+            case 403:
+              // Accès interdit
+              setError("Vous n'avez pas l'autorisation d'accéder à ce panier");
+              break;
+            case 404:
+              // Utilisateur ou panier non trouvé
+              setError('Panier non trouvé');
+              break;
+            case 500:
+            case 502:
+            case 503:
+            case 504:
+              // Erreurs serveur
+              setError(
+                'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
+              );
+
+              // Capturer pour monitoring en production seulement
+              if (process.env.NODE_ENV === 'production') {
+                const serverError = new Error(
+                  data.message || `Erreur serveur (${statusCode})`,
+                );
+                serverError.statusCode = statusCode;
+                serverError.componentName = 'CartContext';
+                serverError.additionalInfo = {
+                  context: 'cart',
+                  operation: 'get',
+                  statusCode,
+                  responseMessage: data.message,
+                };
+                captureException(serverError);
+              }
+              break;
+            default:
+              // Autres erreurs
+              setError(
+                data.message ||
+                  `Erreur lors de la récupération du panier (${statusCode})`,
+              );
+          }
+
+          // En cas d'erreur, utiliser les données du localStorage comme fallback
+          if (localCart.items.length > 0) {
+            localDataInState();
+            toast.info('Utilisation des données de panier locales', {
+              autoClose: 3000,
+            });
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Traitement des réponses avec JSON valide
+        if (data) {
+          if (data.success === true) {
+            // Normaliser les données du panier
+            remoteDataInState(data);
+          } else {
+            // Cas où success est explicitement false
+            setError(data.message || 'Échec de la récupération du panier');
+
+            // En cas d'erreur, utiliser les données du localStorage comme fallback
+            if (localCart.items.length > 0) {
+              localDataInState();
+              toast.info('Utilisation des données de panier locales', {
+                autoClose: 3000,
+              });
+            }
+          }
+        } else {
+          // Réponse vide ou mal formatée
+          setError('Réponse inattendue du serveur');
+
+          // En cas d'erreur, utiliser les données du localStorage comme fallback
+          if (localCart.items.length > 0) {
+            localDataInState();
+            toast.info('Utilisation des données de panier locales', {
+              autoClose: 3000,
+            });
+          }
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+
+        // Erreurs réseau - Toutes gérées via setError
+        const isAborted = fetchError.name === 'AbortError';
+        const isNetworkError =
+          fetchError.message.includes('network') ||
+          fetchError.message.includes('fetch') ||
+          !navigator.onLine;
+        const isTimeout = isAborted || fetchError.message.includes('timeout');
+
+        if (isTimeout) {
+          // Timeout
+          setError('La requête a pris trop de temps. Veuillez réessayer.');
+        } else if (isNetworkError) {
+          // Erreur réseau simple
+          setError(
+            'Problème de connexion internet. Vérifiez votre connexion et réessayez.',
+          );
+        } else {
+          // Autres erreurs fetch
+          setError(
+            `Erreur lors de la récupération du panier: ${fetchError.message}`,
+          );
+
+          // Capture pour Sentry en production
+          if (process.env.NODE_ENV === 'production') {
+            captureException(fetchError, {
+              tags: {
+                component: 'CartContext',
+                action: 'setCartToState',
+                errorType: isTimeout
+                  ? 'timeout'
+                  : isNetworkError
+                    ? 'network'
+                    : 'unknown',
+              },
+            });
+          }
+        }
+
+        // En cas d'erreur, utiliser les données du localStorage comme fallback
+        if (localCart.items.length > 0) {
+          localDataInState();
+          toast.info('Utilisation des données de panier locales', {
+            autoClose: 3000,
+          });
+        }
       }
     } catch (error) {
-      console.error('Erreur lors de la récupération du panier:', error);
+      // Pour toute erreur non gérée spécifiquement
+      setError(
+        'Une erreur inattendue est survenue lors de la récupération du panier',
+      );
 
-      captureException(error, {
-        tags: { action: 'get_cart' },
-        extra: { context: 'setCartToState' },
-      });
+      // Journaliser localement en dev
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Cart retrieval error:', error);
+      }
+
+      // Capture pour Sentry en production
+      if (process.env.NODE_ENV === 'production') {
+        if (!error.componentName) {
+          error.componentName = 'CartContext';
+          error.additionalInfo = {
+            context: 'cart',
+          };
+        }
+        captureException(error);
+      }
 
       // En cas d'erreur, utiliser les données du localStorage comme fallback
       if (localCart.items.length > 0) {
@@ -146,12 +361,10 @@ export const CartProvider = ({ children }) => {
           autoClose: 3000,
         });
       }
-
-      setError('Erreur lors du chargement du panier');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loading, localCart]);
 
   const addItemToCart = useCallback(async ({ product, quantity = 1 }) => {
     if (!product) {
@@ -431,7 +644,7 @@ export const CartProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [cart, fetchWithRetry, setLocalCart]);
+  }, [cart, setLocalCart]);
 
   const localDataInState = () => {
     setCart(localCart.items);
