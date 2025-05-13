@@ -64,8 +64,6 @@ const ShippingChoicePage = async () => {
       };
     });
 
-    console.log('Shipping data:', data);
-
     // Vérification des données reçues avec valeurs par défaut sécurisées
     const addresses = Array.isArray(data?.data?.addresses)
       ? data.data.addresses
@@ -76,10 +74,6 @@ const ShippingChoicePage = async () => {
     const deliveryPrice = Array.isArray(data?.data?.deliveryPrice)
       ? data.data.deliveryPrice
       : [{ deliveryPrice: 0 }];
-
-    console.log('Shipping addresses:', addresses);
-    console.log('Payment types:', payments);
-    console.log('Delivery price:', deliveryPrice);
 
     return (
       <div
