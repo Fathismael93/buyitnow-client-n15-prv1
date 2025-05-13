@@ -367,60 +367,296 @@ export const CartProvider = ({ children }) => {
   }, [loading, localCart]);
 
   const addItemToCart = useCallback(async ({ product, quantity = 1 }) => {
-    if (!product) {
-      toast.error('Produit invalide');
-      return;
-    }
-
     try {
+      // Vérifications préliminaires
+      if (!product) {
+        setError('Produit invalide ou non spécifié');
+        toast.error('Produit invalide');
+        return;
+      }
+
+      // Validation de la quantité
+      const validQuantity = parseInt(quantity, 10);
+      if (isNaN(validQuantity) || validQuantity < 1) {
+        setError('La quantité doit être un nombre positif');
+        toast.error('Quantité invalide');
+        return;
+      }
+
+      // Mettre à jour l'état de chargement
       setLoading(true);
       setError(null);
 
-      const response = await fetchWithRetry(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/cart`,
-        {
+      // Utiliser un AbortController pour pouvoir annuler la requête
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      // Configuration des headers avec protection contre les attaques
+      const headers = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest', // Protection CSRF supplémentaire
+        'Cache-Control':
+          'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
+      };
+
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart`, {
           method: 'POST',
+          headers,
           body: JSON.stringify({
             productId: product,
-            quantity,
+            quantity: validQuantity,
           }),
-        },
-      );
-
-      if (response?.success) {
-        remoteDataInState(response);
-        toast.success('Produit ajouté au panier', {
-          position: 'bottom-right',
-          autoClose: 3000,
+          signal: controller.signal,
+          credentials: 'include', // Inclure les cookies pour les sessions
         });
-      } else {
-        toast.error(
-          response?.message ||
-            "Une erreur est survenue lors de l'ajout au panier",
-          { position: 'bottom-right' },
-        );
+
+        clearTimeout(timeoutId);
+
+        // Traitement de la réponse
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonError) {
+          setError('Erreur lors du traitement de la réponse du serveur');
+          toast.error('Erreur de communication avec le serveur');
+          setLoading(false);
+          return;
+        }
+
+        // Vérifier le rate limiting côté serveur
+        if (res.status === 429) {
+          // Extraire la durée d'attente depuis les headers
+          const retryAfter = parseInt(
+            res.headers.get('Retry-After') || '60',
+            10,
+          );
+          setError(
+            `Trop de requêtes. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
+          );
+          toast.error(
+            `Limite de requêtes atteinte. Veuillez patienter quelques instants.`,
+          );
+          setLoading(false);
+          return;
+        }
+
+        // Gestion des erreurs HTTP
+        if (!res.ok) {
+          const statusCode = res.status;
+
+          // Traitement unifié des erreurs HTTP
+          switch (statusCode) {
+            case 400:
+              // Erreur de validation ou requête incorrecte
+              if (data.message && data.message.includes('stock')) {
+                setError(`Stock insuffisant: ${data.message}`);
+                toast.error(data.message || 'Stock insuffisant');
+              } else {
+                setError(data.message || 'Données invalides');
+                toast.error(
+                  data.message || "Impossible d'ajouter ce produit au panier",
+                );
+              }
+              break;
+            case 401:
+              // Non authentifié
+              setError('Authentification requise. Veuillez vous connecter.');
+              toast.error(
+                'Veuillez vous connecter pour ajouter des produits au panier',
+              );
+              // Possibilité de rediriger vers la page de connexion
+              // setTimeout(() => router.push('/login'), 2000);
+              break;
+            case 403:
+              // Accès interdit
+              setError(
+                "Vous n'avez pas l'autorisation d'effectuer cette action",
+              );
+              toast.error('Accès non autorisé');
+              break;
+            case 404:
+              // Produit ou utilisateur non trouvé
+              if (data.message && data.message.includes('Product')) {
+                setError(
+                  "Le produit demandé n'existe pas ou n'est plus disponible",
+                );
+                toast.error('Produit non disponible');
+              } else {
+                setError('Utilisateur non trouvé');
+                toast.error('Session utilisateur invalide');
+              }
+              break;
+            case 409:
+              // Conflit (produit déjà dans le panier)
+              setError('Ce produit est déjà dans votre panier');
+              toast.info(
+                'Ce produit est déjà dans votre panier. Vous pouvez modifier la quantité depuis le panier.',
+              );
+              break;
+            case 500:
+            case 502:
+            case 503:
+            case 504:
+              // Erreurs serveur
+              setError(
+                'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
+              );
+              toast.error('Service temporairement indisponible');
+
+              // Capturer pour monitoring en production seulement
+              if (process.env.NODE_ENV === 'production') {
+                const serverError = new Error(
+                  data.message || `Erreur serveur (${statusCode})`,
+                );
+                serverError.statusCode = statusCode;
+                serverError.componentName = 'CartContext';
+                serverError.additionalInfo = {
+                  context: 'cart',
+                  operation: 'add',
+                  productId: product,
+                  quantity: validQuantity,
+                  statusCode,
+                  responseMessage: data.message,
+                };
+                captureException(serverError);
+              }
+              break;
+            default:
+              // Autres erreurs
+              setError(
+                data.message ||
+                  `Erreur lors de l'ajout au panier (${statusCode})`,
+              );
+              toast.error(data.message || "Erreur lors de l'ajout au panier");
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Traitement des réponses avec JSON valide
+        if (data) {
+          if (data.success === true) {
+            // Mise à jour du panier avec les nouvelles données
+            remoteDataInState(data);
+
+            // Notification de succès
+            toast.success(data.message || 'Produit ajouté au panier', {
+              position: 'bottom-right',
+              autoClose: 3000,
+            });
+          } else if (data.success === false) {
+            // Cas où success est explicitement false
+            setError(data.message || "Échec de l'ajout au panier");
+            toast.error(data.message || "Échec de l'ajout au panier");
+
+            // Si des erreurs détaillées sont disponibles, les agréger
+            if (
+              data.errors &&
+              Array.isArray(data.errors) &&
+              data.errors.length > 0
+            ) {
+              const errorMessage = `${data.message || "Échec de l'ajout au panier"}: ${data.errors.map((e) => e.message || e).join(', ')}`;
+              setError(errorMessage);
+              toast.error(errorMessage);
+            }
+          } else {
+            // Réponse JSON valide mais structure inattendue
+            setError("Réponse inattendue du serveur lors de l'ajout au panier");
+            toast.error("Erreur lors de l'ajout au panier");
+          }
+        } else {
+          // Réponse vide ou mal formatée
+          setError('Réponse vide ou invalide du serveur');
+          toast.error('Erreur lors de la communication avec le serveur');
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+
+        // Erreurs réseau - Toutes gérées via setError et toast
+        const isAborted = fetchError.name === 'AbortError';
+        const isNetworkError =
+          fetchError.message.includes('network') ||
+          fetchError.message.includes('fetch') ||
+          !navigator.onLine;
+        const isTimeout = isAborted || fetchError.message.includes('timeout');
+
+        if (isTimeout) {
+          // Timeout
+          setError(
+            "La requête d'ajout au panier a pris trop de temps. Veuillez réessayer.",
+          );
+          toast.error(
+            'La connexion au serveur est trop lente. Veuillez réessayer.',
+          );
+        } else if (isNetworkError) {
+          // Erreur réseau simple
+          setError(
+            'Problème de connexion internet. Vérifiez votre connexion et réessayez.',
+          );
+          toast.error(
+            'Problème de connexion internet. Vérifiez votre connexion.',
+          );
+        } else {
+          // Autres erreurs fetch
+          setError(`Erreur lors de l'ajout au panier: ${fetchError.message}`);
+          toast.error('Une erreur est survenue. Veuillez réessayer.');
+
+          // Enrichir l'erreur pour le boundary sans la lancer
+          if (!fetchError.componentName) {
+            fetchError.componentName = 'CartContext';
+            fetchError.additionalInfo = {
+              context: 'cart',
+              operation: 'add',
+              productId: product,
+              quantity,
+            };
+          }
+
+          // Capture pour Sentry en production
+          if (process.env.NODE_ENV === 'production') {
+            captureException(fetchError, {
+              tags: {
+                component: 'CartContext',
+                action: 'addItemToCart',
+                errorType: isTimeout
+                  ? 'timeout'
+                  : isNetworkError
+                    ? 'network'
+                    : 'unknown',
+                productId: product,
+              },
+            });
+          }
+        }
       }
     } catch (error) {
-      console.error("Erreur lors de l'ajout au panier:", error);
+      // Pour toute erreur non gérée spécifiquement
+      setError("Une erreur inattendue est survenue lors de l'ajout au panier");
+      toast.error('Une erreur inattendue est survenue');
 
-      // En cas d'erreur, utiliser les données du localStorage comme fallback
-      if (localCart.items.length > 0) {
-        localDataInState();
-        toast.info('Utilisation des données de panier locales', {
-          autoClose: 3000,
-        });
+      // Journaliser localement en dev
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Cart add item error:', error);
       }
 
-      captureException(error, {
-        tags: { action: 'add_to_cart' },
-        extra: { product, quantity },
-      });
-
-      toast.error('Une erreur est survenue. Veuillez réessayer.', {
-        position: 'bottom-right',
-      });
-
-      setError("Erreur lors de l'ajout au panier");
+      // Capture pour Sentry en production
+      if (process.env.NODE_ENV === 'production') {
+        if (!error.componentName) {
+          error.componentName = 'CartContext';
+          error.additionalInfo = {
+            context: 'cart',
+            operation: 'add',
+            productId: product,
+            quantity,
+          };
+        }
+        captureException(error);
+      }
     } finally {
       setLoading(false);
     }
