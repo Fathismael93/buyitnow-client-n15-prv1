@@ -30,7 +30,7 @@ const useCartOperations = () => {
         });
       }
     },
-    [updateCart, setLoading],
+    [INCREASE, updateCart, setLoading],
   );
 
   // Fonction optimisée pour diminuer la quantité
@@ -47,7 +47,7 @@ const useCartOperations = () => {
         });
       }
     },
-    [updateCart, setLoading],
+    [DECREASE, updateCart, setLoading],
   );
 
   // Fonction optimisée pour supprimer un article
@@ -68,7 +68,7 @@ const useCartOperations = () => {
         setItemBeingRemoved(null);
       }
     },
-    [deleteItemFromCart],
+    [deleteItemFromCart, setDeleteInProgress, setItemBeingRemoved],
   );
 
   // Préparation au paiement
