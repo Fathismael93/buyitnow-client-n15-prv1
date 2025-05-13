@@ -662,81 +662,408 @@ export const CartProvider = ({ children }) => {
     }
   }, []);
 
-  const updateCart = useCallback(async (product, action) => {
-    // Validation préliminaire
-    if (!product || !action) {
-      return;
-    }
-
-    // Si DECREASE et quantité = 1, empêcher la mise à jour
-    if (action === DECREASE && product.quantity === 1) {
-      toast.info(
-        "Quantité minimale atteinte. Pour supprimer l'article, utilisez le bouton Supprimer.",
-        { position: 'bottom-right' },
-      );
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Mise à jour côté serveur
-      const response = await fetchWithRetry(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/cart`,
-        {
-          method: 'PUT',
-          body: JSON.stringify({
-            product,
-            value: action,
-          }),
-        },
-      );
-
-      if (response.success) {
-        // Rafraîchir le panier après la mise à jour
-        remoteDataInState(response);
-
-        if (action === INCREASE) {
-          toast.success('Quantité augmentée', {
-            position: 'bottom-right',
-            autoClose: 2000,
-          });
-        } else {
-          toast.success('Quantité diminuée', {
-            position: 'bottom-right',
-            autoClose: 2000,
-          });
+  const updateCart = useCallback(
+    async (product, action) => {
+      try {
+        // Validation préliminaire
+        if (!product || !product.id) {
+          setError('Produit invalide ou non spécifié');
+          toast.error('Impossible de mettre à jour: produit invalide');
+          return;
         }
-      } else {
-        // Annuler la mise à jour optimiste en cas d'échec
-        await setCartToState();
 
-        toast.error('La mise à jour du panier a échoué, veuillez réessayer', {
-          position: 'bottom-right',
+        if (!action || (action !== INCREASE && action !== DECREASE)) {
+          setError('Action invalide');
+          toast.error('Type de mise à jour non valide');
+          return;
+        }
+
+        // Si DECREASE et quantité = 1, informer l'utilisateur d'utiliser le bouton Supprimer
+        if (action === DECREASE && product.quantity === 1) {
+          toast.info(
+            "Quantité minimale atteinte. Pour supprimer l'article, utilisez le bouton Supprimer.",
+            { position: 'bottom-right' },
+          );
+          return;
+        }
+
+        // Mettre à jour l'état de chargement
+        setLoading(true);
+        setError(null);
+
+        // Sauvegarde de l'état actuel du panier pour restauration en cas d'erreur
+        const previousCart = [...cart];
+        const previousCount = cartCount;
+        const previousTotal = cartTotal;
+
+        // Mise à jour optimiste (avant réponse serveur)
+        let updatedCart = cart.map((item) => {
+          if (item.id === product.id) {
+            // Copie profonde de l'élément du panier pour éviter la mutation
+            const updatedItem = { ...item };
+
+            if (action === INCREASE) {
+              updatedItem.quantity = item.quantity + 1;
+              updatedItem.subtotal = updatedItem.quantity * updatedItem.price;
+            } else if (action === DECREASE) {
+              updatedItem.quantity = Math.max(1, item.quantity - 1);
+              updatedItem.subtotal = updatedItem.quantity * updatedItem.price;
+            }
+
+            return updatedItem;
+          }
+          return item;
         });
+
+        // Mettre à jour temporairement l'interface
+        setCart(updatedCart);
+
+        // Recalculer le total et le nombre d'articles
+        const tempCartTotal = updatedCart.reduce(
+          (sum, item) => sum + item.subtotal,
+          0,
+        );
+        setCartTotal(tempCartTotal);
+
+        // Utiliser un AbortController pour pouvoir annuler la requête
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        // Configuration des headers avec protection contre les attaques
+        const headers = {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest', // Protection CSRF supplémentaire
+          'Cache-Control':
+            'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+        };
+
+        try {
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/cart`,
+            {
+              method: 'PUT',
+              headers,
+              body: JSON.stringify({
+                product,
+                value: action,
+              }),
+              signal: controller.signal,
+              credentials: 'include', // Inclure les cookies pour les sessions
+            },
+          );
+
+          clearTimeout(timeoutId);
+
+          // Traitement de la réponse
+          let data;
+          try {
+            data = await res.json();
+          } catch (jsonError) {
+            // Restaurer l'état précédent en cas d'erreur
+            setCart(previousCart);
+            setCartCount(previousCount);
+            setCartTotal(previousTotal);
+
+            setError('Erreur lors du traitement de la réponse du serveur');
+            toast.error('Erreur de communication avec le serveur');
+            setLoading(false);
+            return;
+          }
+
+          // Vérifier le rate limiting côté serveur
+          if (res.status === 429) {
+            // Restaurer l'état précédent
+            setCart(previousCart);
+            setCartCount(previousCount);
+            setCartTotal(previousTotal);
+
+            // Extraire la durée d'attente depuis les headers
+            const retryAfter = parseInt(
+              res.headers.get('Retry-After') || '60',
+              10,
+            );
+            setError(
+              `Trop de requêtes. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
+            );
+            toast.error(
+              `Trop de requêtes. Veuillez patienter quelques instants.`,
+            );
+            setLoading(false);
+            return;
+          }
+
+          // Gestion des erreurs HTTP
+          if (!res.ok) {
+            // Restaurer l'état précédent
+            setCart(previousCart);
+            setCartCount(previousCount);
+            setCartTotal(previousTotal);
+
+            const statusCode = res.status;
+
+            // Traitement unifié des erreurs HTTP
+            switch (statusCode) {
+              case 400:
+                // Erreur de validation ou requête incorrecte
+                if (data.message && data.message.includes('stock')) {
+                  setError(`Stock insuffisant: ${data.message}`);
+                  toast.error(data.message || 'Stock insuffisant');
+                } else if (
+                  data.message &&
+                  data.message.includes('Invalid action')
+                ) {
+                  setError('Action non valide');
+                  toast.error('Action non valide');
+                } else {
+                  setError(data.message || 'Données invalides');
+                  toast.error(
+                    data.message || 'Impossible de mettre à jour le panier',
+                  );
+                }
+                break;
+              case 401:
+                // Non authentifié
+                setError('Authentification requise. Veuillez vous connecter.');
+                toast.error(
+                  'Veuillez vous connecter pour modifier votre panier',
+                );
+                // Possibilité de rediriger vers la page de connexion
+                // setTimeout(() => router.push('/login'), 2000);
+                break;
+              case 403:
+                // Accès interdit
+                setError(
+                  "Vous n'avez pas l'autorisation d'effectuer cette action",
+                );
+                toast.error('Accès non autorisé');
+                break;
+              case 404:
+                // Produit ou utilisateur non trouvé
+                if (data.message && data.message.includes('Cart item')) {
+                  setError("L'article n'existe plus dans votre panier");
+                  toast.error('Article non trouvé dans votre panier');
+                } else if (data.message && data.message.includes('Product')) {
+                  setError(
+                    "Le produit demandé n'existe pas ou n'est plus disponible",
+                  );
+                  toast.error('Produit non disponible');
+                } else {
+                  setError('Utilisateur non trouvé');
+                  toast.error('Session utilisateur invalide');
+                }
+                break;
+              case 500:
+              case 502:
+              case 503:
+              case 504:
+                // Erreurs serveur
+                setError(
+                  'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
+                );
+                toast.error('Service temporairement indisponible');
+
+                // Capturer pour monitoring en production seulement
+                if (process.env.NODE_ENV === 'production') {
+                  const serverError = new Error(
+                    data.message || `Erreur serveur (${statusCode})`,
+                  );
+                  serverError.statusCode = statusCode;
+                  serverError.componentName = 'CartContext';
+                  serverError.additionalInfo = {
+                    context: 'cart',
+                    operation: 'update',
+                    productId: product.id,
+                    action,
+                    statusCode,
+                    responseMessage: data.message,
+                  };
+                  captureException(serverError);
+                }
+                break;
+              default:
+                // Autres erreurs
+                setError(
+                  data.message ||
+                    `Erreur lors de la mise à jour du panier (${statusCode})`,
+                );
+                toast.error(
+                  data.message || 'Erreur lors de la mise à jour du panier',
+                );
+            }
+
+            setLoading(false);
+            return;
+          }
+
+          // Traitement des réponses avec JSON valide
+          if (data) {
+            if (data.success === true) {
+              // Mise à jour du panier avec les nouvelles données du serveur
+              remoteDataInState(data);
+
+              // Notification de succès selon l'action
+              if (action === INCREASE) {
+                toast.success('Quantité augmentée', {
+                  position: 'bottom-right',
+                  autoClose: 2000,
+                });
+              } else if (action === DECREASE) {
+                if (data.data.operation === 'remove') {
+                  toast.success('Produit retiré du panier', {
+                    position: 'bottom-right',
+                    autoClose: 2000,
+                  });
+                } else {
+                  toast.success('Quantité diminuée', {
+                    position: 'bottom-right',
+                    autoClose: 2000,
+                  });
+                }
+              }
+            } else if (data.success === false) {
+              // Restaurer l'état précédent
+              setCart(previousCart);
+              setCartCount(previousCount);
+              setCartTotal(previousTotal);
+
+              // Cas où success est explicitement false
+              setError(data.message || 'Échec de la mise à jour du panier');
+              toast.error(data.message || 'Échec de la mise à jour du panier');
+
+              // Si des erreurs détaillées sont disponibles, les agréger
+              if (
+                data.errors &&
+                Array.isArray(data.errors) &&
+                data.errors.length > 0
+              ) {
+                const errorMessage = `${data.message || 'Échec de la mise à jour du panier'}: ${data.errors.map((e) => e.message || e).join(', ')}`;
+                setError(errorMessage);
+                toast.error(errorMessage);
+              }
+            } else {
+              // Restaurer l'état précédent
+              setCart(previousCart);
+              setCartCount(previousCount);
+              setCartTotal(previousTotal);
+
+              // Réponse JSON valide mais structure inattendue
+              setError(
+                'Réponse inattendue du serveur lors de la mise à jour du panier',
+              );
+              toast.error('Erreur lors de la mise à jour du panier');
+            }
+          } else {
+            // Restaurer l'état précédent
+            setCart(previousCart);
+            setCartCount(previousCount);
+            setCartTotal(previousTotal);
+
+            // Réponse vide ou mal formatée
+            setError('Réponse vide ou invalide du serveur');
+            toast.error('Erreur lors de la communication avec le serveur');
+          }
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+
+          // Restaurer l'état précédent
+          setCart(previousCart);
+          setCartCount(previousCount);
+          setCartTotal(previousTotal);
+
+          // Erreurs réseau - Toutes gérées via setError et toast
+          const isAborted = fetchError.name === 'AbortError';
+          const isNetworkError =
+            fetchError.message.includes('network') ||
+            fetchError.message.includes('fetch') ||
+            !navigator.onLine;
+          const isTimeout = isAborted || fetchError.message.includes('timeout');
+
+          if (isTimeout) {
+            // Timeout
+            setError(
+              'La requête de mise à jour du panier a pris trop de temps. Veuillez réessayer.',
+            );
+            toast.error(
+              'La connexion au serveur est trop lente. Veuillez réessayer.',
+            );
+          } else if (isNetworkError) {
+            // Erreur réseau simple
+            setError(
+              'Problème de connexion internet. Vérifiez votre connexion et réessayez.',
+            );
+            toast.error(
+              'Problème de connexion internet. Vérifiez votre connexion.',
+            );
+          } else {
+            // Autres erreurs fetch
+            setError(
+              `Erreur lors de la mise à jour du panier: ${fetchError.message}`,
+            );
+            toast.error('Une erreur est survenue. Veuillez réessayer.');
+
+            // Enrichir l'erreur pour le boundary sans la lancer
+            if (!fetchError.componentName) {
+              fetchError.componentName = 'CartContext';
+              fetchError.additionalInfo = {
+                context: 'cart',
+                operation: 'update',
+                productId: product.id,
+                action,
+              };
+            }
+
+            // Capture pour Sentry en production
+            if (process.env.NODE_ENV === 'production') {
+              captureException(fetchError, {
+                tags: {
+                  component: 'CartContext',
+                  action: 'updateCart',
+                  errorType: isTimeout
+                    ? 'timeout'
+                    : isNetworkError
+                      ? 'network'
+                      : 'unknown',
+                  productId: product.id,
+                  updateAction: action,
+                },
+              });
+            }
+          }
+        }
+      } catch (error) {
+        // Pour toute erreur non gérée spécifiquement
+        setError(
+          'Une erreur inattendue est survenue lors de la mise à jour du panier',
+        );
+        toast.error('Une erreur inattendue est survenue');
+
+        // Journaliser localement en dev
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Cart update error:', error);
+        }
+
+        // Capture pour Sentry en production
+        if (process.env.NODE_ENV === 'production') {
+          if (!error.componentName) {
+            error.componentName = 'CartContext';
+            error.additionalInfo = {
+              context: 'cart',
+              operation: 'update',
+              productId: product?.id,
+              action,
+            };
+          }
+          captureException(error);
+        }
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour du panier:', error);
-
-      captureException(error, {
-        tags: { action: 'update_cart' },
-        extra: { product, updateAction: action },
-      });
-
-      // Restaurer l'état du panier
-      await setCartToState();
-
-      toast.error('Une erreur est survenue. Veuillez réessayer.', {
-        position: 'bottom-right',
-      });
-
-      setError('Erreur lors de la mise à jour du panier');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [cart, cartCount, cartTotal],
+  );
 
   const deleteItemFromCart = useCallback(async (id) => {
     if (!id) {
