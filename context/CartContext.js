@@ -35,10 +35,7 @@ export const CartProvider = ({ children }) => {
   // Synchroniser le panier local avec le panier du serveur lors de l'initialisation
   useEffect(() => {
     // N'exécuter qu'au premier montage
-    if (isFirstLoad.current && cart.length === 0) {
-      loadCart();
-      isFirstLoad.current = false;
-    }
+    loadCart();
   }, []);
 
   // Fonction sécurisée pour charger le panier
