@@ -69,10 +69,12 @@ const Cart = () => {
     };
 
     // Ne charger qu'une seule fois au montage du composant
-    if (!initialLoadComplete && !isLoadingCart.current) {
-      loadCart();
-    }
-  }, [isLoadingCart, initialLoadComplete]);
+    // if (!initialLoadComplete && !isLoadingCart.current) {
+    //   loadCart();
+    // }
+
+    loadCart();
+  }, [initialLoadComplete]);
 
   // Afficher un écran de chargement pendant le chargement initial
   if (!initialLoadComplete) {
