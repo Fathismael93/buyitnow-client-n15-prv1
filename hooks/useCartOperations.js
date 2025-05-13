@@ -17,62 +17,53 @@ const useCartOperations = () => {
   const [itemBeingRemoved, setItemBeingRemoved] = useState(null);
 
   // Fonction optimisée pour augmenter la quantité
-  const increaseQty = useCallback(
-    async (cartItem) => {
-      try {
-        setLoading(true);
-        await updateCart(cartItem, INCREASE);
-      } catch (error) {
-        console.error("Erreur lors de l'augmentation de la quantité:", error);
-        captureException(error, {
-          tags: { component: 'Cart', action: 'increaseQty' },
-          extra: { cartItem },
-        });
-      }
-    },
-    [INCREASE, updateCart, setLoading],
-  );
+  const increaseQty = async (cartItem) => {
+    try {
+      setLoading(true);
+      await updateCart(cartItem, INCREASE);
+    } catch (error) {
+      console.error("Erreur lors de l'augmentation de la quantité:", error);
+      captureException(error, {
+        tags: { component: 'Cart', action: 'increaseQty' },
+        extra: { cartItem },
+      });
+    }
+  };
 
   // Fonction optimisée pour diminuer la quantité
-  const decreaseQty = useCallback(
-    async (cartItem) => {
-      try {
-        setLoading(true);
-        await updateCart(cartItem, DECREASE);
-      } catch (error) {
-        console.error('Erreur lors de la diminution de la quantité:', error);
-        captureException(error, {
-          tags: { component: 'Cart', action: 'decreaseQty' },
-          extra: { cartItem },
-        });
-      }
-    },
-    [DECREASE, updateCart, setLoading],
-  );
+  const decreaseQty = async (cartItem) => {
+    try {
+      setLoading(true);
+      await updateCart(cartItem, DECREASE);
+    } catch (error) {
+      console.error('Erreur lors de la diminution de la quantité:', error);
+      captureException(error, {
+        tags: { component: 'Cart', action: 'decreaseQty' },
+        extra: { cartItem },
+      });
+    }
+  };
 
   // Fonction optimisée pour supprimer un article
-  const handleDeleteItem = useCallback(
-    async (itemId) => {
-      try {
-        setDeleteInProgress(true);
-        setItemBeingRemoved(itemId);
-        await deleteItemFromCart(itemId);
-      } catch (error) {
-        console.error("Erreur lors de la suppression d'un article:", error);
-        captureException(error, {
-          tags: { component: 'Cart', action: 'deleteItem' },
-          extra: { itemId },
-        });
-      } finally {
-        setDeleteInProgress(false);
-        setItemBeingRemoved(null);
-      }
-    },
-    [deleteItemFromCart, setDeleteInProgress, setItemBeingRemoved],
-  );
+  const handleDeleteItem = async (itemId) => {
+    try {
+      setDeleteInProgress(true);
+      setItemBeingRemoved(itemId);
+      await deleteItemFromCart(itemId);
+    } catch (error) {
+      console.error("Erreur lors de la suppression d'un article:", error);
+      captureException(error, {
+        tags: { component: 'Cart', action: 'deleteItem' },
+        extra: { itemId },
+      });
+    } finally {
+      setDeleteInProgress(false);
+      setItemBeingRemoved(null);
+    }
+  };
 
   // Préparation au paiement
-  const checkoutHandler = useCallback(() => {
+  const checkoutHandler = () => {
     const checkoutData = {
       amount: cartTotal.toFixed(2),
       tax: 0, // À ajuster selon les besoins
@@ -80,7 +71,7 @@ const useCartOperations = () => {
     };
 
     saveOnCheckout(checkoutData);
-  }, [cartTotal, saveOnCheckout]);
+  };
 
   return {
     deleteInProgress,
