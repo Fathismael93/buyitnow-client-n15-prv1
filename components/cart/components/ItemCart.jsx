@@ -52,7 +52,6 @@ const ItemCart = memo(
                 href={`/product/${cartItem?.productId}`}
                 className="block relative h-24 w-24 rounded border overflow-hidden transition-shadow hover:shadow-md"
               >
-                {console.log('Image source:', imageSource)}
                 <Image
                   src={imageSource}
                   alt={cartItem?.productName || 'Produit'}

@@ -64,6 +64,8 @@ const ShippingChoicePage = async () => {
       };
     });
 
+    console.log('Shipping data:', data);
+
     // Vérification des données reçues avec valeurs par défaut sécurisées
     const addresses = Array.isArray(data?.addresses) ? data.addresses : [];
     const payments = Array.isArray(data?.paymentTypes) ? data.paymentTypes : [];

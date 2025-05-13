@@ -51,11 +51,7 @@ CartItemSkeleton.displayName = 'CartItemSkeleton';
  * @param {Array} props.payments - Méthodes de paiement disponibles
  * @param {Array} props.deliveryPrice - Prix de livraison
  */
-const ShippingChoice = ({
-  addresses = [],
-  payments = [],
-  deliveryPrice = [],
-}) => {
+const ShippingChoice = ({ addresses, payments, deliveryPrice }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [dataInitialized, setDataInitialized] = useState(false);
 
@@ -84,8 +80,6 @@ const ShippingChoice = ({
         // Préchargement des pages pour navigation rapide
         router.prefetch('/payment');
         router.prefetch('/shipping');
-
-        console.log('Adresses:', addresses);
 
         // Validation des données
         if (isArrayEmpty(addresses)) {
