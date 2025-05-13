@@ -371,7 +371,7 @@ export const CartProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [loading, localCart]);
+  }, []);
 
   const addItemToCart = useCallback(async ({ product, quantity = 1 }) => {
     try {
