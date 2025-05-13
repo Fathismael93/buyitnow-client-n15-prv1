@@ -147,7 +147,14 @@ export const CartProvider = ({ children }) => {
         try {
           data = await res.json();
         } catch (jsonError) {
-          setError('Erreur lors du traitement de la réponse du serveur');
+          setError(
+            `Erreur lors du traitement de la réponse du serveur: ${jsonError.message}`,
+          );
+
+          // Journaliser l'erreur
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Erreur de parsing JSON:', jsonError);
+          }
 
           // En cas d'erreur, utiliser les données du localStorage comme fallback
           if (localCart.items.length > 0) {
@@ -421,8 +428,31 @@ export const CartProvider = ({ children }) => {
         try {
           data = await res.json();
         } catch (jsonError) {
-          setError('Erreur lors du traitement de la réponse du serveur');
+          setError(
+            `Erreur lors du traitement de la réponse du serveur: ${jsonError.message}`,
+          );
           toast.error('Erreur de communication avec le serveur');
+
+          // Journaliser l'erreur
+          if (process.env.NODE_ENV === 'development') {
+            console.error(
+              "Erreur de parsing JSON lors de l'ajout au panier:",
+              jsonError,
+            );
+          }
+
+          // Capturer pour Sentry en production
+          if (process.env.NODE_ENV === 'production') {
+            captureException(jsonError, {
+              tags: {
+                component: 'CartContext',
+                action: 'addItemToCart',
+                operation: 'jsonParse',
+                productId: product,
+              },
+            });
+          }
+
           setLoading(false);
           return;
         }
@@ -767,8 +797,32 @@ export const CartProvider = ({ children }) => {
             setCartCount(previousCount);
             setCartTotal(previousTotal);
 
-            setError('Erreur lors du traitement de la réponse du serveur');
+            setError(
+              `Erreur lors du traitement de la réponse du serveur: ${jsonError.message}`,
+            );
             toast.error('Erreur de communication avec le serveur');
+
+            // Journaliser l'erreur
+            if (process.env.NODE_ENV === 'development') {
+              console.error(
+                'Erreur de parsing JSON lors de la mise à jour du panier:',
+                jsonError,
+              );
+            }
+
+            // Capturer pour Sentry en production
+            if (process.env.NODE_ENV === 'production') {
+              captureException(jsonError, {
+                tags: {
+                  component: 'CartContext',
+                  action: 'updateCart',
+                  operation: 'jsonParse',
+                  productId: product.id,
+                  updateAction: action,
+                },
+              });
+            }
+
             setLoading(false);
             return;
           }
