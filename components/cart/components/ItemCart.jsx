@@ -13,7 +13,6 @@ const ItemCart = memo(
     increaseQty,
     deleteInProgress,
   }) => {
-    const [imageSource, setImageSource] = useState(null);
     const [totalPrice, setTotalPrice] = useState(0);
     const [isStockLow, setIsStockLow] = useState(false);
     const [isOutOfStock, setIsOutOfStock] = useState(false);
@@ -22,11 +21,6 @@ const ItemCart = memo(
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     useEffect(() => {
-      // Source de l'image avec fallback
-      isImageError || !cartItem?.imageUrl
-        ? setImageSource('/images/default_product.png')
-        : setImageSource(cartItem?.imageUrl);
-
       // Calculs pour l'affichage
       setTotalPrice(cartItem?.subtotal);
       setIsStockLow(cartItem?.stock <= 5 && cartItem?.stock > 0);
@@ -42,6 +36,12 @@ const ItemCart = memo(
       setIsDeleting(false);
       setShowDeleteConfirm(false);
     };
+
+    // Source de l'image avec fallback
+    const imageSource =
+      isImageError || !cartItem?.imageUrl
+        ? '/images/default_product.png'
+        : cartItem?.imageUrl;
 
     return (
       <div className="group relative">
