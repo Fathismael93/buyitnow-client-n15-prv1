@@ -64,6 +64,8 @@ const ShippingChoicePage = async () => {
       };
     });
 
+    console.log('Shipping data:', data);
+
     // Vérification des données reçues avec valeurs par défaut sécurisées
     const addresses = Array.isArray(data?.addresses) ? data.addresses : [];
     const payments = Array.isArray(data?.paymentTypes) ? data.paymentTypes : [];
@@ -71,9 +73,9 @@ const ShippingChoicePage = async () => {
       ? data.deliveryPrice
       : [{ deliveryPrice: 0 }];
 
-    console.log('Shipping addresses:', addresses);
-    console.log('Payment types:', payments);
-    console.log('Delivery price:', deliveryPrice);
+    console.log('Shipping addresses:', data.addresses);
+    console.log('Payment types:', data.payments);
+    console.log('Delivery price:', data.deliveryPrice);
 
     return (
       <div
