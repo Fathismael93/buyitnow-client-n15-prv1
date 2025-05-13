@@ -11,7 +11,6 @@ import {
 } from 'react';
 import { toast } from 'react-toastify';
 import { captureException } from '@/monitoring/sentry';
-import { useLocalStorage } from '@/hooks/useCustomHooks';
 
 const CartContext = createContext();
 
@@ -33,21 +32,14 @@ export const CartProvider = ({ children }) => {
   const pendingRequests = useRef(new Set());
   const isFirstLoad = useRef(true);
 
-  // Utiliser localStorage pour persister le panier
-  const [localCart, setLocalCart] = useLocalStorage('buyitnow_cart', {
-    count: 0,
-    items: [],
-    lastUpdated: null,
-  });
-
   // Synchroniser le panier local avec le panier du serveur lors de l'initialisation
   useEffect(() => {
     // N'exécuter qu'au premier montage
-    if (isFirstLoad.current && localCart.count > 0 && cart.length === 0) {
+    if (isFirstLoad.current && cart.length === 0) {
       setCartToState();
       isFirstLoad.current = false;
     }
-  }, [localCart.count, cart.length]);
+  }, []);
 
   // Fonction utilitaire pour les requêtes API avec retry
   // Dans CartContext.js
@@ -156,14 +148,6 @@ export const CartProvider = ({ children }) => {
             console.error('Erreur de parsing JSON:', jsonError);
           }
 
-          // En cas d'erreur, utiliser les données du localStorage comme fallback
-          if (localCart.items.length > 0) {
-            localDataInState();
-            toast.info('Utilisation des données de panier locales', {
-              autoClose: 3000,
-            });
-          }
-
           setLoading(false);
           return;
         }
@@ -178,14 +162,6 @@ export const CartProvider = ({ children }) => {
           setError(
             `Trop de requêtes. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
           );
-
-          // En cas d'erreur, utiliser les données du localStorage comme fallback
-          if (localCart.items.length > 0) {
-            localDataInState();
-            toast.info('Utilisation des données de panier locales', {
-              autoClose: 3000,
-            });
-          }
 
           setLoading(false);
           return;
@@ -249,14 +225,6 @@ export const CartProvider = ({ children }) => {
               );
           }
 
-          // En cas d'erreur, utiliser les données du localStorage comme fallback
-          if (localCart.items.length > 0) {
-            localDataInState();
-            toast.info('Utilisation des données de panier locales', {
-              autoClose: 3000,
-            });
-          }
-
           setLoading(false);
           return;
         }
@@ -269,26 +237,10 @@ export const CartProvider = ({ children }) => {
           } else {
             // Cas où success est explicitement false
             setError(data.message || 'Échec de la récupération du panier');
-
-            // En cas d'erreur, utiliser les données du localStorage comme fallback
-            if (localCart.items.length > 0) {
-              localDataInState();
-              toast.info('Utilisation des données de panier locales', {
-                autoClose: 3000,
-              });
-            }
           }
         } else {
           // Réponse vide ou mal formatée
           setError('Réponse inattendue du serveur');
-
-          // En cas d'erreur, utiliser les données du localStorage comme fallback
-          if (localCart.items.length > 0) {
-            localDataInState();
-            toast.info('Utilisation des données de panier locales', {
-              autoClose: 3000,
-            });
-          }
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
@@ -330,14 +282,6 @@ export const CartProvider = ({ children }) => {
             });
           }
         }
-
-        // En cas d'erreur, utiliser les données du localStorage comme fallback
-        if (localCart.items.length > 0) {
-          localDataInState();
-          toast.info('Utilisation des données de panier locales', {
-            autoClose: 3000,
-          });
-        }
       }
     } catch (error) {
       // Pour toute erreur non gérée spécifiquement
@@ -359,14 +303,6 @@ export const CartProvider = ({ children }) => {
           };
         }
         captureException(error);
-      }
-
-      // En cas d'erreur, utiliser les données du localStorage comme fallback
-      if (localCart.items.length > 0) {
-        localDataInState();
-        toast.info('Utilisation des données de panier locales', {
-          autoClose: 3000,
-        });
       }
     } finally {
       setLoading(false);
@@ -1484,25 +1420,6 @@ export const CartProvider = ({ children }) => {
       items: cart,
       timestamp: Date.now(),
     });
-
-    // Enregistrer dans localStorage pour une reprise ultérieure si nécessaire
-    try {
-      localStorage.setItem(
-        'buyitnow_checkout',
-        JSON.stringify({
-          amount: validAmount,
-          tax: validTax,
-          totalAmount: validTotal,
-          timestamp: Date.now(),
-        }),
-      );
-      // eslint-disable-next-line no-unused-vars
-    } catch (e) {
-      // Ignorer les erreurs de localStorage
-      console.warn(
-        'Impossible de sauvegarder les infos de checkout dans localStorage',
-      );
-    }
   };
 
   // Nettoyer les erreurs
@@ -1538,11 +1455,6 @@ export const CartProvider = ({ children }) => {
       setCart([]);
       setCartCount(0);
       setCartTotal(0);
-      setLocalCart({
-        count: 0,
-        items: [],
-        lastUpdated: Date.now(),
-      });
 
       toast.success('Panier vidé avec succès', {
         position: 'bottom-right',
@@ -1562,12 +1474,6 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const localDataInState = () => {
-    setCart(localCart.items);
-    setCartCount(localCart.count);
-    setCartTotal(localCart.totalAmount);
-  };
-
   const remoteDataInState = (response) => {
     // Normaliser les données du panier
     const normalizedCart =
@@ -1580,14 +1486,6 @@ export const CartProvider = ({ children }) => {
     setCart(normalizedCart);
     setCartCount(response.data.cartCount || 0);
     setCartTotal(response.data.cartTotal);
-
-    // Mettre à jour le localStorage avec timestamp
-    setLocalCart({
-      count: response.data.cartCount || 0,
-      items: normalizedCart,
-      totalAmount: response.data.cartTotal,
-      lastUpdated: Date.now(),
-    });
   };
 
   // Valeur du contexte avec mémorisation pour éviter les re-renders inutiles
