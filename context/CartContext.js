@@ -36,7 +36,7 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     // N'exécuter qu'au premier montage
     loadCart();
-  }, []);
+  }, [loadCart]);
 
   // Fonction sécurisée pour charger le panier
   const loadCart = useCallback(async () => {
@@ -45,7 +45,7 @@ export const CartProvider = ({ children }) => {
     } catch (error) {
       console.error('Error loading cart:', error);
     }
-  }, []);
+  }, [setCartToState]);
 
   // Fonction utilitaire pour les requêtes API avec retry
   // Dans CartContext.js
