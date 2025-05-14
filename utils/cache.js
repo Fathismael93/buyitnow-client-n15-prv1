@@ -16,11 +16,13 @@ export const CACHE_CONFIGS = {
     immutable: false, // Non immutable car les données utilisateur peuvent changer
     mustRevalidate: true, // Doit revalider pour des raisons de sécurité
   },
+
   // Durée de cache pour les produits (3 heures)
   products: {
     maxAge: 3 * 60 * 60,
     staleWhileRevalidate: 60 * 60,
   },
+
   // Configuration spécifique pour un seul produit
   singleProduct: {
     maxAge: 5 * 60 * 60, // 5 heures (durée plus longue car les détails d'un produit changent moins fréquemment)
@@ -29,11 +31,22 @@ export const CACHE_CONFIGS = {
     immutable: false, // Non immutable car le produit peut être mis à jour
     mustRevalidate: false, // Permet l'utilisation de contenus périmés en cas de problèmes réseau
   },
+
+  // Configuration pour les paniers utilisateur (2 minutes)
+  cart: {
+    maxAge: 2 * 60, // 2 minutes car les paniers peuvent être modifiés fréquemment
+    staleWhileRevalidate: 30, // 30 secondes de revalidation en arrière-plan
+    sMaxAge: 5 * 60, // 5 minutes pour les CDN/proxies partagés
+    immutable: false, // Non immutable car le panier peut être mis à jour
+    mustRevalidate: true, // Doit revalider car les données sont importantes pour les commandes
+  },
+
   // Durée de cache pour les catégories (2 jours)
   categories: {
     maxAge: 2 * 24 * 60 * 60,
     staleWhileRevalidate: 24 * 60 * 60,
   },
+
   // Configuration pour les adresses utilisateur (5 minutes)
   addresses: {
     maxAge: 5 * 60, // 5 minutes car les adresses peuvent être modifiées fréquemment
@@ -42,6 +55,7 @@ export const CACHE_CONFIGS = {
     immutable: false, // Non immutable car les adresses peuvent être mises à jour
     mustRevalidate: true, // Doit revalider car les données sont sensibles pour la livraison
   },
+
   // Configuration pour les détails d'une adresse spécifique (5 minutes)
   addressDetail: {
     maxAge: 5 * 60, // 5 minutes comme pour les listes d'adresses
@@ -50,19 +64,17 @@ export const CACHE_CONFIGS = {
     immutable: false, // Non immutable car l'adresse peut être mise à jour
     mustRevalidate: true, // Doit revalider car les données sont sensibles
   },
+
   // Durée de cache pour les pages statiques (1 jour)
   staticPages: {
     maxAge: 24 * 60 * 60,
     staleWhileRevalidate: 60 * 60,
   },
+
   // Durée de cache pour les ressources statiques (1 semaine)
   staticAssets: {
     maxAge: 7 * 24 * 60 * 60,
     immutable: true,
-  },
-  // Pas de cache pour les données utilisateur
-  userData: {
-    noStore: true,
   },
 };
 
@@ -680,6 +692,14 @@ export const appCache = {
     compress: true,
     name: 'single-products',
     logFunction: (msg) => console.debug(`[SingleProductCache] ${msg}`),
+  }),
+
+  cart: new MemoryCache({
+    ttl: CACHE_CONFIGS.cart.maxAge * 1000,
+    maxSize: 300, // Taille adaptée pour les paniers
+    compress: true, // Les paniers peuvent contenir beaucoup d'articles, donc la compression peut être utile
+    name: 'cart',
+    logFunction: (msg) => console.debug(`[CartCache] ${msg}`),
   }),
 
   categories: new MemoryCache({

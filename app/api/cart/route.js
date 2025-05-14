@@ -110,7 +110,7 @@ export async function GET(req) {
     });
 
     // Essayer de récupérer les données du cache
-    let cartItems = appCache.products.get(cacheKey);
+    let cartItems = appCache.cart.get(cacheKey);
 
     if (!cartItems) {
       logger.debug('Cart cache miss, fetching from database', {
@@ -137,7 +137,7 @@ export async function GET(req) {
       cartItems = await cartPromise;
 
       // Mettre en cache les résultats pour 2 minutes (120000 ms) - réduit de 5 à 2 minutes
-      appCache.products.set(cacheKey, cartItems, { ttl: 120000 });
+      appCache.cart.set(cacheKey, cartItems); // Utilisation du TTL par défaut de l'instance
     } else {
       logger.debug('Cart cache hit', {
         userId: user._id,
@@ -207,7 +207,7 @@ export async function GET(req) {
         await bulkWritePromise;
 
         // Invalider le cache après mise à jour
-        appCache.products.delete(cacheKey);
+        appCache.cart.delete(cacheKey);
 
         // Récupérer les données mises à jour
         cartItems = await Cart.findByUser(user._id);
@@ -532,7 +532,7 @@ export async function POST(req) {
     const cacheKey = getCacheKey('cart', { userId: user._id.toString() });
 
     // Invalider le cache spécifique pour ce panier utilisateur
-    appCache.products.delete(cacheKey);
+    appCache.cart.delete(cacheKey);
 
     // Récupérer le panier complet de l'utilisateur avec timeout
     const getUserCartPromise = new Promise((resolve, reject) => {
@@ -1006,7 +1006,7 @@ export async function PUT(req) {
     const cacheKey = getCacheKey('cart', { userId: user._id.toString() });
 
     // Invalider le cache spécifique pour ce panier utilisateur
-    appCache.products.delete(cacheKey);
+    appCache.cart.delete(cacheKey);
 
     // Récupérer le panier complet mis à jour
     const getUserCartPromise = new Promise((resolve, reject) => {
