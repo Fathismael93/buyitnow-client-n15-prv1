@@ -1915,6 +1915,77 @@ export const getSingleAddress = async (
   const controller = new AbortController();
   const requestId = `address-${id}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
+  // Validation améliorée de l'ID
+  if (!id || typeof id !== 'string') {
+    logger.warn('Invalid address ID format (undefined or not string)', {
+      requestId,
+      addressId: id,
+      action: 'invalid_id_format',
+    });
+    return {
+      success: false,
+      code: 'INVALID_ID_FORMAT',
+      message: "Format d'identifiant d'adresse invalide",
+      notFound: true,
+    };
+  }
+
+  const isValidId = mongoose.isValidObjectId(id);
+  if (!isValidId) {
+    logger.warn('Invalid MongoDB ObjectId format', {
+      requestId,
+      addressId: id,
+      action: 'invalid_mongodb_id',
+    });
+    return {
+      success: false,
+      code: 'INVALID_ID_FORMAT',
+      message: "Format d'identifiant d'adresse invalide",
+      notFound: true,
+    };
+  }
+
+  // Obtenir les cookies pour l'authentification
+  const nextCookies = await cookies();
+  const cookieName = getCookieName();
+  const nextAuthSessionToken = nextCookies.get(cookieName);
+
+  if (!nextAuthSessionToken) {
+    logger.warn('No authentication token found in getSingleAddress', {
+      requestId,
+      addressId: id,
+      action: 'missing_auth_token',
+    });
+    return {
+      success: false,
+      code: 'UNAUTHORIZED',
+      message: 'Authentification requise',
+      notFound: true,
+    };
+  }
+
+  // Vérifier le cache d'abord
+  const userIdentifier = nextAuthSessionToken.value.substring(0, 10);
+  const cacheKey = getCacheKey('address_detail', {
+    userId: userIdentifier,
+    addressId: id,
+  });
+
+  const cachedAddress = appCache.addresses.get(cacheKey);
+  if (cachedAddress && !retryAttempt) {
+    logger.debug('Address cache hit', {
+      requestId,
+      addressId: id,
+      action: 'cache_hit',
+    });
+    return {
+      success: true,
+      address: cachedAddress,
+      message: 'Adresse récupérée depuis le cache',
+      fromCache: true,
+    };
+  }
+
   // Timeout de 5 secondes pour éviter les requêtes bloquées
   const timeoutId = setTimeout(() => {
     controller.abort();
@@ -1934,74 +2005,6 @@ export const getSingleAddress = async (
   });
 
   try {
-    // Validation améliorée de l'ID
-    if (!id || typeof id !== 'string') {
-      logger.warn('Invalid address ID format (undefined or not string)', {
-        requestId,
-        addressId: id,
-        action: 'invalid_id_format',
-      });
-      return {
-        success: false,
-        code: 'INVALID_ID_FORMAT',
-        message: "Format d'identifiant d'adresse invalide",
-        notFound: true,
-      };
-    }
-
-    const isValidId = mongoose.isValidObjectId(id);
-    if (!isValidId) {
-      logger.warn('Invalid MongoDB ObjectId format', {
-        requestId,
-        addressId: id,
-        action: 'invalid_mongodb_id',
-      });
-      return {
-        success: false,
-        code: 'INVALID_ID_FORMAT',
-        message: "Format d'identifiant d'adresse invalide",
-        notFound: true,
-      };
-    }
-
-    // Obtenir les cookies pour l'authentification
-    const nextCookies = await cookies();
-    const cookieName = getCookieName();
-    const nextAuthSessionToken = nextCookies.get(cookieName);
-
-    if (!nextAuthSessionToken) {
-      logger.warn('No authentication token found in getSingleAddress', {
-        requestId,
-        addressId: id,
-        action: 'missing_auth_token',
-      });
-      return {
-        success: false,
-        code: 'UNAUTHORIZED',
-        message: 'Authentification requise',
-        notFound: true,
-      };
-    }
-
-    // Vérifier le cache d'abord
-    const userIdentifier = nextAuthSessionToken.value.substring(0, 10); // Utiliser une partie du jeton comme identifiant utilisateur
-    const cacheKey = `address_${id}_${userIdentifier}`;
-    const cachedAddress = appCache.products.get(cacheKey);
-
-    if (cachedAddress && !retryAttempt) {
-      logger.debug('Address cache hit', {
-        requestId,
-        addressId: id,
-        action: 'cache_hit',
-      });
-      return {
-        success: true,
-        address: cachedAddress,
-        message: 'Adresse récupérée depuis le cache',
-        fromCache: true,
-      };
-    }
-
     // Avant l'appel API
     logger.debug('Fetching address from API', {
       requestId,
@@ -2011,7 +2014,7 @@ export const getSingleAddress = async (
     });
 
     // Utiliser les headers de cache optimisés
-    const cacheControl = getCacheHeaders('userData');
+    const cacheControl = getCacheHeaders('addressDetail');
     const apiUrl = `${process.env.API_URL}/api/address/${id}`;
 
     const res = await fetch(apiUrl, {
@@ -2250,9 +2253,6 @@ export const getSingleAddress = async (
 
       // Cas de succès - l'adresse a été trouvée
       const address = responseBody.data.address;
-
-      // Mettre en cache le résultat
-      appCache.products.set(cacheKey, address, { ttl: 5 * 60 * 1000 }); // Cache pour 5 minutes
 
       logger.info('Successfully fetched address details', {
         requestId,
