@@ -6,6 +6,7 @@ import dbConnect from '@/backend/config/dbConnect';
 import User from '@/backend/models/user';
 import logger from '@/utils/logger';
 import { createRateLimiter } from '@/utils/rateLimit';
+import { appCache, getCacheKey } from '@/utils/cache';
 import { updatePasswordSchema, validateWithLogging } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
 
@@ -276,6 +277,32 @@ export async function PUT(req) {
     });
 
     await updatePromise;
+
+    // Invalider le cache d'utilisateur après un changement de mot de passe réussi
+    try {
+      // Clé pour cet utilisateur spécifique
+      const userCacheKey = getCacheKey('user', {
+        userId: user._id.toString(),
+      });
+
+      // Invalider toutes les entrées de cache qui pourraient contenir des données de cet utilisateur
+      appCache.authUsers.delete(userCacheKey);
+      appCache.authUsers.delete(`user:${user._id}`);
+
+      // Invalider également tous les patterns liés aux utilisateurs qui pourraient inclure cet utilisateur
+      appCache.authUsers.invalidatePattern(new RegExp(`^user:${user._id}`));
+
+      logger.debug('User cache invalidated after password update', {
+        userId: user._id.toString(),
+      });
+    } catch (cacheError) {
+      // Ne pas bloquer le processus en cas d'erreur de cache
+      logger.warn('Failed to invalidate user cache after password update', {
+        userId: user._id.toString(),
+        error: cacheError.message,
+      });
+      // Continuer malgré cette erreur
+    }
 
     // Add security headers
     const securityHeaders = {
