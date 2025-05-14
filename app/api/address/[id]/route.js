@@ -139,7 +139,7 @@ export async function GET(req, { params }) {
       addressId: id,
     });
 
-    let address = appCache.products.get(cacheKey);
+    let address = appCache.addresses.get(cacheKey);
 
     if (!address) {
       logger.debug('Address cache miss, fetching from database', {
@@ -168,7 +168,7 @@ export async function GET(req, { params }) {
 
       // Cache the result for 5 minutes if found
       if (address) {
-        appCache.products.set(cacheKey, address, { ttl: 5 * 60 * 1000 });
+        appCache.addresses.set(cacheKey, address); // Le TTL est déjà configuré
         logger.debug('Address cached', {
           userId: user._id,
           addressId: id,
@@ -634,13 +634,13 @@ export async function PUT(req, { params }) {
       userId: user._id.toString(),
       addressId: id,
     });
-    appCache.products.delete(cacheKey);
+    appCache.addresses.delete(cacheKey);
 
     // Also invalidate the addresses list cache
     const listCacheKey = getCacheKey('addresses', {
       userId: user._id.toString(),
     });
-    appCache.products.delete(listCacheKey);
+    appCache.addresses.delete(listCacheKey);
 
     // Add security headers
     const securityHeaders = {
@@ -960,13 +960,13 @@ export async function DELETE(req, { params }) {
       userId: user._id.toString(),
       addressId: id,
     });
-    appCache.products.delete(cacheKey);
+    appCache.addresses.delete(cacheKey);
 
     // Also invalidate the addresses list cache
     const listCacheKey = getCacheKey('addresses', {
       userId: user._id.toString(),
     });
-    appCache.products.delete(listCacheKey);
+    appCache.addresses.delete(listCacheKey);
 
     // Add security headers
     const securityHeaders = {

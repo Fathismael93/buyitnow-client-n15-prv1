@@ -35,6 +35,14 @@ export const CACHE_CONFIGS = {
     immutable: false, // Non immutable car les adresses peuvent être mises à jour
     mustRevalidate: true, // Doit revalider car les données sont sensibles pour la livraison
   },
+  // Configuration pour les détails d'une adresse spécifique (5 minutes)
+  addressDetail: {
+    maxAge: 5 * 60, // 5 minutes comme pour les listes d'adresses
+    staleWhileRevalidate: 60, // 1 minute de revalidation en arrière-plan
+    sMaxAge: 10 * 60, // 10 minutes pour les CDN/proxies partagés
+    immutable: false, // Non immutable car l'adresse peut être mise à jour
+    mustRevalidate: true, // Doit revalider car les données sont sensibles
+  },
   // Durée de cache pour les pages statiques (1 jour)
   staticPages: {
     maxAge: 24 * 60 * 60,
