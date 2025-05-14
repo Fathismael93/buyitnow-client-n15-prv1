@@ -147,7 +147,7 @@ export async function GET(req) {
     });
 
     // Essayer de récupérer les données du cache
-    let addresses = appCache.products.get(cacheKey);
+    let addresses = appCache.addresses.get(cacheKey);
 
     if (!addresses) {
       logger.debug('Address cache miss, fetching from database', {
@@ -177,7 +177,7 @@ export async function GET(req) {
       addresses = await addressPromise;
 
       // Mettre en cache les résultats pour 5 minutes
-      appCache.products.set(cacheKey, addresses, { ttl: 5 * 60 * 1000 });
+      appCache.addresses.set(cacheKey, addresses); // Le TTL par défaut est déjà 5 minutes
     } else {
       logger.debug('Address cache hit', {
         userId: user._id,
@@ -603,6 +603,29 @@ export async function POST(req) {
       addressId: address._id,
       isDefault: address.isDefault,
     });
+
+    // Après avoir créé une nouvelle adresse avec succès
+    // Invalider le cache des adresses pour cet utilisateur
+    try {
+      const userAddressCachePattern = `addresses:userId=${user._id.toString()}`;
+
+      // Supprimer toutes les entrées de cache liées aux adresses de cet utilisateur
+      const invalidatedCount = appCache.addresses.invalidatePattern(
+        userAddressCachePattern,
+      );
+
+      logger.debug('Address cache invalidated after creation', {
+        userId: user._id,
+        pattern: userAddressCachePattern,
+        invalidatedEntries: invalidatedCount,
+      });
+    } catch (cacheError) {
+      // Ne pas bloquer la réponse en cas d'erreur de cache
+      logger.warn('Failed to invalidate address cache', {
+        userId: user._id,
+        error: cacheError.message,
+      });
+    }
 
     // Headers de sécurité additionnels
     const securityHeaders = {

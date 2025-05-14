@@ -27,6 +27,14 @@ export const CACHE_CONFIGS = {
     maxAge: 2 * 24 * 60 * 60,
     staleWhileRevalidate: 24 * 60 * 60,
   },
+  // Configuration pour les adresses utilisateur (5 minutes)
+  addresses: {
+    maxAge: 5 * 60, // 5 minutes car les adresses peuvent être modifiées fréquemment
+    staleWhileRevalidate: 60, // 1 minute de revalidation en arrière-plan
+    sMaxAge: 10 * 60, // 10 minutes pour les CDN/proxies partagés
+    immutable: false, // Non immutable car les adresses peuvent être mises à jour
+    mustRevalidate: true, // Doit revalider car les données sont sensibles pour la livraison
+  },
   // Durée de cache pour les pages statiques (1 jour)
   staticPages: {
     maxAge: 24 * 60 * 60,
@@ -656,6 +664,14 @@ export const appCache = {
     maxSize: 100,
     name: 'categories',
     logFunction: (msg) => console.debug(`[CategoryCache] ${msg}`),
+  }),
+
+  addresses: new MemoryCache({
+    ttl: CACHE_CONFIGS.addresses.maxAge * 1000, // Utilise la configuration centralisée
+    maxSize: 200,
+    compress: false,
+    name: 'addresses',
+    logFunction: (msg) => console.debug(`[AddressCache] ${msg}`),
   }),
 };
 
