@@ -4,7 +4,12 @@ import { cookies } from 'next/headers';
 import mongoose from 'mongoose';
 import { getCookieName } from '@/helpers/helpers';
 import { toast } from 'react-toastify';
-import { appCache, CACHE_CONFIGS, getCacheHeaders } from '@/utils/cache';
+import {
+  appCache,
+  CACHE_CONFIGS,
+  getCacheHeaders,
+  getCacheKey,
+} from '@/utils/cache';
 import {
   categorySchema,
   maxPriceSchema,
@@ -175,6 +180,22 @@ export const getAllProducts = async (
     // S'assurer que l'URL est correctement formatée
     const apiUrl = `${process.env.API_URL || ''}api/products${searchQuery ? `?${searchQuery}` : ''}`;
 
+    // On vérifie le cache avant de faire l'appel API
+    // La clé de cache doit correspondre au format utilisé dans l'API
+    const cacheKey = getCacheKey(
+      'products',
+      Object.fromEntries(new URLSearchParams(searchQuery)),
+    );
+
+    const cachedData = appCache.products.get(cacheKey);
+    if (cachedData && !retryAttempt) {
+      logger.debug('Products cache hit', {
+        requestId,
+        action: 'cache_hit',
+      });
+      return cachedData;
+    }
+
     // Avant l'appel API
     logger.debug('Fetching products from API', {
       requestId,
@@ -213,7 +234,6 @@ export const getAllProducts = async (
     try {
       responseBody = await res.json();
     } catch (parseError) {
-      isJsonResponse = false;
       isJsonResponse = false;
       parseErrorMessage = parseError.message;
       logger.error('JSON parsing error in getAllProducts', {
@@ -374,6 +394,8 @@ export const getAllProducts = async (
         // Vérifier si des produits sont présents dans la réponse
         if (responseBody.data?.products?.length > 0) {
           // Cas standard avec des produits trouvés
+          // Nous retournons directement la réponse sans la mettre en cache,
+          // car l'API a déjà mis en cache ces données
           return {
             success: true,
             message: responseBody.message || 'Produits récupérés avec succès',
