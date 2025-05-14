@@ -41,6 +41,22 @@ export const CACHE_CONFIGS = {
     mustRevalidate: true, // Doit revalider car les données sont importantes pour les commandes
   },
 
+  // Dans CACHE_CONFIGS
+  orders: {
+    maxAge: 5 * 60, // 5 minutes
+    staleWhileRevalidate: 60, // 1 minute de revalidation en arrière-plan
+    immutable: false, // Non immutable car les commandes peuvent être mises à jour
+    mustRevalidate: true, // Doit revalider car les données de commande sont importantes
+  },
+
+  // Configuration pour les prix de livraison (1 heure)
+  deliveryPrices: {
+    maxAge: 60 * 60, // 1 heure car les prix changent rarement
+    staleWhileRevalidate: 10 * 60, // 10 minutes de revalidation en arrière-plan
+    immutable: false, // Non immutable car les prix peuvent être mis à jour
+    mustRevalidate: false, // Moins critique que les commandes
+  },
+
   // Durée de cache pour les catégories (2 jours)
   categories: {
     maxAge: 2 * 24 * 60 * 60,
@@ -708,6 +724,22 @@ export const appCache = {
     compress: true, // Les paniers peuvent contenir beaucoup d'articles, donc la compression peut être utile
     name: 'cart',
     logFunction: (msg) => console.debug(`[CartCache] ${msg}`),
+  }),
+
+  orders: new MemoryCache({
+    ttl: CACHE_CONFIGS.orders.maxAge * 1000,
+    maxSize: 300, // Taille adaptée pour les commandes
+    compress: true, // Les commandes peuvent contenir beaucoup de détails
+    name: 'orders',
+    logFunction: (msg) => console.debug(`[OrdersCache] ${msg}`),
+  }),
+
+  deliveryPrices: new MemoryCache({
+    ttl: CACHE_CONFIGS.deliveryPrices.maxAge * 1000,
+    maxSize: 50, // Petit nombre de prix de livraison
+    compress: false, // Pas besoin de compression pour des petits objets
+    name: 'delivery-prices',
+    logFunction: (msg) => console.debug(`[DeliveryPricesCache] ${msg}`),
   }),
 
   categories: new MemoryCache({

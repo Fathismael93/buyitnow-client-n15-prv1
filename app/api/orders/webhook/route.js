@@ -534,7 +534,7 @@ export async function POST(req) {
 
           // Invalidation du cache après commande réussie
           appCache.products.invalidatePattern(/^products:/);
-          appCache.products.invalidatePattern(/^cart:/);
+          appCache.cart.invalidatePattern(/^cart:/);
 
           // Journalisation du succès
           logger.info('Order created successfully', {

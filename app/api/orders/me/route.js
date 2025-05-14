@@ -187,7 +187,7 @@ export async function GET(req) {
     });
 
     // 6. Vérifier le cache d'abord
-    let cachedData = appCache.products.get(cacheKey);
+    let cachedData = appCache.orders.get(cacheKey);
     let ordersResult;
 
     if (cachedData) {
@@ -258,7 +258,7 @@ export async function GET(req) {
 
         // Récupérer les prix de livraison depuis le cache ou la base de données
         const deliveryPriceKey = 'delivery_prices_global';
-        let deliveryPrice = appCache.products.get(deliveryPriceKey);
+        let deliveryPrice = appCache.deliveryPrices.get(deliveryPriceKey);
 
         if (!deliveryPrice) {
           // Créer une promesse pour les prix de livraison avec timeout
@@ -283,9 +283,7 @@ export async function GET(req) {
           deliveryPrice = await deliveryPromise;
 
           // Mettre en cache pour 1 heure car ces données changent rarement
-          appCache.products.set(deliveryPriceKey, deliveryPrice, {
-            ttl: 60 * 60 * 1000,
-          });
+          appCache.deliveryPrices.set(deliveryPriceKey, deliveryPrice);
         }
 
         // Calculer le nombre total de pages
@@ -310,7 +308,7 @@ export async function GET(req) {
         };
 
         // Mettre en cache les résultats pour 5 minutes
-        appCache.products.set(cacheKey, ordersResult, { ttl: 5 * 60 * 1000 });
+        appCache.orders.set(cacheKey, ordersResult);
 
         logger.debug('Orders history cache miss, data fetched from database', {
           requestId,
