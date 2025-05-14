@@ -9,6 +9,13 @@ import { memoizeWithTTL } from '@/utils/performance';
 
 // Configuration du cache pour les différentes ressources
 export const CACHE_CONFIGS = {
+  // Configuration pour les utilisateurs authentifiés (5 minutes)
+  authUsers: {
+    maxAge: 5 * 60, // 5 minutes
+    staleWhileRevalidate: 0, // Pas de revalidation en arrière-plan pour les données sensibles
+    immutable: false, // Non immutable car les données utilisateur peuvent changer
+    mustRevalidate: true, // Doit revalider pour des raisons de sécurité
+  },
   // Durée de cache pour les produits (3 heures)
   products: {
     maxAge: 3 * 60 * 60,
@@ -650,6 +657,14 @@ export function createCachedFunction(fn, options = {}) {
 
 // Instances de cache pour l'application avec les configurations améliorées
 export const appCache = {
+  authUsers: new MemoryCache({
+    ttl: CACHE_CONFIGS.authUsers.maxAge * 1000,
+    maxSize: 1000, // Capacité pour 1000 utilisateurs
+    compress: false, // Pas besoin de compression pour les petits objets utilisateur
+    name: 'auth-users',
+    logFunction: (msg) => console.debug(`[AuthUserCache] ${msg}`),
+  }),
+
   products: new MemoryCache({
     ttl: CACHE_CONFIGS.products.maxAge * 1000,
     maxSize: 500,

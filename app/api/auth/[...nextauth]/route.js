@@ -15,15 +15,12 @@ import {
 } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
 import { rateLimit, RATE_LIMIT_PRESETS } from '@/utils/rateLimit';
-import { MemoryCache } from '@/utils/cache';
+import { appCache } from '@/utils/cache';
+
 import { memoizeWithTTL } from '@/utils/performance';
 
 // Cache pour les utilisateurs récemment authentifiés pour réduire les requêtes BDD
-const userCache = new MemoryCache({
-  ttl: 5 * 60 * 1000, // 5 minutes
-  maxSize: 1000, // Maximum 1000 utilisateurs en cache
-  name: 'auth-user-cache',
-});
+const userCache = appCache.authUsers;
 
 // Mise en cache des utilisateurs (optimisation de performance)
 const getUserByEmail = memoizeWithTTL(async (email) => {
