@@ -65,6 +65,14 @@ export const CACHE_CONFIGS = {
     mustRevalidate: true, // Doit revalider car les données sont sensibles
   },
 
+  // Configuration pour les contacts (10 minutes)
+  contacts: {
+    maxAge: 10 * 60, // 10 minutes
+    staleWhileRevalidate: 5 * 60, // 5 minutes de revalidation en arrière-plan
+    immutable: false, // Non immutable car les contacts peuvent être mis à jour
+    mustRevalidate: false, // Les contacts sont moins critiques que les données d'adresse ou de panier
+  },
+
   // Durée de cache pour les pages statiques (1 jour)
   staticPages: {
     maxAge: 24 * 60 * 60,
@@ -715,6 +723,14 @@ export const appCache = {
     compress: false,
     name: 'addresses',
     logFunction: (msg) => console.debug(`[AddressCache] ${msg}`),
+  }),
+
+  contacts: new MemoryCache({
+    ttl: CACHE_CONFIGS.contacts.maxAge * 1000,
+    maxSize: 200, // Taille adaptée pour les contacts
+    compress: true, // Compression utile pour les messages potentiellement longs
+    name: 'contacts',
+    logFunction: (msg) => console.debug(`[ContactsCache] ${msg}`),
   }),
 };
 

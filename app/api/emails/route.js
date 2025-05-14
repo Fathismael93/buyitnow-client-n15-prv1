@@ -479,24 +479,22 @@ export async function POST(req) {
       };
 
       // Invalider les caches pertinents
-      if (appCache.products) {
-        // Utiliser getCacheKey pour générer des clés canoniques cohérentes
-        const userContactsCacheKey = getCacheKey('contacts', {
-          userId: user._id.toString(),
-        });
-        const recentContactsCacheKey = getCacheKey('contacts', {
-          status: 'pending',
-        });
+      // Utiliser getCacheKey pour générer des clés canoniques cohérentes
+      const userContactsCacheKey = getCacheKey('contacts', {
+        userId: user._id.toString(),
+      });
+      const recentContactsCacheKey = getCacheKey('contacts', {
+        status: 'pending',
+      });
 
-        // Invalider le cache des contacts de l'utilisateur
-        appCache.products.delete(userContactsCacheKey);
+      // Invalider le cache des contacts de l'utilisateur
+      appCache.contacts.delete(userContactsCacheKey);
 
-        // Invalider également le cache des contacts récents/en attente
-        appCache.products.delete(recentContactsCacheKey);
+      // Invalider également le cache des contacts récents/en attente
+      appCache.contacts.delete(recentContactsCacheKey);
 
-        // Approche alternative avec invalidation par motif
-        appCache.products.invalidatePattern(/^contacts:/);
-      }
+      // Approche alternative avec invalidation par motif
+      appCache.contacts.invalidatePattern(/^contacts:/);
 
       return NextResponse.json(
         {
