@@ -543,6 +543,20 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
   const controller = new AbortController();
   const requestId = `categories-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
+  // Vérifier si les données sont en cache
+  const cacheKey = getCacheKey('categories', {});
+  const cachedCategories = appCache.categories.get(cacheKey);
+
+  if (cachedCategories) {
+    logger.info('Categories served from client-side cache', {
+      component: 'getCategories',
+      cached: true,
+      count: cachedCategories.categories?.length || 0,
+    });
+
+    return cachedCategories;
+  }
+
   // Timeout de 5 secondes pour les catégories
   const timeoutId = setTimeout(() => {
     controller.abort();
@@ -762,6 +776,7 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
         // Vérifier si des catégories sont présentes dans la réponse
         if (responseBody.data?.count > 0) {
           // Cas standard avec des catégories trouvées
+          // L'API a déjà mis en cache les données, on les retourne directement
           return {
             success: true,
             message:
