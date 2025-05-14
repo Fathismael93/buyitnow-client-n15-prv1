@@ -15,14 +15,7 @@ import {
 } from '@/utils/cache';
 
 // Utiliser le cache prédéfini dans appCache si disponible, ou en créer un nouveau
-const categoryCache =
-  appCache.categories ||
-  new MemoryCache({
-    ttl: CACHE_CONFIGS.categories.maxAge * 1000, // Utiliser la configuration standard
-    maxSize: 100,
-    name: 'categories-cache',
-    compress: true, // Activer la compression pour les grands jeux de données
-  });
+const categoryCache = appCache.categories;
 
 // Configurez un rate limiter optimisé pour cette route spécifique
 const rateLimiter = createRateLimiter('PUBLIC_API', {
@@ -78,7 +71,7 @@ const rateLimitMiddleware = rateLimiter.middleware({
 
 // Enregistrer des événements pour monitorer le comportement du cache
 cacheEvents.on('hit', (data) => {
-  if (data.cache.name === 'categories-cache') {
+  if (data.cache.name === 'categories') {
     logger.debug(`Cache hit for ${data.key}`, {
       component: 'categoryAPI',
       cacheKey: data.key,
@@ -87,7 +80,7 @@ cacheEvents.on('hit', (data) => {
 });
 
 cacheEvents.on('miss', (data) => {
-  if (data.cache.name === 'categories-cache') {
+  if (data.cache.name === 'categories') {
     logger.debug(`Cache miss for ${data.key}`, {
       component: 'categoryAPI',
       cacheKey: data.key,
@@ -235,9 +228,6 @@ export async function GET(req) {
 
     // Mettre en cache avec des options avancées
     categoryCache.set(cacheKey, categoryData, {
-      // Utiliser la configuration standard mais prolonger si peu de changements
-      ttl: CACHE_CONFIGS.categories.maxAge * 1000,
-      // Ajouter des métadonnées pour le monitoring
       metadata: {
         count: categories.length,
         hash: contentHash,
