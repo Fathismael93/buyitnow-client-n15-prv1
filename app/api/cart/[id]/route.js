@@ -222,7 +222,7 @@ export async function DELETE(req, { params }) {
     const cacheKey = getCacheKey('cart', { userId: user._id.toString() });
 
     // Invalider le cache spécifique pour ce panier utilisateur
-    appCache.products.delete(cacheKey);
+    appCache.cart.delete(cacheKey);
 
     // Récupérer le panier complet mis à jour
     const getUserCartPromise = new Promise((resolve, reject) => {
