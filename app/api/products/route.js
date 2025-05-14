@@ -13,7 +13,7 @@ import {
   searchSchema,
 } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
-import { getCacheHeaders } from '@/utils/cache';
+import { getCacheHeaders, getCacheKey } from '@/utils/cache';
 import { appCache } from '@/utils/cache';
 import { createRateLimiter, RATE_LIMIT_ALGORITHMS } from '@/utils/rateLimit';
 // Importer les fonctions de sanitisation
@@ -192,7 +192,10 @@ export async function GET(req) {
     const sanitizedSearchParams = buildSanitizedSearchParams(sanitizedParams);
 
     // Générer une clé de cache fiable basée sur les paramètres sanitisés
-    const cacheKey = `products:${sanitizedSearchParams.toString()}`;
+    const cacheKey = getCacheKey(
+      'products',
+      Object.fromEntries(sanitizedSearchParams),
+    );
 
     // Vérifier le cache pour une réponse existante
     const cachedResponse = appCache.products.get(cacheKey);
@@ -206,7 +209,6 @@ export async function GET(req) {
           'Content-Security-Policy': "default-src 'self'",
           'X-Content-Type-Options': 'nosniff',
           'X-Frame-Options': 'DENY',
-          'Cache-Control': 'no-store, max-age=0',
           'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
         },
       });
@@ -326,7 +328,6 @@ export async function GET(req) {
           'Content-Security-Policy': "default-src 'self'",
           'X-Content-Type-Options': 'nosniff',
           'X-Frame-Options': 'DENY',
-          'Cache-Control': 'no-store, max-age=0',
           'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
         },
       });
@@ -341,8 +342,12 @@ export async function GET(req) {
       },
     };
 
-    // Mettre en cache la réponse
-    appCache.products.set(cacheKey, responseData);
+    try {
+      appCache.products.set(cacheKey, responseData);
+    } catch (cacheError) {
+      console.warn(`Cache error: ${cacheError.message}`);
+      // Ne pas interrompre la réponse pour une erreur de cache
+    }
 
     // Renvoyer la réponse
     return NextResponse.json(responseData, {
@@ -354,7 +359,6 @@ export async function GET(req) {
         'Content-Security-Policy': "default-src 'self'",
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
-        'Cache-Control': 'public, max-age=300, stale-while-revalidate=60',
         'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
       },
     });
