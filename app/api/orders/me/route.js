@@ -11,7 +11,7 @@ import DeliveryPrice from '@/backend/models/deliveryPrice';
 import logger from '@/utils/logger';
 import { captureException } from '@/monitoring/sentry';
 import { createRateLimiter } from '@/utils/rateLimit';
-import { appCache, getCacheKey } from '@/utils/cache';
+import { appCache, getCacheHeaders, getCacheKey } from '@/utils/cache';
 import {
   buildSanitizedSearchParams,
   sanitizePage,
@@ -257,7 +257,9 @@ export async function GET(req) {
         const orders = await ordersPromise;
 
         // Récupérer les prix de livraison depuis le cache ou la base de données
-        const deliveryPriceKey = 'delivery_prices_global';
+        const deliveryPriceKey = getCacheKey('delivery_prices', {
+          global: true,
+        });
         let deliveryPrice = appCache.deliveryPrices.get(deliveryPriceKey);
 
         if (!deliveryPrice) {
@@ -365,7 +367,7 @@ export async function GET(req) {
       {
         status: 200,
         headers: {
-          'Cache-Control': 'private, max-age=300, stale-while-revalidate=60',
+          ...getCacheHeaders('orders'),
           'X-Processing-Time': `${processingTime}ms`,
           'X-Request-ID': requestId,
           'X-Content-Type-Options': 'nosniff',
