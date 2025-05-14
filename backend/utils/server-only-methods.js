@@ -985,6 +985,36 @@ export const getProductDetails = async (
       };
     }
 
+    // Vérifier le cache d'abord - utiliser la même clé que dans l'API
+    const cacheKey = getCacheKey('single-product', { id });
+    const cachedProduct = appCache.singleProducts.get(cacheKey);
+
+    if (cachedProduct && !retryAttempt) {
+      logger.debug('Product details cache hit', {
+        requestId,
+        productId: id,
+        action: 'cache_hit',
+      });
+
+      // Récupérer également les produits similaires s'ils existent
+      let sameCategoryProducts = [];
+      if (cachedProduct.category) {
+        const similarCacheKey = getCacheKey('similar-products', {
+          categoryId: cachedProduct.category,
+        });
+        sameCategoryProducts =
+          appCache.singleProducts.get(similarCacheKey) || [];
+      }
+
+      return {
+        success: true,
+        product: cachedProduct,
+        sameCategoryProducts,
+        message: 'Produit récupéré depuis le cache',
+        fromCache: true,
+      };
+    }
+
     // Avant l'appel API
     logger.debug('Fetching product details from API', {
       requestId,
