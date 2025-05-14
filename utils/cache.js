@@ -1,19 +1,20 @@
 /**
- * Configuration et utilitaires pour la gestion du cache
+ * Configuration et utilitaires pour la gestion du cache utilisant la bibliothèque lru-cache
  */
 
+import { LRUCache } from 'lru-cache';
 import { compress, decompress } from 'lz-string';
 import { captureException } from '@/monitoring/sentry';
-import { memoizeWithTTL, isSlowConnection } from '@/utils/performance';
+import { memoizeWithTTL } from '@/utils/performance';
 
 // Configuration du cache pour les différentes ressources
 export const CACHE_CONFIGS = {
-  // Durée de cache pour les produits (10 minutes)
+  // Durée de cache pour les produits (3 heures)
   products: {
     maxAge: 3 * 60 * 60,
     staleWhileRevalidate: 60 * 60,
   },
-  // Nouvelle configuration spécifique pour un seul produit
+  // Configuration spécifique pour un seul produit
   singleProduct: {
     maxAge: 5 * 60 * 60, // 5 heures (durée plus longue car les détails d'un produit changent moins fréquemment)
     staleWhileRevalidate: 2 * 60 * 60, // 2 heures (période plus longue de revalidation en arrière-plan)
@@ -21,7 +22,7 @@ export const CACHE_CONFIGS = {
     immutable: false, // Non immutable car le produit peut être mis à jour
     mustRevalidate: false, // Permet l'utilisation de contenus périmés en cas de problèmes réseau
   },
-  // Durée de cache pour les catégories (1 heure)
+  // Durée de cache pour les catégories (2 jours)
   categories: {
     maxAge: 2 * 24 * 60 * 60,
     staleWhileRevalidate: 24 * 60 * 60,
@@ -126,13 +127,13 @@ export const cacheEvents = (() => {
  * @param {Error} error - Erreur survenue
  */
 function logCacheError(instance, operation, key, error) {
-  instance.log(
-    `Cache error during ${operation} for key '${key}': ${error.message}`,
-  );
+  const log = instance.log || console.debug;
+
+  log(`Cache error during ${operation} for key '${key}': ${error.message}`);
 
   // Log plus détaillé pour le développement
   if (process.env.NODE_ENV !== 'production') {
-    instance.log(error);
+    log(error);
   }
 
   // Capturer l'exception pour Sentry en production
@@ -147,14 +148,18 @@ function logCacheError(instance, operation, key, error) {
       },
       extra: {
         key,
-        cacheInfo: instance.size(),
+        cacheInfo: {
+          size: instance.size || 0,
+          calculatedSize: instance.calculatedSize || 0,
+          maxSize: instance.maxSize || 0,
+        },
       },
     });
   }
 }
 
 /**
- * Serialize une valeur pour le stockage avec compression réelle
+ * Sérialise une valeur pour le stockage avec compression optionnelle
  * @param {any} value - Valeur à sérialiser
  * @param {boolean} useCompression - Si true, compresse les grandes valeurs
  * @returns {Object} Objet avec la valeur et métadonnées
@@ -173,6 +178,7 @@ function serializeValue(value, useCompression = false) {
         value: compressed,
         originalSize: size,
         compressed: true,
+        size: compressed.length,
       };
     }
 
@@ -203,7 +209,7 @@ function deserializeValue(storedData) {
 }
 
 /**
- * Classe utilitaire pour gérer un cache en mémoire avec des fonctionnalités avancées
+ * Classe utilitaire pour gérer un cache avec lru-cache, compatible avec l'API précédente
  */
 export class MemoryCache {
   /**
@@ -222,19 +228,37 @@ export class MemoryCache {
       name = 'memory-cache',
     } = opts;
 
-    this.cache = new Map();
     this.ttl = ttl;
     this.maxSize = maxSize;
     this.maxBytes = maxBytes;
-    this.currentBytes = 0;
     this.log = logFunction;
     this.compress = compress;
     this.name = name;
     this.cleanupIntervalId = null;
+    this.currentBytes = 0;
     this.locks = new Map();
 
-    // Ordre LRU - Utiliser un Map pour conserver l'ordre d'insertion
-    this.lruOrder = new Map();
+    // Initialisation du cache LRU
+    this.cache = new LRUCache({
+      max: maxSize,
+      ttl: ttl,
+      // Fonction de calcul de taille pour respecter maxBytes
+      sizeCalculation: (value, key) => {
+        return value.data?.size || 0;
+      },
+      maxSize: maxBytes, // Taille maximale en octets
+      allowStale: false,
+      updateAgeOnGet: true,
+      updateAgeOnHas: false,
+      // Événements
+      disposeAfter: (value, key) => {
+        // Mise à jour du compteur de bytes après suppression
+        if (value.data?.size) {
+          this.currentBytes -= value.data.size;
+        }
+        cacheEvents.emit('delete', { key, cache: this });
+      },
+    });
 
     // Démarrer le nettoyage périodique
     this._startCleanupInterval();
@@ -271,24 +295,14 @@ export class MemoryCache {
    */
   get(key) {
     try {
-      if (!this.cache.has(key)) {
+      const entry = this.cache.get(key);
+
+      if (!entry) {
         cacheEvents.emit('miss', { key, cache: this });
         return null;
       }
 
-      const entry = this.cache.get(key);
-
-      // Vérifier si la valeur a expiré
-      if (entry.expiry < Date.now()) {
-        this.delete(key);
-        cacheEvents.emit('expire', { key, cache: this });
-        return null;
-      }
-
-      // Mettre à jour la position LRU
-      this._updateLRU(key);
       cacheEvents.emit('hit', { key, cache: this });
-
       return deserializeValue(entry.data);
     } catch (error) {
       logCacheError(this, 'get', key, error);
@@ -313,11 +327,9 @@ export class MemoryCache {
 
       // Nettoyer les options
       const opts = typeof options === 'number' ? { ttl: options } : options;
-
       const ttl = opts.ttl || this.ttl;
       const compress =
         opts.compress !== undefined ? opts.compress : this.compress;
-      const expiry = Date.now() + ttl;
 
       // Sérialiser la valeur
       const serialized = serializeValue(value, compress);
@@ -329,33 +341,27 @@ export class MemoryCache {
         return false;
       }
 
-      // Si le cache atteint sa taille max, faire de la place
-      if (
-        this.cache.size >= this.maxSize ||
-        this.currentBytes + serialized.size > this.maxBytes
-      ) {
-        this._evict(serialized.size);
-      }
-
       // Si la clé existe déjà, soustraire sa taille actuelle
-      if (this.cache.has(key)) {
-        const currentEntry = this.cache.get(key);
-        this.currentBytes -= currentEntry.data.size || 0;
+      const existingEntry = this.cache.get(key);
+      if (existingEntry?.data?.size) {
+        this.currentBytes -= existingEntry.data.size;
       }
 
-      // Ajouter au cache
-      this.cache.set(key, {
+      // Ajouter au cache avec TTL spécifique
+      const entry = {
         data: serialized,
-        expiry,
         lastAccessed: Date.now(),
+      };
+
+      this.cache.set(key, entry, {
+        ttl: ttl,
+        size: serialized.size,
       });
 
-      // Mettre à jour la taille totale et la liste LRU
+      // Mettre à jour la taille totale
       this.currentBytes += serialized.size;
-      this._updateLRU(key);
 
       cacheEvents.emit('set', { key, size: serialized.size, cache: this });
-
       return true;
     } catch (error) {
       logCacheError(this, 'set', key, error);
@@ -371,24 +377,9 @@ export class MemoryCache {
    */
   delete(key) {
     try {
-      if (!this.cache.has(key)) return false;
-
-      // Récupérer l'entrée pour soustraire sa taille
-      const entry = this.cache.get(key);
-      if (entry?.data?.size) {
-        this.currentBytes -= entry.data.size;
-      }
-
-      // Supprimer de la liste LRU
-      this.lruOrder.delete(key);
-
-      const result = this.cache.delete(key);
-
-      if (result) {
-        cacheEvents.emit('delete', { key, cache: this });
-      }
-
-      return result;
+      const hadKey = this.cache.has(key);
+      this.cache.delete(key);
+      return hadKey;
     } catch (error) {
       logCacheError(this, 'delete', key, error);
       return false;
@@ -402,7 +393,6 @@ export class MemoryCache {
   clear() {
     try {
       this.cache.clear();
-      this.lruOrder.clear();
       this.currentBytes = 0;
       cacheEvents.emit('clear', { cache: this });
       return true;
@@ -461,25 +451,16 @@ export class MemoryCache {
 
   /**
    * Nettoie les entrées expirées du cache
-   * @returns {number} - Nombre d'entrées nettoyées
+   * LRU-cache gère automatiquement les expirations, mais cette méthode est conservée
+   * pour la compatibilité avec l'API précédente
+   * @returns {number} - Nombre d'entrées nettoyées (toujours 0, car lru-cache gère l'expiration automatiquement)
    */
   cleanup() {
     try {
-      const now = Date.now();
-      let cleaned = 0;
-
-      for (const [key, entry] of this.cache.entries()) {
-        if (entry.expiry < now) {
-          this.delete(key);
-          cleaned++;
-        }
-      }
-
-      if (cleaned > 0) {
-        cacheEvents.emit('cleanup', { count: cleaned, cache: this });
-      }
-
-      return cleaned;
+      // LRU Cache gère déjà automatiquement l'expiration
+      // Forcer la suppression des entrées périmées
+      this.cache.purgeStale();
+      return 0;
     } catch (error) {
       logCacheError(this, 'cleanup', 'all', error);
       return 0;
@@ -521,44 +502,6 @@ export class MemoryCache {
   }
 
   /**
-   * Met à jour la position LRU d'une clé
-   * @param {string} key - Clé à mettre à jour
-   * @private
-   */
-  _updateLRU(key) {
-    // Mettre à jour le timestamp de dernier accès
-    if (this.cache.has(key)) {
-      const entry = this.cache.get(key);
-      entry.lastAccessed = Date.now();
-    }
-
-    // Supprimer puis réinsérer pour mettre à jour l'ordre
-    this.lruOrder.delete(key);
-    this.lruOrder.set(key, Date.now());
-  }
-
-  /**
-   * Supprime les entrées les moins récemment utilisées pour faire de la place
-   * @param {number} neededBytes - Nombre d'octets nécessaires
-   * @private
-   */
-  _evict(neededBytes = 0) {
-    // Commencer par les entrées expirées
-    this.cleanup();
-
-    // Si on n'a pas libéré assez d'espace, on supprime les entrées LRU
-    while (
-      this.lruOrder.size > 0 &&
-      (this.cache.size >= this.maxSize ||
-        this.currentBytes + neededBytes > this.maxBytes)
-    ) {
-      // Récupérer la clé la plus ancienne (première entrée du Map)
-      const [oldestKey] = this.lruOrder.entries().next().value;
-      this.delete(oldestKey);
-    }
-  }
-
-  /**
    * S'assure que les ressources sont libérées lors de la destruction
    */
   destroy() {
@@ -585,287 +528,6 @@ export class MemoryCache {
       return result;
     } catch (error) {
       logCacheError(this, 'getOrSet', key, error);
-      throw error;
-    }
-  }
-}
-
-/**
- * Cache avec persistance dans localStorage (pour le navigateur uniquement)
- * Avec fallback vers MemoryCache en environnement serveur
- */
-export class PersistentCache extends MemoryCache {
-  /**
-   * Crée une nouvelle instance avec persistance localStorage
-   * @param {string} namespace - Espace de noms pour éviter les collisions
-   * @param {Object} options - Options similaires à MemoryCache
-   */
-  constructor(namespace, options = {}) {
-    super({
-      ...options,
-      name: `persistent-${namespace}`,
-    });
-
-    this.namespace = namespace;
-    this.storageAvailable = this._isStorageAvailable();
-
-    // Adapter TTL pour les connexions lentes
-    if (
-      typeof window !== 'undefined' &&
-      typeof isSlowConnection === 'function' &&
-      isSlowConnection()
-    ) {
-      this.ttl = Math.max(this.ttl * 2, 5 * 60 * 1000); // Au moins 5 minutes
-      this.log(
-        `Slow connection detected, extending cache TTL to ${this.ttl}ms`,
-      );
-    }
-
-    // Charger les données persistantes au démarrage
-    if (this.storageAvailable) {
-      this._loadFromStorage();
-    }
-  }
-
-  /**
-   * Vérifie si localStorage est disponible
-   * @returns {boolean} - True si disponible
-   * @private
-   */
-  _isStorageAvailable() {
-    if (typeof window === 'undefined' || !window.localStorage) {
-      return false;
-    }
-
-    try {
-      const testKey = '__cache_test__';
-      window.localStorage.setItem(testKey, 'test');
-      window.localStorage.removeItem(testKey);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /**
-   * Vérifier et gérer l'espace localStorage disponible
-   * @returns {boolean} - True si suffisamment d'espace est disponible
-   * @private
-   */
-  _checkQuota() {
-    try {
-      const testKey = `__quota_test_${Date.now()}`;
-      const testData = '0'.repeat(1024 * 50); // 50KB
-
-      try {
-        localStorage.setItem(testKey, testData);
-        localStorage.removeItem(testKey);
-        return true;
-      } catch (e) {
-        // Quota dépassé, nettoyer les données les plus anciennes
-        this._cleanStorageForSpace();
-        return false;
-      }
-    } catch (e) {
-      logCacheError(this, 'checkQuota', 'localStorage', e);
-      return false;
-    }
-  }
-
-  /**
-   * Libérer de l'espace dans localStorage en supprimant les entrées les plus anciennes
-   * @private
-   */
-  _cleanStorageForSpace() {
-    // Supprimer 20% des entrées les plus anciennes
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(`${this.namespace}:`)) {
-        try {
-          const data = JSON.parse(localStorage.getItem(key));
-          keys.push({ key, expiry: data.expiry || 0 });
-        } catch (e) {
-          localStorage.removeItem(key);
-        }
-      }
-    }
-
-    // Trier par date d'expiration et supprimer les 20% les plus anciens
-    keys.sort((a, b) => a.expiry - b.expiry);
-    const toRemove = Math.ceil(keys.length * 0.2);
-
-    for (let i = 0; i < toRemove; i++) {
-      if (keys[i]) localStorage.removeItem(keys[i].key);
-    }
-
-    this.log(`Cleaned ${toRemove} items from localStorage to free space`);
-  }
-
-  /**
-   * Génère une clé avec namespace pour localStorage
-   * @param {string} key - Clé originale
-   * @returns {string} - Clé avec namespace
-   * @private
-   */
-  _getStorageKey(key) {
-    return `${this.namespace}:${key}`;
-  }
-
-  /**
-   * Charge les données depuis localStorage
-   * @private
-   */
-  _loadFromStorage() {
-    if (!this.storageAvailable) return;
-
-    try {
-      const now = Date.now();
-      let loadedCount = 0;
-
-      // Chercher toutes les clés qui commencent par notre namespace
-      for (let i = 0; i < window.localStorage.length; i++) {
-        const storageKey = window.localStorage.key(i);
-
-        if (storageKey && storageKey.startsWith(`${this.namespace}:`)) {
-          const cacheKey = storageKey.slice(this.namespace.length + 1);
-          const storedData = JSON.parse(
-            window.localStorage.getItem(storageKey),
-          );
-
-          // Vérifier si l'entrée n'a pas expiré
-          if (storedData && storedData.expiry > now) {
-            // Utiliser la méthode interne pour éviter de persister à nouveau
-            super.set(cacheKey, deserializeValue(storedData.data), {
-              ttl: storedData.expiry - now,
-            });
-            loadedCount++;
-          } else {
-            // Supprimer les entrées expirées
-            window.localStorage.removeItem(storageKey);
-          }
-        }
-      }
-
-      if (loadedCount > 0) {
-        this.log(`Loaded ${loadedCount} items from persistent storage`);
-      }
-    } catch (error) {
-      logCacheError(this, 'loadFromStorage', this.namespace, error);
-    }
-  }
-
-  /**
-   * @override
-   */
-  set(key, value, options = {}) {
-    // D'abord utiliser l'implémentation parente
-    const result = super.set(key, value, options);
-
-    // Si le stockage est disponible et l'opération a réussi, persister
-    if (result && this.storageAvailable) {
-      try {
-        // Vérifier l'espace disponible
-        this._checkQuota();
-
-        const entry = this.cache.get(key);
-        if (entry) {
-          const storageKey = this._getStorageKey(key);
-          window.localStorage.setItem(
-            storageKey,
-            JSON.stringify({
-              data: entry.data,
-              expiry: entry.expiry,
-            }),
-          );
-        }
-      } catch (error) {
-        // En cas d'erreur (ex: quota dépassé), logger mais ne pas échouer
-        logCacheError(this, 'persistToStorage', key, error);
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * @override
-   */
-  delete(key) {
-    const result = super.delete(key);
-
-    if (result && this.storageAvailable) {
-      try {
-        const storageKey = this._getStorageKey(key);
-        window.localStorage.removeItem(storageKey);
-      } catch (error) {
-        logCacheError(this, 'deleteFromStorage', key, error);
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * @override
-   */
-  clear() {
-    const result = super.clear();
-
-    if (result && this.storageAvailable) {
-      try {
-        // Supprimer uniquement les entrées de notre namespace
-        for (let i = window.localStorage.length - 1; i >= 0; i--) {
-          const key = window.localStorage.key(i);
-          if (key && key.startsWith(`${this.namespace}:`)) {
-            window.localStorage.removeItem(key);
-          }
-        }
-      } catch (error) {
-        logCacheError(this, 'clearStorage', this.namespace, error);
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Méthode utilitaire pour mettre en cache une URL chargée
-   * Cette méthode est utile pour cacher les résultats de fetch API
-   * @param {string} url - URL à mettre en cache
-   * @param {Function} fetchFn - Fonction fetch à exécuter si cache manquant
-   * @param {Object} options - Options de cache et fetch
-   * @returns {Promise<any>} - Données en cache ou résultat du fetch
-   */
-  async cachedFetch(url, fetchFn, options = {}) {
-    const {
-      ttl = this.ttl,
-      revalidateOnError = true,
-      ...fetchOptions
-    } = options;
-
-    const cacheKey = `fetch:${url}`;
-    const cachedResponse = this.get(cacheKey);
-
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-
-    const doFetch =
-      fetchFn || ((url) => fetch(url, fetchOptions).then((r) => r.json()));
-
-    try {
-      const response = await doFetch(url);
-      this.set(cacheKey, response, { ttl });
-      return response;
-    } catch (error) {
-      logCacheError(this, 'cachedFetch', cacheKey, error);
-
-      if (revalidateOnError) {
-        // Invalider le cache en cas d'erreur pour forcer une réactualisation
-        this.delete(cacheKey);
-      }
-
       throw error;
     }
   }
@@ -918,7 +580,7 @@ export function getCacheKey(prefix, params = {}) {
 
 /**
  * Crée une fonction memoizée avec intégration du système de cache
- * Combine les fonctionnalités de memoizeWithTTL et MemoryCache
+ * Combine les fonctionnalités de memoizeWithTTL et lru-cache
  * @param {Function} fn - Fonction à mettre en cache
  * @param {Object} options - Options de cache
  * @returns {Function} - Fonction mise en cache
@@ -995,16 +657,6 @@ export const appCache = {
     name: 'categories',
     logFunction: (msg) => console.debug(`[CategoryCache] ${msg}`),
   }),
-
-  // Cache côté client pour les données UI fréquemment utilisées
-  ui:
-    typeof window !== 'undefined'
-      ? new PersistentCache('buyitnow_ui', {
-          ttl: 30 * 60 * 1000, // 30 min
-          maxSize: 50,
-          maxBytes: 2 * 1024 * 1024, // 2MB max
-        })
-      : null,
 };
 
 // Enregistrer un handler pour nettoyer les caches à l'arrêt de l'application
