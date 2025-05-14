@@ -532,9 +532,21 @@ export async function POST(req) {
           await session.commitTransaction();
           session.endSession();
 
-          // Invalidation du cache après commande réussie
-          appCache.products.invalidatePattern(/^products:/);
-          appCache.cart.invalidatePattern(/^cart:/);
+          try {
+            // Invalidation du cache après commande réussie
+            appCache.products.invalidatePattern(/^products:/);
+            appCache.cart.invalidatePattern(/^cart:/);
+            appCache.orders.invalidatePattern(
+              new RegExp(`^orders_history:.*userId=${user._id}`),
+            );
+          } catch (cacheError) {
+            logger.warn('Error invalidating cache after order creation', {
+              requestId,
+              userId: user._id,
+              error: cacheError.message,
+            });
+            // Ne pas faire échouer la transaction pour une erreur de cache
+          }
 
           // Journalisation du succès
           logger.info('Order created successfully', {
