@@ -323,10 +323,13 @@ export async function PUT(req) {
         });
 
         // Invalider le cache du profil utilisateur
-        if (appCache.products) {
-          appCache.products.delete(userProfileCacheKey);
-          appCache.products.invalidatePattern(/^user:/);
-        }
+        appCache.authUsers.delete(userProfileCacheKey);
+        appCache.authUsers.invalidatePattern(/^user:/);
+
+        logger.debug('User cache invalidated after profile update', {
+          requestId,
+          userId: user._id.toString(),
+        });
       } catch (cacheError) {
         // Erreur non critique, juste logger
         logger.warn('Cache invalidation error during profile update', {
