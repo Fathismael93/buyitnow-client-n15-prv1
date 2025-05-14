@@ -2406,70 +2406,20 @@ export const getAllOrders = async (
             });
           }
         } catch (err) {
+          logger.warn('Error parsing page parameter', {
+            requestId,
+            error: err.message,
+            pageValue: searchParams.page,
+            action: 'page_validation_error',
+          });
+
           validationErrors.push({
             field: 'page',
             message: 'Format de page invalide',
+            details: err.message,
           });
         }
       }
-
-      // Validation pour d'autres paramètres potentiels
-      // Ex: status de commande, date, etc.
-      // if (searchParams.status) {
-      //   const validStatuses = [
-      //     'processing',
-      //     'shipped',
-      //     'delivered',
-      //     'cancelled',
-      //   ];
-      //   if (validStatuses.includes(searchParams.status)) {
-      //     urlParams.status = searchParams.status;
-      //   } else {
-      //     validationErrors.push({
-      //       field: 'status',
-      //       message: 'Statut de commande invalide',
-      //     });
-      //   }
-      // }
-
-      // Traitement des paramètres de date le cas échéant
-      // if (searchParams.startDate) {
-      //   try {
-      //     const date = new Date(searchParams.startDate);
-      //     if (!isNaN(date.getTime())) {
-      //       urlParams.startDate = searchParams.startDate;
-      //     } else {
-      //       validationErrors.push({
-      //         field: 'startDate',
-      //         message: 'Format de date de début invalide',
-      //       });
-      //     }
-      //   } catch (err) {
-      //     validationErrors.push({
-      //       field: 'startDate',
-      //       message: 'Date de début invalide',
-      //     });
-      //   }
-      // }
-
-      // if (searchParams.endDate) {
-      //   try {
-      //     const date = new Date(searchParams.endDate);
-      //     if (!isNaN(date.getTime())) {
-      //       urlParams.endDate = searchParams.endDate;
-      //     } else {
-      //       validationErrors.push({
-      //         field: 'endDate',
-      //         message: 'Format de date de fin invalide',
-      //       });
-      //     }
-      //   } catch (err) {
-      //     validationErrors.push({
-      //       field: 'endDate',
-      //       message: 'Date de fin invalide',
-      //     });
-      //   }
-      // }
     }
 
     // Si des erreurs de validation sont trouvées, retourner immédiatement
@@ -2762,8 +2712,8 @@ export const getAllOrders = async (
             },
           };
 
-          // Mettre en cache les résultats pour 2 minutes (durée de vie courte pour les données utilisateur)
-          appCache.products.set(cacheKey, result, { ttl: 2 * 60 * 1000 });
+          // Nous supprimons l'enregistrement dans le cache, car l'API a déjà mis en cache les données
+          // appCache.products.set(cacheKey, result, { ttl: 2 * 60 * 1000 });
 
           return result;
         } else {
