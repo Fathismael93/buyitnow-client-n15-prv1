@@ -1395,6 +1395,47 @@ export const getAllAddresses = async (
   const controller = new AbortController();
   const requestId = `addresses-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
+  // Obtenir les cookies pour l'authentification
+  const nextCookies = await cookies();
+  const cookieName = getCookieName();
+  const nextAuthSessionToken = nextCookies.get(cookieName);
+
+  if (!nextAuthSessionToken) {
+    logger.warn('No authentication token found', {
+      requestId,
+      page,
+      action: 'missing_auth_token',
+    });
+
+    return {
+      success: false,
+      code: 'UNAUTHORIZED',
+      message: 'Authentification requise',
+      data:
+        page === 'profile'
+          ? { addresses: [] }
+          : { addresses: [], paymentTypes: [], deliveryPrice: [] },
+    };
+  }
+
+  // Vérifier le cache d'abord
+  // La clé de cache doit inclure l'ID utilisateur et le contexte de page
+  const userIdentifier = nextAuthSessionToken.value.substring(0, 10);
+  const cacheKey = getCacheKey('addresses', {
+    userId: userIdentifier,
+    context: page,
+  });
+
+  const cachedAddresses = appCache.addresses.get(cacheKey);
+  if (cachedAddresses && !retryAttempt) {
+    logger.debug('Addresses cache hit', {
+      requestId,
+      page,
+      action: 'cache_hit',
+    });
+    return cachedAddresses;
+  }
+
   // Timeout de 5 secondes pour éviter les requêtes bloquées
   const timeoutId = setTimeout(() => {
     controller.abort();
@@ -1414,31 +1455,6 @@ export const getAllAddresses = async (
   });
 
   try {
-    // Obtenir les cookies pour l'authentification
-    const nextCookies = await cookies();
-
-    // Obtenir le nom de cookie dynamiquement selon l'environnement
-    const cookieName = getCookieName();
-    const nextAuthSessionToken = nextCookies.get(cookieName);
-
-    if (!nextAuthSessionToken) {
-      logger.warn('No authentication token found', {
-        requestId,
-        page,
-        action: 'missing_auth_token',
-      });
-
-      return {
-        success: false,
-        code: 'UNAUTHORIZED',
-        message: 'Authentification requise',
-        data:
-          page === 'profile'
-            ? { addresses: [] }
-            : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-      };
-    }
-
     // Avant l'appel API
     logger.debug('Fetching addresses from API', {
       requestId,
