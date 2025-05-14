@@ -234,7 +234,6 @@ export async function GET(req) {
         generated: new Date().toISOString(),
       },
     });
-
     logger.info('Categories fetched successfully', {
       component: 'categoryAPI',
       count: categories.length,
