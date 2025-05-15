@@ -5,7 +5,7 @@ import User from '@/backend/models/user';
 import { captureException } from '@/monitoring/sentry';
 import { appCache, getCacheKey } from '@/utils/cache';
 import logger from '@/utils/logger';
-import { createRateLimiter } from '@/utils/rateLimit';
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 import { NextResponse } from 'next/server';
 
 export async function DELETE(req, { params }) {
@@ -20,32 +20,21 @@ export async function DELETE(req, { params }) {
     // Vérifier l'authentification
     await isAuthenticatedUser(req, NextResponse);
 
-    // Appliquer le rate limiting pour les requêtes authentifiées
-    const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
+    // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
+    const cartRateLimiter = applyRateLimit('AUTHENTICATED_API', {
       prefix: 'cart_api',
-      getTokenFromReq: (req) => req.user?.email || req.user?.id,
     });
 
-    try {
-      await rateLimiter.check(req);
-    } catch (rateLimitError) {
+    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await cartRateLimiter(req);
+
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
       logger.warn('Rate limit exceeded for cart delete API', {
         user: req.user?.email,
-        error: rateLimitError.message,
       });
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Too many requests, please try again later',
-        },
-        {
-          status: 429,
-          headers: rateLimitError.headers || {
-            'Retry-After': '60',
-          },
-        },
-      );
+      return rateLimitResponse;
     }
 
     // Connecter à la base de données avec timeout
