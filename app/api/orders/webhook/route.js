@@ -11,7 +11,7 @@ import Category from '@/backend/models/category';
 import { appCache } from '@/utils/cache';
 import logger from '@/utils/logger';
 import { captureException } from '@/monitoring/sentry';
-import { createRateLimiter } from '@/utils/rateLimit';
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 /**
  * Gère la création de commandes via webhook
@@ -33,20 +33,25 @@ export async function POST(req) {
     await isAuthenticatedUser(req, NextResponse);
 
     // Application du rate limit spécifique pour les commandes (limites strictes)
-    const rateLimiter = createRateLimiter('CRITICAL_ENDPOINTS', {
+    const orderRateLimiter = applyRateLimit('CRITICAL_ENDPOINTS', {
       prefix: 'order_webhook',
-      getTokenFromReq: (req) => req.user?.email || req.user?.id,
     });
 
-    try {
-      await rateLimiter.check(req);
-    } catch (rateLimitError) {
+    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await orderRateLimiter(req);
+
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
       logger.warn('Rate limit exceeded for order webhook', {
         user: req.user?.email,
         requestId,
-        error: rateLimitError.message,
       });
 
+      // Ajouter l'ID de requête aux en-têtes de réponse
+      const headers = new Headers(rateLimitResponse.headers);
+      headers.set('X-Request-Id', requestId);
+
+      // Créer une nouvelle réponse avec les en-têtes mis à jour
       return NextResponse.json(
         {
           success: false,
@@ -55,10 +60,7 @@ export async function POST(req) {
         },
         {
           status: 429,
-          headers: {
-            ...rateLimitError.headers,
-            'X-Request-Id': requestId,
-          },
+          headers,
         },
       );
     }
