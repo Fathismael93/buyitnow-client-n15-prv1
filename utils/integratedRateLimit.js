@@ -1,9 +1,8 @@
 /**
- * Utilitaire amélioré de rate limiting pour Next.js API Routes
- * Intégré avec Winston et Sentry pour un monitoring avancé
+ * Implémentation personnalisée de rate limiting conçue pour Next.js
+ * Ne dépend pas d'express-rate-limit
  */
 
-import rateLimit from 'express-rate-limit';
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import logger from '@/utils/logger';
@@ -19,18 +18,12 @@ export const RATE_LIMIT_PRESETS = {
     windowMs: 60 * 1000, // 1 minute
     max: 30, // 30 requêtes par minute
     message: 'Trop de requêtes, veuillez réessayer plus tard',
-    headers: true,
-    standardHeaders: true, // 'RateLimit-*' headers
-    legacyHeaders: false, // 'X-RateLimit-*' headers, désactivés car dépréciés
   },
   // API authentifiées (utilisateur connecté)
   AUTHENTICATED_API: {
     windowMs: 60 * 1000, // 1 minute
     max: 120, // 120 requêtes par minute
     message: 'Trop de requêtes, veuillez réessayer plus tard',
-    headers: true,
-    standardHeaders: true,
-    legacyHeaders: false,
   },
   // Endpoints d'authentification (login/register)
   AUTH_ENDPOINTS: {
@@ -38,9 +31,6 @@ export const RATE_LIMIT_PRESETS = {
     max: 10, // 10 tentatives par 10 minutes
     message:
       "Trop de tentatives d'authentification, veuillez réessayer plus tard",
-    headers: true,
-    standardHeaders: true,
-    legacyHeaders: false,
   },
   // Endpoints critiques (paiement, etc.)
   CRITICAL_ENDPOINTS: {
@@ -48,9 +38,6 @@ export const RATE_LIMIT_PRESETS = {
     max: 5, // 5 requêtes par 5 minutes
     message:
       'Trop de requêtes pour une opération critique, veuillez réessayer plus tard',
-    headers: true,
-    standardHeaders: true,
-    legacyHeaders: false,
   },
 };
 
@@ -85,106 +72,12 @@ export const VIOLATION_LEVELS = {
   },
 };
 
-// Cache pour stocker les informations sur les comportements suspects
-const SUSPICIOUS_BEHAVIOR_CACHE = new Map();
-
-// Liste noire et liste blanche
-const IP_BLACKLIST = new Set();
+// Cache des requêtes - utilise une Map pour stocker en mémoire
+// Selon vos besoins, vous pourriez remplacer ceci par Redis ou autre système
+const requestCache = new Map();
+const blockedIPs = new Map();
+const suspiciousBehavior = new Map();
 const IP_WHITELIST = new Set();
-
-/**
- * Met en cache d'informations de comportement pour la détection avancée
- * @param {string} key - La clé d'identification
- * @param {Object} data - Les données à stocker
- */
-function trackBehavior(key, data) {
-  const existing = SUSPICIOUS_BEHAVIOR_CACHE.get(key) || {
-    violations: 0,
-    pattern: [],
-    firstSeen: Date.now(),
-    lastSeen: Date.now(),
-    endpoints: new Set(),
-  };
-
-  // Mettre à jour les informations
-  existing.violations += data.violations || 0;
-  existing.lastSeen = Date.now();
-  if (data.endpoint) existing.endpoints.add(data.endpoint);
-
-  // Suivre les modèles temporels (max 50 points)
-  if (data.timestamp) {
-    existing.pattern.push(data.timestamp);
-    if (existing.pattern.length > 50) existing.pattern.shift();
-  }
-
-  SUSPICIOUS_BEHAVIOR_CACHE.set(key, existing);
-}
-
-/**
- * Vérifie si un comportement est suspect selon diverses heuristiques
- * @param {string} key - La clé d'identification
- * @returns {Object} Résultat de l'analyse avec niveau de menace
- */
-function analyzeBehavior(key) {
-  const data = SUSPICIOUS_BEHAVIOR_CACHE.get(key);
-  if (!data) return { isSuspicious: false, threatLevel: 0 };
-
-  let threatScore = 0;
-  const results = { detectionPoints: [] };
-
-  // 1. Nombre de violations
-  if (data.violations >= 50) {
-    threatScore += 5;
-    results.detectionPoints.push('high_violation_count');
-  } else if (data.violations >= 10) {
-    threatScore += 2;
-    results.detectionPoints.push('multiple_violations');
-  }
-
-  // 2. Distribution temporelle (détecter les modèles automatisés)
-  if (data.pattern.length >= 5) {
-    const intervals = [];
-    for (let i = 1; i < data.pattern.length; i++) {
-      intervals.push(data.pattern[i] - data.pattern[i - 1]);
-    }
-
-    // Vérifier si les intervalles sont trop réguliers (bots)
-    const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-    const variance =
-      intervals.reduce((a, b) => a + Math.pow(b - avgInterval, 2), 0) /
-      intervals.length;
-    const stdDev = Math.sqrt(variance);
-
-    // Un faible écart type indique des requêtes trop régulières
-    if (stdDev < avgInterval * 0.1 && intervals.length > 5) {
-      threatScore += 4;
-      results.detectionPoints.push('regular_pattern_detected');
-    }
-  }
-
-  // 3. Diversité des endpoints (comportement de scan)
-  if (data.endpoints.size >= 10) {
-    threatScore += 3;
-    results.detectionPoints.push('endpoint_scanning_behavior');
-  }
-
-  results.isSuspicious = threatScore >= 3;
-  results.threatLevel = threatScore;
-  return results;
-}
-
-/**
- * Règles graduelles de limitation selon le niveau de suspicion
- * @param {number} threatLevel - Niveau de menace détecté
- * @param {number} defaultLimit - Limite par défaut
- * @returns {number} Limite ajustée
- */
-function getAdjustedLimit(threatLevel, defaultLimit) {
-  if (threatLevel >= 5) return Math.max(1, Math.floor(defaultLimit * 0.1)); // 90% de réduction
-  if (threatLevel >= 3) return Math.max(2, Math.floor(defaultLimit * 0.3)); // 70% de réduction
-  if (threatLevel >= 1) return Math.max(5, Math.floor(defaultLimit * 0.7)); // 30% de réduction
-  return defaultLimit;
-}
 
 /**
  * Fonction pour extraire l'IP réelle d'une requête
@@ -192,14 +85,15 @@ function getAdjustedLimit(threatLevel, defaultLimit) {
  * @returns {string} L'IP réelle du client
  */
 function extractRealIp(req) {
-  // Extraction améliorée de l'IP pour tenir compte des proxys
-  const forwardedFor = req.headers?.['x-forwarded-for'];
-  const realIp = req.headers?.['x-real-ip'];
-  return (
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const realIp = req.headers.get('x-real-ip');
+
+  const ip =
     (forwardedFor ? forwardedFor.split(',')[0].trim() : realIp) ||
     req.socket?.remoteAddress ||
-    '0.0.0.0'
-  );
+    '0.0.0.0';
+
+  return ip;
 }
 
 /**
@@ -230,348 +124,341 @@ function anonymizeIp(ip) {
 }
 
 /**
- * Créer une instance de limiteur configurable avec monitoring avancé
- * @param {Object} options Options de configuration
- * @returns {Object} Middleware de rate limiting
+ * Générer une clé unique pour cette requête
+ * @param {Object} req - Requête Next.js
+ * @param {string} prefix - Préfixe pour la clé
+ * @returns {string} Clé unique
  */
-export function createRateLimiter(options = {}) {
-  // Récupérer le préréglage ou utiliser PUBLIC_API par défaut
-  const presetName = options.preset || 'PUBLIC_API';
-  const presetConfig =
-    RATE_LIMIT_PRESETS[presetName] || RATE_LIMIT_PRESETS.PUBLIC_API;
+function generateKey(req, prefix = 'api') {
+  // Essayer d'obtenir l'utilisateur si authentifié
+  let userIdentifier = '';
 
-  const config = {
-    ...presetConfig,
-    ...options,
-    skipFailedRequests: true,
-    keyGenerator:
-      options.keyGenerator ||
-      ((req) => {
-        const ip = extractRealIp(req);
+  if (req.user) {
+    userIdentifier = req.user.id || req.user.email || req.user._id || '';
+  }
 
-        // Générer une clé unique pour ce type d'endpoint
-        return `${options.prefix || presetName}:${ip}`;
-      }),
-    skip: (req) => {
-      // Vérification des listes blanches/noires
-      const ip = extractRealIp(req);
+  // Si on a un utilisateur, l'utiliser comme identifiant principal
+  if (userIdentifier) {
+    return `${prefix}:user:${userIdentifier}`;
+  }
 
-      // Toujours autoriser les IPs en liste blanche
-      if (IP_WHITELIST.has(ip)) return true;
-
-      // Toujours bloquer les IPs en liste noire
-      if (IP_BLACKLIST.has(ip)) {
-        logger.warn('Blocked request from blacklisted IP', {
-          component: 'rateLimit',
-          action: 'blocked_blacklisted',
-          ip: anonymizeIp(ip),
-          path: req.url,
-        });
-        return false; // Ne pas sauter la limite mais renvoyer un message personnalisé
-      }
-
-      // Appliquer le skip personnalisé si fourni
-      if (options.skip && typeof options.skip === 'function') {
-        return options.skip(req);
-      }
-
-      return false;
-    },
-    // Handler personnalisé avec logging avancé pour Next.js
-    handler: (req, res, next, optionsUsed) => {
-      // Générer un ID unique pour cet événement de limitation
-      const eventId = uuidv4();
-
-      // Extraire des informations sur la requête pour le logging
-      const ip = extractRealIp(req);
-      const method = req.method;
-      const path = req.url || 'unknown';
-      const userAgent = req.headers?.['user-agent'] || 'unknown';
-      const referer = req.headers?.referer || 'unknown';
-
-      // Créer une clé unique pour le suivi des comportements
-      const behaviorKey = `${ip}:${userAgent.substring(0, 50)}`;
-
-      // Analyser le comportement actuel
-      const behaviorAnalysis = analyzeBehavior(behaviorKey);
-
-      // Mise à jour des données de comportement
-      trackBehavior(behaviorKey, {
-        violations: 1,
-        timestamp: Date.now(),
-        endpoint: path,
-      });
-
-      // Déterminer le niveau de violation
-      const limit = optionsUsed.max;
-      const currentCount = req.rateLimit?.current || limit + 1;
-      const violationRatio = currentCount / limit;
-
-      let violationLevel = VIOLATION_LEVELS.LOW;
-      for (const level of Object.values(VIOLATION_LEVELS)) {
-        if (violationRatio >= level.threshold) {
-          violationLevel = level;
-        }
-      }
-
-      // Calculer la durée du blocage supplémentaire
-      let blockDuration = 0;
-      if (behaviorAnalysis.isSuspicious) {
-        // Augmenter la durée de blocage pour les comportements suspects
-        blockDuration =
-          violationLevel.blockDuration *
-          (1 + Math.min(behaviorAnalysis.threatLevel, 10) / 5);
-      } else {
-        blockDuration = violationLevel.blockDuration;
-      }
-
-      // Journalisation avancée de l'événement avec Winston
-      logger.warn('Rate limit exceeded', {
-        eventId,
-        ip: anonymizeIp(ip),
-        method,
-        path,
-        component: 'rateLimit',
-        userAgent: userAgent.substring(0, 100), // Limiter la taille
-        referer: referer.substring(0, 100),
-        currentCount,
-        limit,
-        violationRatio: parseFloat(violationRatio.toFixed(2)),
-        violationLevel: violationLevel.severity,
-        blockDuration: `${Math.round(blockDuration / 1000)}s`,
-        suspicious: behaviorAnalysis.isSuspicious,
-        threatLevel: behaviorAnalysis.threatLevel,
-        detectionPoints: behaviorAnalysis.detectionPoints,
-      });
-
-      // Envoi à Sentry pour les cas plus graves (MEDIUM et au-dessus)
-      if (violationLevel.severity !== 'low') {
-        captureMessage(
-          `Rate limit violation detected: ${violationLevel.severity}`,
-          {
-            level: violationLevel.sentryLevel,
-            tags: {
-              component: 'rateLimit',
-              violationLevel: violationLevel.severity,
-              suspicious: behaviorAnalysis.isSuspicious.toString(),
-            },
-            extra: {
-              ip: anonymizeIp(ip),
-              path,
-              method,
-              currentCount,
-              limit,
-              blockDuration,
-              detectionPoints: behaviorAnalysis.detectionPoints,
-              threatLevel: behaviorAnalysis.threatLevel,
-            },
-          },
-        );
-      }
-
-      // Envisager d'ajouter l'IP à la liste noire pour les violations graves répétées
-      if (
-        violationLevel.severity === 'severe' &&
-        behaviorAnalysis.threatLevel >= 8
-      ) {
-        // Ajouter à la liste noire temporairement (24h)
-        IP_BLACKLIST.add(ip);
-        setTimeout(
-          () => {
-            IP_BLACKLIST.delete(ip);
-          },
-          24 * 60 * 60 * 1000,
-        );
-
-        logger.error(
-          'Added IP to temporary blacklist due to severe violations',
-          {
-            ip: anonymizeIp(ip),
-            eventId,
-            component: 'rateLimit',
-            action: 'blacklist_add',
-          },
-        );
-
-        // Envoyer une alerte Sentry pour la mise en liste noire
-        captureMessage('IP blacklisted due to severe rate limit violations', {
-          level: 'error',
-          tags: {
-            component: 'rateLimit',
-            action: 'blacklist_add',
-          },
-          extra: {
-            ip: anonymizeIp(ip),
-            threatLevel: behaviorAnalysis.threatLevel,
-            detectionPoints: behaviorAnalysis.detectionPoints,
-          },
-        });
-      }
-
-      // Calculer le temps d'attente (Retry-After) avec le blocage supplémentaire
-      const retryAfterBase = Math.ceil(options.windowMs / 1000);
-      const retryAfter =
-        blockDuration > 0
-          ? retryAfterBase + Math.ceil(blockDuration / 1000)
-          : retryAfterBase;
-
-      // Envoyer la réponse avec les headers appropriés
-      res.status(429);
-      if (options.headers) {
-        res.setHeader('Retry-After', retryAfter);
-      }
-
-      // Message personnalisé selon la gravité
-      let message =
-        options.message || 'Trop de requêtes, veuillez réessayer plus tard';
-      if (
-        violationLevel.severity === 'high' ||
-        violationLevel.severity === 'severe'
-      ) {
-        message =
-          'Limite de requêtes largement dépassée. Votre accès est temporairement restreint.';
-      }
-
-      res.json({
-        status: 429,
-        error: 'Too Many Requests',
-        message,
-        retryAfter,
-        reference: eventId, // ID de référence pour le support
-      });
-    },
-  };
-
-  // Créer l'instance de limiteur
-  return rateLimit(config);
+  // Sinon, utiliser l'adresse IP
+  const ip = extractRealIp(req);
+  return `${prefix}:ip:${ip}`;
 }
 
 /**
- * Middleware optimisé de rate limiting pour Next.js API Routes
- * @param {string} preset Nom du préréglage à utiliser
- * @param {Object} options Options supplémentaires
+ * Analyser le comportement suspect en fonction des modèles de requête
+ * @param {string} key - Clé d'identification
+ * @returns {Object} Résultat de l'analyse
+ */
+function analyzeBehavior(key) {
+  const data = suspiciousBehavior.get(key);
+  if (!data) return { isSuspicious: false, threatLevel: 0 };
+
+  let threatScore = 0;
+  const results = { detectionPoints: [] };
+
+  // Nombre de violations
+  if (data.violations >= 50) {
+    threatScore += 5;
+    results.detectionPoints.push('high_violation_count');
+  } else if (data.violations >= 10) {
+    threatScore += 2;
+    results.detectionPoints.push('multiple_violations');
+  }
+
+  // Distribution temporelle (détecter les modèles automatisés)
+  if (data.timestamps.length >= 5) {
+    const intervals = [];
+    for (let i = 1; i < data.timestamps.length; i++) {
+      intervals.push(data.timestamps[i] - data.timestamps[i - 1]);
+    }
+
+    // Vérifier si les intervalles sont trop réguliers (bots)
+    const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+    const variance =
+      intervals.reduce((a, b) => a + Math.pow(b - avgInterval, 2), 0) /
+      intervals.length;
+    const stdDev = Math.sqrt(variance);
+
+    // Un faible écart type indique des requêtes trop régulières
+    if (stdDev < avgInterval * 0.1 && intervals.length > 5) {
+      threatScore += 4;
+      results.detectionPoints.push('regular_pattern_detected');
+    }
+  }
+
+  // Diversité des endpoints (comportement de scan)
+  if (data.endpoints.size >= 10) {
+    threatScore += 3;
+    results.detectionPoints.push('endpoint_scanning_behavior');
+  }
+
+  results.isSuspicious = threatScore >= 3;
+  results.threatLevel = threatScore;
+  return results;
+}
+
+/**
+ * Suivre le comportement d'un client
+ * @param {string} key - Clé d'identification
+ * @param {Object} data - Données à enregistrer
+ */
+function trackBehavior(key, req, violations = 0) {
+  const existingData = suspiciousBehavior.get(key) || {
+    timestamps: [],
+    endpoints: new Set(),
+    violations: 0,
+    firstSeen: Date.now(),
+    lastSeen: Date.now(),
+  };
+
+  // Mettre à jour les données
+  existingData.violations += violations;
+  existingData.lastSeen = Date.now();
+  existingData.timestamps.push(Date.now());
+
+  // Limiter le nombre de timestamps stockés
+  if (existingData.timestamps.length > 50) {
+    existingData.timestamps.shift();
+  }
+
+  // Ajouter l'endpoint actuel
+  const path = req.url || req.nextUrl?.pathname || '';
+  if (path) {
+    existingData.endpoints.add(path);
+  }
+
+  suspiciousBehavior.set(key, existingData);
+}
+
+/**
+ * Middleware de rate limiting natif pour Next.js
+ * @param {string} preset - Nom du préréglage à utiliser
+ * @param {Object} options - Options supplémentaires
  * @returns {Function} Middleware Next.js
  */
 export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
-  // Créer le limiteur avec détection avancée
-  const limiter = createRateLimiter({
-    preset,
+  // Obtenir le préréglage
+  const config = {
+    ...(RATE_LIMIT_PRESETS[preset] || RATE_LIMIT_PRESETS.PUBLIC_API),
     ...options,
-  });
+  };
 
-  // Créer une fonction adaptée pour Next.js API Routes
-  return async function middleware(req) {
-    // Extraire le chemin pour le logging
-    const path = req.url || req.nextUrl?.pathname || 'unknown';
+  // Middleware Next.js
+  return async function (req) {
+    const path = req.url || req.nextUrl?.pathname || '';
+    const ip = extractRealIp(req);
 
     try {
-      // Adapter la requête Next.js pour express-rate-limit
-      // En créant un objet compatible avec les attentes d'express-rate-limit
-      const adaptedReq = {
-        ...req,
-        ip: extractRealIp(req),
-        path: path,
-        method: req.method || 'GET',
-        // Adapter les headers qui sont accessibles différemment dans Next.js
-        headers: {
-          ...req.headers,
-          // Convertir les headers de Next.js (qui utilisent get()) en objet simple
-          'x-forwarded-for': req.headers.get('x-forwarded-for') || '',
-          'user-agent': req.headers.get('user-agent') || '',
-          'x-real-ip': req.headers.get('x-real-ip') || '',
-          referer: req.headers.get('referer') || '',
-        },
-        // Ajouter une méthode "on" vide pour éviter l'erreur
-        on: (event, callback) => {
-          // Ne rien faire, juste éviter l'erreur
-          return adaptedReq;
-        },
-        // Simuler d'autres propriétés d'Express si nécessaire
-        socket: {
-          remoteAddress: extractRealIp(req),
-        },
-      };
+      // 1. Vérifier si l'IP est en liste blanche
+      if (IP_WHITELIST.has(ip)) {
+        return null; // Autoriser sans limite
+      }
 
-      // Créer un objet de réponse simulé pour express-rate-limit
-      return new Promise((resolve) => {
-        const res = {
-          statusCode: 200,
-          headers: {},
-          status(code) {
-            this.statusCode = code;
-            return this;
-          },
-          setHeader(name, value) {
-            this.headers[name] = value;
-            return this;
-          },
-          json(body) {
-            // Créer une réponse Next.js avec le statut 429 (Too Many Requests)
-            const response = NextResponse.json(body, {
-              status: this.statusCode,
-              headers: this.headers,
-            });
-            resolve(response);
-          },
-          send(body) {
-            const response = new NextResponse(
-              typeof body === 'string' ? body : JSON.stringify(body),
-              {
-                status: this.statusCode,
-                headers: {
-                  ...this.headers,
-                  'Content-Type': 'application/json',
-                },
-              },
-            );
-            resolve(response);
-          },
-          end() {
-            const response = new NextResponse(null, {
-              status: this.statusCode,
-              headers: this.headers,
-            });
-            resolve(response);
-          },
-        };
+      // 2. Vérifier si l'IP est bloquée
+      const blockInfo = blockedIPs.get(ip);
+      if (blockInfo && blockInfo.until > Date.now()) {
+        // IP bloquée, créer une réponse d'erreur
+        const eventId = uuidv4();
+        logger.warn('Request from blocked IP rejected', {
+          eventId,
+          ip: anonymizeIp(ip),
+          path,
+          component: 'rateLimit',
+          until: new Date(blockInfo.until).toISOString(),
+          reason: blockInfo.reason,
+        });
 
-        // Fonction next() - utilisée quand la requête n'est pas limitée
-        const next = (err) => {
-          if (err) {
-            // Logging d'erreur amélioré avec Winston
-            logger.error('Rate limit middleware error', {
-              error: err.message,
-              stack: err.stack,
-              path,
-              component: 'rateLimit',
-            });
+        return NextResponse.json(
+          {
+            status: 429,
+            error: 'Too Many Requests',
+            message: blockInfo.message || config.message,
+            retryAfter: Math.ceil((blockInfo.until - Date.now()) / 1000),
+            reference: eventId,
+          },
+          {
+            status: 429,
+            headers: {
+              'Retry-After': Math.ceil(
+                (blockInfo.until - Date.now()) / 1000,
+              ).toString(),
+            },
+          },
+        );
+      }
 
-            // Capture d'exception avec Sentry
-            captureException(err, {
+      // 3. Gérer le skip (bypass) si nécessaire
+      if (options.skip && typeof options.skip === 'function') {
+        if (options.skip(req)) {
+          return null; // Skip le rate limiting
+        }
+      }
+
+      // 4. Générer une clé unique pour cette requête
+      const key = generateKey(req, options.prefix || preset);
+
+      // 5. Récupérer les données de requête existantes
+      const now = Date.now();
+      const windowStart = now - config.windowMs;
+      let requests = requestCache.get(key) || [];
+
+      // Supprimer les requêtes trop anciennes (hors de la fenêtre)
+      requests = requests.filter((timestamp) => timestamp > windowStart);
+
+      // 6. Vérifier si la limite est dépassée
+      if (requests.length >= config.max) {
+        // Limite dépassée, analyser le comportement
+        trackBehavior(key, req, 1);
+        const behavior = analyzeBehavior(key);
+
+        // Déterminer le niveau de violation
+        const violationRatio = requests.length / config.max;
+        let violationLevel = VIOLATION_LEVELS.LOW;
+
+        for (const level of Object.values(VIOLATION_LEVELS)) {
+          if (violationRatio >= level.threshold) {
+            violationLevel = level;
+          }
+        }
+
+        // Calculer la durée du blocage supplémentaire
+        let blockDuration = violationLevel.blockDuration;
+        if (behavior.isSuspicious) {
+          // Augmenter la durée pour les comportements suspects
+          blockDuration *= 1 + Math.min(behavior.threatLevel, 10) / 5;
+        }
+
+        // Calculer la date de fin du blocage
+        const resetTime = Math.max(...requests) + config.windowMs;
+        const blockUntil = blockDuration > 0 ? now + blockDuration : resetTime;
+
+        // Générer un ID d'événement pour le suivi
+        const eventId = uuidv4();
+
+        // Logger avec Winston
+        logger.warn('Rate limit exceeded', {
+          eventId,
+          ip: anonymizeIp(ip),
+          path,
+          component: 'rateLimit',
+          userAgent:
+            req.headers.get('user-agent')?.substring(0, 100) || 'unknown',
+          requests: requests.length,
+          limit: config.max,
+          violationRatio: parseFloat(violationRatio.toFixed(2)),
+          violationLevel: violationLevel.severity,
+          blockDuration: `${Math.round(blockDuration / 1000)}s`,
+          suspicious: behavior.isSuspicious,
+          threatLevel: behavior.threatLevel,
+          detectionPoints: behavior.detectionPoints,
+        });
+
+        // Envoyer à Sentry pour les violations plus graves
+        if (violationLevel.severity !== 'low') {
+          captureMessage(
+            `Rate limit violation detected: ${violationLevel.severity}`,
+            {
+              level: violationLevel.sentryLevel,
               tags: {
                 component: 'rateLimit',
-                middleware: 'applyRateLimit',
+                violationLevel: violationLevel.severity,
+                suspicious: behavior.isSuspicious.toString(),
               },
               extra: {
+                ip: anonymizeIp(ip),
                 path,
-                preset,
+                requests: requests.length,
+                limit: config.max,
+                blockDuration,
+                detectionPoints: behavior.detectionPoints,
+                threatLevel: behavior.threatLevel,
               },
-            });
+            },
+          );
+        }
 
-            // En cas d'erreur interne, laisser passer quand même
-            resolve(null);
-            return;
-          }
+        // Bloquer les IPs pour les violations graves
+        if (violationLevel.severity === 'severe' && behavior.threatLevel >= 8) {
+          blockedIPs.set(ip, {
+            until: now + 24 * 60 * 60 * 1000, // 24 heures
+            reason: 'Severe violation with suspicious behavior',
+            message:
+              'Limite de requêtes largement dépassée. Votre accès est temporairement restreint.',
+          });
 
-          // Pas d'erreur, pas de limitation - on laisse passer la requête
-          resolve(null);
-        };
+          logger.error(
+            'Added IP to temporary blacklist due to severe violations',
+            {
+              ip: anonymizeIp(ip),
+              eventId,
+              component: 'rateLimit',
+              action: 'blacklist_add',
+            },
+          );
 
-        // Appliquer le middleware express-rate-limit avec nos objets adaptés
-        limiter(adaptedReq, res, next);
-      });
+          captureMessage('IP blacklisted due to severe rate limit violations', {
+            level: 'error',
+            tags: {
+              component: 'rateLimit',
+              action: 'blacklist_add',
+            },
+            extra: {
+              ip: anonymizeIp(ip),
+              threatLevel: behavior.threatLevel,
+              detectionPoints: behavior.detectionPoints,
+            },
+          });
+        }
+
+        // Calculer le temps avant réinitialisation
+        const retryAfter = Math.ceil((blockUntil - now) / 1000);
+
+        // Message personnalisé selon la gravité
+        let message =
+          config.message || 'Trop de requêtes, veuillez réessayer plus tard';
+        if (
+          violationLevel.severity === 'high' ||
+          violationLevel.severity === 'severe'
+        ) {
+          message =
+            'Limite de requêtes largement dépassée. Votre accès est temporairement restreint.';
+        }
+
+        // Créer et retourner la réponse
+        return NextResponse.json(
+          {
+            status: 429,
+            error: 'Too Many Requests',
+            message,
+            retryAfter,
+            reference: eventId,
+          },
+          {
+            status: 429,
+            headers: {
+              'Retry-After': retryAfter.toString(),
+              'X-RateLimit-Limit': config.max.toString(),
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': Math.ceil(blockUntil / 1000).toString(),
+            },
+          },
+        );
+      }
+
+      // 7. Si la limite n'est pas dépassée, enregistrer cette requête
+      requests.push(now);
+      requestCache.set(key, requests);
+
+      // 8. Mettre à jour le suivi du comportement (sans violation)
+      trackBehavior(key, req, 0);
+
+      // 9. Laisser passer la requête
+      return null;
     } catch (error) {
-      // Gestion robuste des erreurs avec Winston et Sentry
+      // Logging robuste des erreurs
       logger.error('Unexpected error in rate limit middleware', {
         error: error.message,
         stack: error.stack,
@@ -592,7 +479,7 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
         },
       });
 
-      // En cas d'erreur critique, laisser passer la requête (fail open)
+      // En cas d'erreur, laisser passer la requête (fail open)
       return null;
     }
   };
@@ -617,19 +504,14 @@ export function addToWhitelist(ip) {
  * @param {number} duration Durée du blocage en ms (0 = permanent)
  */
 export function addToBlacklist(ip, duration = 0) {
-  IP_BLACKLIST.add(ip);
+  const now = Date.now();
+  const until = duration > 0 ? now + duration : Number.MAX_SAFE_INTEGER;
 
-  // Si durée spécifiée, prévoir la suppression automatique
-  if (duration > 0) {
-    setTimeout(() => {
-      IP_BLACKLIST.delete(ip);
-      logger.info('Removed IP from rate limit blacklist (timeout)', {
-        ip: anonymizeIp(ip),
-        component: 'rateLimit',
-        action: 'blacklist_remove',
-      });
-    }, duration);
-  }
+  blockedIPs.set(ip, {
+    until,
+    reason: 'Manually blacklisted',
+    message: 'Votre accès a été temporairement restreint.',
+  });
 
   logger.info('Added IP to rate limit blacklist', {
     ip: anonymizeIp(ip),
@@ -657,9 +539,10 @@ export function addToBlacklist(ip, duration = 0) {
  * pour le diagnostic ou le nettoyage
  */
 export function resetAllData() {
-  SUSPICIOUS_BEHAVIOR_CACHE.clear();
-  // Note: Les limiteurs eux-mêmes ne peuvent pas être réinitialisés facilement
-  // avec express-rate-limit sans Redis
+  requestCache.clear();
+  blockedIPs.clear();
+  suspiciousBehavior.clear();
+
   logger.info('Reset all rate limit behavior tracking data', {
     component: 'rateLimit',
     action: 'reset_all',
@@ -680,13 +563,14 @@ export function resetAllData() {
  */
 export function getRateLimitStats() {
   const stats = {
-    suspiciousBehaviors: SUSPICIOUS_BEHAVIOR_CACHE.size,
-    blacklistedIPs: IP_BLACKLIST.size,
+    activeKeys: requestCache.size,
+    suspiciousBehaviors: suspiciousBehavior.size,
+    blockedIPs: blockedIPs.size,
     whitelistedIPs: IP_WHITELIST.size,
     timestamp: new Date().toISOString(),
   };
 
-  // Logger les statistiques périodiquement
+  // Logger les statistiques
   logger.info('Rate limit statistics', {
     component: 'rateLimit',
     action: 'stats',
@@ -696,14 +580,50 @@ export function getRateLimitStats() {
   return stats;
 }
 
-// Initialiser un intervalle pour enregistrer les statistiques périodiquement (toutes les heures)
-let statsInterval;
+// Initialiser un intervalle pour le nettoyage périodique
 if (typeof setInterval !== 'undefined') {
-  statsInterval = setInterval(
+  // Nettoyage des entrées expirées (toutes les 5 minutes)
+  setInterval(
+    () => {
+      try {
+        const now = Date.now();
+
+        // Nettoyer les IPs bloquées expirées
+        for (const [ip, blockInfo] of blockedIPs.entries()) {
+          if (blockInfo.until <= now) {
+            blockedIPs.delete(ip);
+          }
+        }
+
+        // Nettoyer les données de comportement trop anciennes (24 heures)
+        for (const [key, data] of suspiciousBehavior.entries()) {
+          if (now - data.lastSeen > 24 * 60 * 60 * 1000) {
+            suspiciousBehavior.delete(key);
+          }
+        }
+
+        // Nettoyer le cache de requêtes (garder seulement les 10000 plus récentes)
+        if (requestCache.size > 10000) {
+          const keys = Array.from(requestCache.keys());
+          const keysToRemove = keys.slice(0, keys.length - 10000);
+          keysToRemove.forEach((key) => requestCache.delete(key));
+        }
+      } catch (error) {
+        logger.error('Error during rate limit cleanup', {
+          error: error.message,
+          stack: error.stack,
+          component: 'rateLimit',
+        });
+      }
+    },
+    5 * 60 * 1000,
+  );
+
+  // Rapports statistiques périodiques (toutes les heures)
+  const statsInterval = setInterval(
     () => {
       const stats = getRateLimitStats();
 
-      // Envoyer des métriques à Sentry également
       captureMessage('Rate limit statistics (hourly)', {
         level: 'info',
         tags: {
@@ -714,7 +634,7 @@ if (typeof setInterval !== 'undefined') {
       });
     },
     60 * 60 * 1000,
-  ); // 1 heure
+  );
 
   // Éviter de bloquer la fermeture du processus Node.js
   if (statsInterval.unref) {
@@ -723,7 +643,6 @@ if (typeof setInterval !== 'undefined') {
 }
 
 export default {
-  createRateLimiter,
   applyRateLimit,
   addToWhitelist,
   addToBlacklist,
