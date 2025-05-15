@@ -453,52 +453,64 @@ export function createRateLimiter(options = {}) {
  * @returns {Function} Middleware Next.js
  */
 export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
-  console.log('Rate limit options:', options);
   // Créer le limiteur avec détection avancée
   const limiter = createRateLimiter({
     preset,
     ...options,
   });
 
-  // Optimisation: créer un seul objet de réponse vide pour les requêtes autorisées
-  const emptyResponse = null;
-
-  // Créer une fonction adaptée pour Next.js API Routes (optimisée)
+  // Créer une fonction adaptée pour Next.js API Routes
   return async function middleware(req) {
-    console.log('Rate limit middleware triggered');
     // Extraire le chemin pour le logging
     const path = req.url || req.nextUrl?.pathname || 'unknown';
 
-    console.log('Rate limit middleware path:', path);
-
     try {
-      // Adaptation optimisée pour Next.js API Routes
+      // Adapter la requête Next.js pour express-rate-limit
+      // En créant un objet compatible avec les attentes d'express-rate-limit
+      const adaptedReq = {
+        ...req,
+        ip: extractRealIp(req),
+        path: path,
+        method: req.method || 'GET',
+        // Adapter les headers qui sont accessibles différemment dans Next.js
+        headers: {
+          ...req.headers,
+          // Convertir les headers de Next.js (qui utilisent get()) en objet simple
+          'x-forwarded-for': req.headers.get('x-forwarded-for') || '',
+          'user-agent': req.headers.get('user-agent') || '',
+          'x-real-ip': req.headers.get('x-real-ip') || '',
+          referer: req.headers.get('referer') || '',
+        },
+        // Ajouter une méthode "on" vide pour éviter l'erreur
+        on: (event, callback) => {
+          // Ne rien faire, juste éviter l'erreur
+          return adaptedReq;
+        },
+        // Simuler d'autres propriétés d'Express si nécessaire
+        socket: {
+          remoteAddress: extractRealIp(req),
+        },
+      };
+
+      // Créer un objet de réponse simulé pour express-rate-limit
       return new Promise((resolve) => {
-        // Version optimisée de l'objet response simulé
         const res = {
           statusCode: 200,
           headers: {},
           status(code) {
-            console.log('Response status set to:', code);
             this.statusCode = code;
             return this;
           },
           setHeader(name, value) {
-            console.log('Response header set:', name, value);
             this.headers[name] = value;
-            console.log('Response headers:', this.headers);
             return this;
           },
           json(body) {
-            console.log('Response JSON body:', body);
-            console.log('Response headers:', this.headers);
-            console.log('Response status code:', this.statusCode);
-            // Créer une réponse Next.js
+            // Créer une réponse Next.js avec le statut 429 (Too Many Requests)
             const response = NextResponse.json(body, {
               status: this.statusCode,
               headers: this.headers,
             });
-            console.log('Response JSON set:', response);
             resolve(response);
           },
           send(body) {
@@ -512,7 +524,6 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
                 },
               },
             );
-            console.log('Response sent:', response);
             resolve(response);
           },
           end() {
@@ -520,12 +531,11 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
               status: this.statusCode,
               headers: this.headers,
             });
-            console.log('Response ended:', response);
             resolve(response);
           },
         };
 
-        // Fonction next() optimisée
+        // Fonction next() - utilisée quand la requête n'est pas limitée
         const next = (err) => {
           if (err) {
             // Logging d'erreur amélioré avec Winston
@@ -549,16 +559,16 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
             });
 
             // En cas d'erreur interne, laisser passer quand même
-            resolve(emptyResponse);
+            resolve(null);
             return;
           }
 
-          // Pas d'erreur - on laisse passer la requête
-          resolve(emptyResponse);
+          // Pas d'erreur, pas de limitation - on laisse passer la requête
+          resolve(null);
         };
 
-        // Appliquer le middleware express-rate-limit avec optimisation
-        limiter(req, res, next);
+        // Appliquer le middleware express-rate-limit avec nos objets adaptés
+        limiter(adaptedReq, res, next);
       });
     } catch (error) {
       // Gestion robuste des erreurs avec Winston et Sentry
@@ -583,7 +593,7 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
       });
 
       // En cas d'erreur critique, laisser passer la requête (fail open)
-      return emptyResponse;
+      return null;
     }
   };
 }
