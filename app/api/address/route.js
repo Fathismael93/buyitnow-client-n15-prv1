@@ -10,9 +10,9 @@ import { addressSchema } from '@/helpers/schemas';
 import { sanitizeAddress, isAddressValid } from '@/utils/addressSanitizer';
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
-import { createRateLimiter } from '@/utils/rateLimit';
 import { validateWithLogging } from '@/helpers/schemas';
 import { appCache, getCacheKey } from '@/utils/cache';
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 export async function GET(req) {
   // Récupérer le contexte depuis l'URL
@@ -39,32 +39,21 @@ export async function GET(req) {
     // Vérifier l'authentification
     await isAuthenticatedUser(req, NextResponse);
 
-    // Appliquer le rate limiting pour les requêtes authentifiées
-    const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
+    // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
+    const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
       prefix: 'address_api',
-      getTokenFromReq: (req) => req.user?.email || req.user?.id,
     });
 
-    try {
-      await rateLimiter.check(req);
-    } catch (rateLimitError) {
+    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await addressRateLimiter(req);
+
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
       logger.warn('Rate limit exceeded for address API', {
         user: req.user?.email,
-        error: rateLimitError.message,
       });
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Too many requests, please try again later',
-        },
-        {
-          status: 429,
-          headers: rateLimitError.headers || {
-            'Retry-After': '60',
-          },
-        },
-      );
+      return rateLimitResponse;
     }
 
     // Connecter à la base de données avec timeout
@@ -353,32 +342,21 @@ export async function POST(req) {
     // Vérifier l'authentification
     await isAuthenticatedUser(req, NextResponse);
 
-    // Appliquer le rate limiting pour les requêtes authentifiées
-    const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
+    // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
+    const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
       prefix: 'address_api',
-      getTokenFromReq: (req) => req.user?.email || req.user?.id,
     });
 
-    try {
-      await rateLimiter.check(req);
-    } catch (rateLimitError) {
+    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await addressRateLimiter(req);
+
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
       logger.warn('Rate limit exceeded for address API', {
         user: req.user?.email,
-        error: rateLimitError.message,
       });
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Too many requests, please try again later',
-        },
-        {
-          status: 429,
-          headers: rateLimitError.headers || {
-            'Retry-After': '60',
-          },
-        },
-      );
+      return rateLimitResponse;
     }
 
     // Connecter à la base de données avec timeout
