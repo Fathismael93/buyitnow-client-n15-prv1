@@ -503,9 +503,11 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
           },
           setHeader(name, value) {
             this.headers[name] = value;
+            console.log('Header set:', this.headers);
             return this;
           },
           json(body) {
+            console.log('JSON response:', body);
             // Créer une réponse Next.js avec le statut 429 (Too Many Requests)
             const response = NextResponse.json(body, {
               status: this.statusCode,
