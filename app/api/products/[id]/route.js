@@ -6,7 +6,7 @@ import { headers } from 'next/headers';
 import dbConnect from '@/backend/config/dbConnect';
 import Product from '@/backend/models/product';
 import Category from '@/backend/models/category';
-import { createRateLimiter, RATE_LIMIT_ALGORITHMS } from '@/utils/rateLimit';
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 import { appCache, getCacheHeaders, getCacheKey } from '@/utils/cache';
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
@@ -19,13 +19,9 @@ const QUERY_TIMEOUT = parseInt(process.env.QUERY_TIMEOUT || 5000); // 5 secondes
 const SAFE_FIELDS =
   'name description price images category stock sold isActive slug';
 
-// Création d'un rate limiter spécifique pour les détails de produit
-const productDetailRateLimiter = createRateLimiter('PUBLIC_API', {
+// Création d'un middleware de rate limiting pour les détails de produit
+const productDetailRateLimiter = applyRateLimit('PUBLIC_API', {
   prefix: 'product-detail',
-  limit: 60, // 60 requêtes par minute
-  interval: 60 * 1000, // 1 minute
-  algorithm: RATE_LIMIT_ALGORITHMS.SLIDING_WINDOW,
-  blockDuration: 5 * 60 * 1000, // 5 minutes de blocage après abus
 });
 
 /**
@@ -40,36 +36,17 @@ export async function GET(req, { params }) {
   const requestId = headersList.get('x-request-id') || `prod-${Date.now()}`;
 
   try {
-    // Vérifier le rate limiting
-    let rateLimitInfo, rateLimitHeaders;
+    // Appliquer le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await productDetailRateLimiter(req);
 
-    try {
-      rateLimitInfo = await productDetailRateLimiter.check(req);
-      rateLimitHeaders = rateLimitInfo.headers || {};
-    } catch (error) {
-      if (error.statusCode === 429) {
-        logger.warn('Rate limit exceeded for product detail', {
-          ip: headersList.get('x-forwarded-for') || 'unknown',
-          requestId,
-        });
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
+      logger.warn('Rate limit exceeded for product detail', {
+        ip: headersList.get('x-forwarded-for') || 'unknown',
+        requestId,
+      });
 
-        return NextResponse.json(
-          {
-            success: false,
-            message: 'Trop de requêtes, veuillez réessayer plus tard',
-            code: 'RATE_LIMIT_EXCEEDED',
-            retryAfter: error.headers?.['Retry-After'] || 60,
-          },
-          {
-            status: 429,
-            headers: {
-              ...error.headers,
-              'Retry-After': error.headers?.['Retry-After'] || 60,
-            },
-          },
-        );
-      }
-      // Si l'erreur n'est pas de rate limiting, on continue
+      return rateLimitResponse;
     }
 
     // Validation de l'ID MongoDB
@@ -84,7 +61,6 @@ export async function GET(req, { params }) {
         {
           status: 400,
           headers: {
-            ...rateLimitHeaders,
             'Content-Security-Policy': "default-src 'self'",
             'X-Content-Type-Options': 'nosniff',
           },
@@ -138,7 +114,6 @@ export async function GET(req, { params }) {
           status: 200,
           headers: {
             ...getCacheHeaders('singleProduct'),
-            ...rateLimitHeaders,
             'X-Cache': 'HIT',
             'Content-Security-Policy': "default-src 'self'",
             'X-Content-Type-Options': 'nosniff',
@@ -169,34 +144,31 @@ export async function GET(req, { params }) {
       throw new Error('Database connection failed');
     }
 
-    // Récupération simultanée du produit et des produits similaires pour optimisation
-    const [product, healthCheck] = await Promise.all([
-      // Récupération du produit avec timeout
-      new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Product query timeout exceeded'));
-        }, QUERY_TIMEOUT);
+    // Récupération du produit avec timeout
+    const product = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Product query timeout exceeded'));
+      }, QUERY_TIMEOUT);
 
-        Product.findById(id)
-          .select(SAFE_FIELDS)
-          .populate('category', 'categoryName')
-          .lean() // Convertir en objet JavaScript pur pour performance
-          .then((result) => {
-            clearTimeout(timeout);
-            resolve(result);
-          })
-          .catch((err) => {
-            clearTimeout(timeout);
-            reject(err);
-          });
-      }),
+      Product.findById(id)
+        .select(SAFE_FIELDS)
+        .populate('category', 'categoryName')
+        .lean() // Convertir en objet JavaScript pur pour performance
+        .then((result) => {
+          clearTimeout(timeout);
+          resolve(result);
+        })
+        .catch((err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+    });
 
-      // Vérification de santé de la DB en parallèle
-      connectionInstance.connection.db
-        .admin()
-        .ping()
-        .catch(() => false),
-    ]);
+    // Vérification de santé de la DB en parallèle - résultat ignoré car non utilisé
+    connectionInstance.connection.db
+      .admin()
+      .ping()
+      .catch(() => false);
 
     // Si le produit n'existe pas
     if (!product) {
@@ -215,7 +187,6 @@ export async function GET(req, { params }) {
         {
           status: 404,
           headers: {
-            ...rateLimitHeaders,
             'Content-Security-Policy': "default-src 'self'",
             'X-Content-Type-Options': 'nosniff',
           },
@@ -266,10 +237,8 @@ export async function GET(req, { params }) {
       },
       {
         status: 200,
-        // Par :
         headers: {
           ...getCacheHeaders('singleProduct'), // Utiliser la nouvelle configuration spécifique
-          ...rateLimitHeaders,
           'X-Cache': 'MISS',
           'Content-Security-Policy': "default-src 'self'",
           'X-Content-Type-Options': 'nosniff',
