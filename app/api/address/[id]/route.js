@@ -5,11 +5,11 @@ import User from '@/backend/models/user';
 import isAuthenticatedUser from '@/backend/middlewares/auth';
 import dbConnect from '@/backend/config/dbConnect';
 import logger from '@/utils/logger';
-import { createRateLimiter } from '@/utils/rateLimit';
 import { appCache, getCacheKey } from '@/utils/cache';
 import { captureException } from '@/monitoring/sentry';
 import { sanitizeAddress } from '@/utils/addressSanitizer';
 import { addressSchema, validateWithLogging } from '@/helpers/schemas';
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 export async function GET(req, { params }) {
   // Structured logging of request
@@ -23,32 +23,21 @@ export async function GET(req, { params }) {
     // Verify authentication
     await isAuthenticatedUser(req, NextResponse);
 
-    // Apply rate limiting for authenticated requests
-    const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
+    // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
+    const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
       prefix: 'address_detail_api',
-      getTokenFromReq: (req) => req.user?.email || req.user?.id,
     });
 
-    try {
-      await rateLimiter.check(req);
-    } catch (rateLimitError) {
+    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await addressRateLimiter(req);
+
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
       logger.warn('Rate limit exceeded for single address API', {
         user: req.user?.email,
-        error: rateLimitError.message,
       });
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Too many requests, please try again later',
-        },
-        {
-          status: 429,
-          headers: rateLimitError.headers || {
-            'Retry-After': '60',
-          },
-        },
-      );
+      return rateLimitResponse;
     }
 
     // Connect to the database with timeout
@@ -322,32 +311,21 @@ export async function PUT(req, { params }) {
     // Verify authentication
     await isAuthenticatedUser(req, NextResponse);
 
-    // Apply rate limiting for authenticated requests
-    const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
+    // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
+    const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
       prefix: 'address_api',
-      getTokenFromReq: (req) => req.user?.email || req.user?.id,
     });
 
-    try {
-      await rateLimiter.check(req);
-    } catch (rateLimitError) {
+    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await addressRateLimiter(req);
+
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
       logger.warn('Rate limit exceeded for address PUT API', {
         user: req.user?.email,
-        error: rateLimitError.message,
       });
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Too many requests, please try again later',
-        },
-        {
-          status: 429,
-          headers: rateLimitError.headers || {
-            'Retry-After': '60',
-          },
-        },
-      );
+      return rateLimitResponse;
     }
 
     // Connect to the database with timeout
@@ -762,32 +740,21 @@ export async function DELETE(req, { params }) {
     // Verify authentication
     await isAuthenticatedUser(req, NextResponse);
 
-    // Apply rate limiting for authenticated requests
-    const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
+    // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
+    const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
       prefix: 'address_api',
-      getTokenFromReq: (req) => req.user?.email || req.user?.id,
     });
 
-    try {
-      await rateLimiter.check(req);
-    } catch (rateLimitError) {
+    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await addressRateLimiter(req);
+
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
       logger.warn('Rate limit exceeded for address DELETE API', {
         user: req.user?.email,
-        error: rateLimitError.message,
       });
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Too many requests, please try again later',
-        },
-        {
-          status: 429,
-          headers: rateLimitError.headers || {
-            'Retry-After': '60',
-          },
-        },
-      );
+      return rateLimitResponse;
     }
 
     // Connect to the database with timeout
