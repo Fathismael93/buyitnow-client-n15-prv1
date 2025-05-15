@@ -15,7 +15,7 @@ import {
 import { captureException } from '@/monitoring/sentry';
 import { getCacheHeaders, getCacheKey } from '@/utils/cache';
 import { appCache } from '@/utils/cache';
-import { createRateLimiter, RATE_LIMIT_ALGORITHMS } from '@/utils/rateLimit';
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 // Importer les fonctions de sanitisation
 import {
   sanitizeProductSearchParams,
@@ -27,49 +27,19 @@ const QUERY_TIMEOUT = parseInt(process.env.QUERY_TIMEOUT || 5000); // 5 secondes
 const DEFAULT_PER_PAGE = parseInt(process.env.DEFAULT_PRODUCTS_PER_PAGE || 10);
 const MAX_PER_PAGE = parseInt(process.env.MAX_PRODUCTS_PER_PAGE || 50);
 
-// Création d'un rate limiter optimisé pour l'API de produits
-// Utilisation de l'algorithme de fenêtre glissante pour une meilleure précision
-const productsRateLimiter = createRateLimiter('PUBLIC_API', {
+// Création d'un middleware de rate limiting pour l'API de produits
+const productsRateLimiter = applyRateLimit('PUBLIC_API', {
   prefix: 'products-api',
-  limit: 40, // 40 requêtes par minute
-  interval: 60 * 1000, // 1 minute
-  algorithm: RATE_LIMIT_ALGORITHMS.SLIDING_WINDOW,
-  blockDuration: 10 * 60 * 1000, // 10 minutes de blocage après abus
 });
 
 export async function GET(req) {
   try {
-    // Rate limiting simple pour API publique
-    let rateLimitInfo, rateLimitHeaders;
+    // Appliquer le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await productsRateLimiter(req);
 
-    try {
-      // Appliquer la même limite pour tous les utilisateurs
-      rateLimitInfo = await productsRateLimiter.check(req);
-
-      // Ajouter les headers de rate limiting à toutes les réponses
-      rateLimitHeaders = rateLimitInfo.headers || {};
-    } catch (error) {
-      // Si on atteint la limite, retourner une réponse 429 avec headers explicatifs
-      if (error.statusCode === 429) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: 'Trop de requêtes, veuillez réessayer plus tard',
-            code: 'RATE_LIMIT_EXCEEDED',
-            retryAfter: error.headers?.['Retry-After'] || 60,
-          },
-          {
-            status: 429,
-            headers: {
-              ...error.headers,
-              'Retry-After': error.headers?.['Retry-After'] || 60,
-            },
-          },
-        );
-      }
-
-      // Autres erreurs de rate limiting - on continue malgré tout
-      // pour éviter de bloquer le service en cas de problème avec le rate limiter
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
+      return rateLimitResponse;
     }
 
     // Validation avec les schémas Yup après sanitisation
@@ -179,7 +149,6 @@ export async function GET(req) {
         },
         {
           status: 400,
-          headers: rateLimitInfo?.headers || {}, // Inclure les headers de rate limiting même en cas d'erreur
         },
       );
     }
@@ -204,7 +173,6 @@ export async function GET(req) {
         status: 200,
         headers: {
           ...getCacheHeaders('products'),
-          ...rateLimitHeaders, // Ajouter les headers de rate limiting
           'X-Cache': 'HIT',
           'Content-Security-Policy': "default-src 'self'",
           'X-Content-Type-Options': 'nosniff',
@@ -323,7 +291,6 @@ export async function GET(req) {
         status: 200,
         headers: {
           ...getCacheHeaders('products'),
-          ...rateLimitInfo?.headers, // Ajouter les headers de rate limiting
           'X-Cache': 'MISS',
           'Content-Security-Policy': "default-src 'self'",
           'X-Content-Type-Options': 'nosniff',
@@ -354,7 +321,6 @@ export async function GET(req) {
       status: 200,
       headers: {
         ...getCacheHeaders('products'),
-        ...rateLimitHeaders, // Ajouter les headers de rate limiting
         'X-Cache': 'MISS',
         'Content-Security-Policy': "default-src 'self'",
         'X-Content-Type-Options': 'nosniff',
@@ -377,17 +343,6 @@ export async function GET(req) {
       level: error.name === 'ValidationError' ? 'warning' : 'error',
     });
 
-    // Headers de réponse pour toute erreur
-    const baseHeaders = {};
-
-    // Essayer de récupérer des headers de rate limiting même en cas d'erreur
-    try {
-      const rateLimitHeaders = await productsRateLimiter.check(req, 40);
-      Object.assign(baseHeaders, rateLimitHeaders.headers || {});
-    } catch (e) {
-      // Silencieux en cas d'erreur du rate limiter lui-même
-    }
-
     // Déterminer le type d'erreur pour une réponse appropriée
     if (error.name === 'ValidationError') {
       return NextResponse.json(
@@ -403,7 +358,6 @@ export async function GET(req) {
         },
         {
           status: 400,
-          headers: baseHeaders,
         },
       );
     } else if (error.name === 'MongoServerError' && error.code === 11000) {
@@ -415,7 +369,6 @@ export async function GET(req) {
         },
         {
           status: 500,
-          headers: baseHeaders,
         },
       );
     } else if (
@@ -430,7 +383,6 @@ export async function GET(req) {
         },
         {
           status: 504,
-          headers: baseHeaders,
         },
       );
     } else if (
@@ -445,7 +397,6 @@ export async function GET(req) {
         },
         {
           status: 503,
-          headers: baseHeaders,
         },
       );
     }
@@ -460,7 +411,6 @@ export async function GET(req) {
       },
       {
         status: 500,
-        headers: baseHeaders,
       },
     );
   }
