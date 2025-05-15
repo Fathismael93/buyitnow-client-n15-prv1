@@ -48,6 +48,14 @@ const Cart = () => {
   // Ajoutons un useRef pour suivre si une requête de chargement est en cours
   const isLoadingCart = useRef(false);
 
+  // Handle auth context updates
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      clearError();
+    }
+  }, [error, clearError]);
+
   // Précharger la page de livraison
   useEffect(() => {
     router.prefetch('/shipping-choice');
@@ -74,14 +82,6 @@ const Cart = () => {
         setInitialLoadComplete(true);
       }
     };
-
-    // Handle auth context updates
-    useEffect(() => {
-      if (error) {
-        toast.error(error);
-        clearError();
-      }
-    }, [error, clearError]);
 
     // Ne charger qu'une seule fois au montage du composant
     // if (!initialLoadComplete && !isLoadingCart.current) {
