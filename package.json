@@ -22,7 +22,6 @@
         "countries-list": "^3.1.1",
         "cross-env": "^7.0.3",
         "dompurify": "^3.2.5",
-        "express-rate-limit": "^7.5.0",
         "lru-cache": "^11.1.0",
         "lz-string": "^1.5.0",
         "mongoose": "^8.13.2",
