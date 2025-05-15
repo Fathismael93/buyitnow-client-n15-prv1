@@ -453,6 +453,7 @@ export function createRateLimiter(options = {}) {
  * @returns {Function} Middleware Next.js
  */
 export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
+  console.log('Rate limit options:', options);
   // Créer le limiteur avec détection avancée
   const limiter = createRateLimiter({
     preset,
@@ -464,8 +465,11 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
 
   // Créer une fonction adaptée pour Next.js API Routes (optimisée)
   return async function middleware(req) {
+    console.log('Rate limit middleware triggered');
     // Extraire le chemin pour le logging
     const path = req.url || req.nextUrl?.pathname || 'unknown';
+
+    console.log('Rate limit middleware path:', path);
 
     try {
       // Adaptation optimisée pour Next.js API Routes
@@ -476,10 +480,12 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
           headers: {},
           status(code) {
             this.statusCode = code;
+            console.log('Response status set to:', code);
             return this;
           },
           setHeader(name, value) {
             this.headers[name] = value;
+            console.log('Response header set:', name, value);
             return this;
           },
           json(body) {
@@ -488,6 +494,7 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
               status: this.statusCode,
               headers: this.headers,
             });
+            console.log('Response JSON set:', response);
             resolve(response);
           },
           send(body) {
@@ -501,6 +508,7 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
                 },
               },
             );
+            console.log('Response sent:', response);
             resolve(response);
           },
           end() {
@@ -508,6 +516,7 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
               status: this.statusCode,
               headers: this.headers,
             });
+            console.log('Response ended:', response);
             resolve(response);
           },
         };
