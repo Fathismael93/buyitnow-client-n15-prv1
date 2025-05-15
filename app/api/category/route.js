@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import dbConnect from '@/backend/config/dbConnect';
 import Category from '@/backend/models/category';
-import { createRateLimiter } from '@/utils/rateLimit';
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 import logger from '@/utils/logger';
 import { captureException } from '@/monitoring/sentry';
 import {
@@ -18,53 +18,13 @@ import {
 const categoryCache = appCache.categories;
 
 // Configurez un rate limiter optimisé pour cette route spécifique
-const rateLimiter = createRateLimiter('PUBLIC_API', {
+const categoryRateLimiter = applyRateLimit('PUBLIC_API', {
   prefix: 'api:category',
-  // Stratégie adaptative: limiter par utilisateur si connecté, sinon par IP
-  getTokenFromReq: (req) => {
-    // Si l'utilisateur est authentifié, utiliser son ID
-    if (req.user && req.user.id) {
-      return `user:${req.user.id}`;
-    }
-    // Sinon utiliser l'IP (comportement par défaut)
-    return null;
-  },
   // Ignorer le rate limiting pour les administrateurs ou en mode développement
   skip: (req) => {
     return (
       process.env.NODE_ENV === 'development' ||
       (req.user && req.user.isAdmin === true)
-    );
-  },
-});
-
-// Créer le middleware Next.js optimisé
-const rateLimitMiddleware = rateLimiter.middleware({
-  // Handler personnalisé pour réponses adaptées au format de l'API
-  handler: (error, req) => {
-    const retryAfter = error.headers?.['Retry-After'] || 60;
-
-    // Journalisation structurée de l'événement
-    logger.warn(`Rate limit exceeded for categories API`, {
-      component: 'categoryAPI',
-      path: '/api/category',
-      retryAfter,
-      userAgent: req.headers['user-agent'],
-    });
-
-    // Réponse formatée selon la convention de l'API
-    return NextResponse.json(
-      {
-        success: false,
-        message: 'Rate limit exceeded. Please try again later.',
-        retryAfter: parseInt(retryAfter, 10),
-      },
-      {
-        status: 429,
-        headers: error.headers || {
-          'Retry-After': retryAfter,
-        },
-      },
     );
   },
 });
@@ -120,18 +80,18 @@ export async function GET(req) {
   const startTime = performance.now();
 
   try {
-    // 1. Vérifier le rate limiting via middleware
-    try {
-      await rateLimitMiddleware(
-        req,
-        {
-          setHeader: () => {}, // Adaptation pour Next.js App Router
-        },
-        () => {},
-      );
-    } catch (error) {
-      // Le middleware a déjà géré la réponse
-      return error;
+    // 1. Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await categoryRateLimiter(req);
+
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
+      logger.warn('Rate limit exceeded for categories API', {
+        component: 'categoryAPI',
+        path: '/api/category',
+        userAgent: req.headers.get('user-agent'),
+      });
+
+      return rateLimitResponse;
     }
 
     // 2. Vérifier si les données sont en cache en utilisant getWithLock pour gérer la concurrence
