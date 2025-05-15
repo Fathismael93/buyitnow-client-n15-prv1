@@ -699,7 +699,6 @@ if (typeof setInterval !== 'undefined') {
   }
 }
 
-// Export par défaut avec toutes les fonctionnalités
 export default {
   createRateLimiter,
   applyRateLimit,
