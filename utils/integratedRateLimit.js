@@ -479,13 +479,13 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
           statusCode: 200,
           headers: {},
           status(code) {
-            this.statusCode = code;
             console.log('Response status set to:', code);
+            this.statusCode = code;
             return this;
           },
           setHeader(name, value) {
-            this.headers[name] = value;
             console.log('Response header set:', name, value);
+            this.headers[name] = value;
             return this;
           },
           json(body) {
