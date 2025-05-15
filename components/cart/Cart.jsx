@@ -93,6 +93,7 @@ const Cart = () => {
 
   // Afficher un écran de chargement pendant le chargement initial
   if (!initialLoadComplete) {
+    console.log('cart in Cart.jsx', cart);
     return <CartSkeleton />;
   }
 
