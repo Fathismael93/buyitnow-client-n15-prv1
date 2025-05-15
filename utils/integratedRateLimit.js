@@ -515,27 +515,27 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
           //   });
           //   resolve(response);
           // },
-          send(body) {
-            console.log('Response body:', body);
-            const response = new NextResponse(
-              typeof body === 'string' ? body : JSON.stringify(body),
-              {
-                status: this.statusCode,
-                headers: {
-                  ...this.headers,
-                  'Content-Type': 'application/json',
-                },
-              },
-            );
-            resolve(response);
-          },
-          end() {
-            const response = new NextResponse(null, {
-              status: this.statusCode,
-              headers: this.headers,
-            });
-            resolve(response);
-          },
+          // send(body) {
+          //   console.log('Response body:', body);
+          //   const response = new NextResponse(
+          //     typeof body === 'string' ? body : JSON.stringify(body),
+          //     {
+          //       status: this.statusCode,
+          //       headers: {
+          //         ...this.headers,
+          //         'Content-Type': 'application/json',
+          //       },
+          //     },
+          //   );
+          //   resolve(response);
+          // },
+          // end() {
+          //   const response = new NextResponse(null, {
+          //     status: this.statusCode,
+          //     headers: this.headers,
+          //   });
+          //   resolve(response);
+          // },
         };
 
         // Fonction next() - utilisée quand la requête n'est pas limitée
