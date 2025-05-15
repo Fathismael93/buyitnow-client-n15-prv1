@@ -67,6 +67,9 @@ export async function GET(req) {
         { status: 500 },
       );
     }
+
+    console.log('Request user', req.user);
+
     // Trouver l'utilisateur
     const user = await User.findOne({ email: req.user.email }).select('_id');
 
