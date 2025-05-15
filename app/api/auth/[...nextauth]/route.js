@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
@@ -14,8 +13,8 @@ import {
   setUser as setSentryUser,
 } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
-import { rateLimit, RATE_LIMIT_PRESETS } from '@/utils/rateLimit';
 import { appCache } from '@/utils/cache';
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 import { memoizeWithTTL } from '@/utils/performance';
 
@@ -36,13 +35,6 @@ const getUserByEmail = memoizeWithTTL(async (email) => {
   }
 }, 30 * 1000); // Cache pendant 30 secondes
 
-// Limiter les tentatives de connexion pour éviter les attaques par force brute
-const authLimiter = rateLimit({
-  ...RATE_LIMIT_PRESETS.AUTH_ENDPOINTS,
-  prefix: 'auth_login',
-  blockDuration: 15 * 60 * 1000, // 15 minutes de blocage après trop de tentatives
-});
-
 // Configuration avancée de NextAuth
 const auth = {
   providers: [
@@ -55,7 +47,7 @@ const auth = {
       },
       async authorize(credentials, req) {
         try {
-          // Vérification de rate limiting
+          // Extraction de l'IP du client pour le rate limiting
           const clientIp =
             (req.headers?.['x-forwarded-for'] || '')
               .split(',')
@@ -64,11 +56,24 @@ const auth = {
             req.socket?.remoteAddress ||
             'unknown';
 
-          const token = `ip:${clientIp}`;
+          // Création d'un objet req compatible avec le rate limiter
+          const rateLimitReq = {
+            url: '/api/auth/login',
+            headers: new Headers(req.headers || {}),
+            nextUrl: { pathname: '/api/auth/login' },
+            socket: { remoteAddress: clientIp },
+          };
 
-          try {
-            await authLimiter.check(req, null, token);
-          } catch (error) {
+          // Appliquer le rate limiting pour l'authentification
+          const authRateLimiter = applyRateLimit('AUTH_ENDPOINTS', {
+            prefix: 'auth_login',
+          });
+
+          // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+          const rateLimitResponse = await authRateLimiter(rateLimitReq);
+
+          // Si une limite est dépassée, bloquer la tentative d'authentification
+          if (rateLimitResponse) {
             logger.warn('Authentication rate limit exceeded', {
               ip: clientIp.replace(/\d+$/, 'xxx'), // Anonymisation partielle
               attempt: new Date().toISOString(),
@@ -155,9 +160,6 @@ const auth = {
             userId: user._id.toString(),
             role: user.role,
           });
-
-          // Réinitialiser le compteur de rate limit après connexion réussie
-          authLimiter.resetLimit(token);
 
           return userWithoutPassword;
         } catch (error) {
