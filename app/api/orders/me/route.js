@@ -10,12 +10,12 @@ import User from '@/backend/models/user';
 import DeliveryPrice from '@/backend/models/deliveryPrice';
 import logger from '@/utils/logger';
 import { captureException } from '@/monitoring/sentry';
-import { createRateLimiter } from '@/utils/rateLimit';
 import { appCache, getCacheHeaders, getCacheKey } from '@/utils/cache';
 import {
   buildSanitizedSearchParams,
   sanitizePage,
 } from '@/utils/inputSanitizer';
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 // Constantes pour la configuration
 const DEFAULT_PER_PAGE = parseInt(process.env.DEFAULT_PRODUCTS_PER_PAGE || 10);
@@ -42,21 +42,26 @@ export async function GET(req) {
     // 1. Authentification et rate limiting
     await isAuthenticatedUser(req, NextResponse);
 
-    // Application du rate limiting pour les requêtes d'historique de commandes
-    const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
+    // Application du rate limiting pour les requêtes d'historique de commandes avec la nouvelle implémentation
+    const ordersRateLimiter = applyRateLimit('AUTHENTICATED_API', {
       prefix: 'orders_history',
-      getTokenFromReq: (req) => req.user?.email || req.user?.id,
     });
 
-    try {
-      await rateLimiter.check(req);
-    } catch (rateLimitError) {
+    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await ordersRateLimiter(req);
+
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
       logger.warn('Rate limit exceeded for orders history', {
         user: req.user?.email,
         requestId,
-        error: rateLimitError.message,
       });
 
+      // Ajouter l'ID de requête aux en-têtes de réponse
+      const headers = new Headers(rateLimitResponse.headers);
+      headers.set('X-Request-ID', requestId);
+
+      // Créer une nouvelle réponse avec les en-têtes mis à jour
       return NextResponse.json(
         {
           success: false,
@@ -65,10 +70,7 @@ export async function GET(req) {
         },
         {
           status: 429,
-          headers: rateLimitError.headers || {
-            'Retry-After': '60',
-            'X-Request-ID': requestId,
-          },
+          headers,
         },
       );
     }
