@@ -8,8 +8,8 @@ import Contact from '@/backend/models/contact';
 import { validateContactMessage } from '@/helpers/schemas';
 import logger from '@/utils/logger';
 import { captureException, captureMessage } from '@/monitoring/sentry';
-import { createRateLimiter } from '@/utils/rateLimit';
 import { appCache, getCacheKey } from '@/utils/cache';
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 /**
  * Gère l'envoi d'emails et l'enregistrement des messages de contact
@@ -31,21 +31,26 @@ export async function POST(req) {
     // 1. Vérifier l'authentification
     await isAuthenticatedUser(req, NextResponse);
 
-    // 2. Appliquer le rate limiting pour éviter les abus
-    const rateLimiter = createRateLimiter('AUTH_ENDPOINTS', {
+    // 2. Appliquer le rate limiting pour éviter les abus avec la nouvelle implémentation
+    const emailRateLimiter = applyRateLimit('AUTH_ENDPOINTS', {
       prefix: 'email_send',
-      getTokenFromReq: (req) => req.user?.email || req.user?.id,
     });
 
-    try {
-      await rateLimiter.check(req);
-    } catch (rateLimitError) {
+    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await emailRateLimiter(req);
+
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
       logger.warn('Rate limit exceeded for email sending', {
         user: req.user?.email,
         requestId,
-        error: rateLimitError.message,
       });
 
+      // Ajouter l'ID de requête aux en-têtes de réponse
+      const headers = new Headers(rateLimitResponse.headers);
+      headers.set('X-Request-ID', requestId);
+
+      // Créer une nouvelle réponse avec les en-têtes mis à jour
       return NextResponse.json(
         {
           success: false,
@@ -54,9 +59,7 @@ export async function POST(req) {
         },
         {
           status: 429,
-          headers: rateLimitError.headers || {
-            'Retry-After': '600', // 10 minutes par défaut
-          },
+          headers,
         },
       );
     }
