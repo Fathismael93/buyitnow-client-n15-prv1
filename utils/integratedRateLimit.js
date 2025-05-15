@@ -489,6 +489,9 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
             return this;
           },
           json(body) {
+            console.log('Response JSON body:', body);
+            console.log('Response headers:', this.headers);
+            console.log('Response status code:', this.statusCode);
             // Créer une réponse Next.js
             const response = NextResponse.json(body, {
               status: this.statusCode,
