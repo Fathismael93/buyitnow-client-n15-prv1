@@ -232,8 +232,6 @@ export const CartProvider = ({ children }) => {
           return;
         }
 
-        console.log('Cart data in CartContext:', data);
-
         // Traitement des réponses avec JSON valide
         if (data) {
           if (data.success === true) {

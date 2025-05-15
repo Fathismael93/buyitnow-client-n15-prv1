@@ -68,8 +68,6 @@ export async function GET(req) {
       );
     }
 
-    console.log('Request user', req.user);
-
     // Trouver l'utilisateur
     const user = await User.findOne({ email: req.user.email }).select('_id');
 
