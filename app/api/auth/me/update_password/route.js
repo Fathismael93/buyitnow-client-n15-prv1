@@ -5,10 +5,10 @@ import isAuthenticatedUser from '@/backend/middlewares/auth';
 import dbConnect from '@/backend/config/dbConnect';
 import User from '@/backend/models/user';
 import logger from '@/utils/logger';
-import { createRateLimiter } from '@/utils/rateLimit';
 import { appCache, getCacheKey } from '@/utils/cache';
 import { updatePasswordSchema, validateWithLogging } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 export async function PUT(req) {
   // Structured logging of request
@@ -21,18 +21,18 @@ export async function PUT(req) {
     // Verify authentication
     await isAuthenticatedUser(req, NextResponse);
 
-    // Apply rate limiting for authenticated requests
-    const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
+    // Apply rate limiting for authenticated requests with the new implementation
+    const passwordRateLimiter = applyRateLimit('AUTHENTICATED_API', {
       prefix: 'password_update_api',
-      getTokenFromReq: (req) => req.user?.email || req.user?.id,
     });
 
-    try {
-      await rateLimiter.check(req);
-    } catch (rateLimitError) {
+    // Verify rate limiting and get a response if the limit is exceeded
+    const rateLimitResponse = await passwordRateLimiter(req);
+
+    // If a rate limit response is returned, return it immediately
+    if (rateLimitResponse) {
       logger.warn('Rate limit exceeded for password update API', {
         user: req.user?.email,
-        error: rateLimitError.message,
       });
 
       return NextResponse.json(
@@ -42,9 +42,7 @@ export async function PUT(req) {
         },
         {
           status: 429,
-          headers: rateLimitError.headers || {
-            'Retry-After': '60',
-          },
+          headers: rateLimitResponse.headers,
         },
       );
     }
