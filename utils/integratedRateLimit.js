@@ -486,6 +486,7 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
           setHeader(name, value) {
             console.log('Response header set:', name, value);
             this.headers[name] = value;
+            console.log('Response headers:', this.headers);
             return this;
           },
           json(body) {
