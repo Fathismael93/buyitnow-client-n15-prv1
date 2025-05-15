@@ -29,22 +29,16 @@ export async function GET(req) {
     });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    await cartRateLimiter(req)
-      .then((rateLimitResponse) => {
-        console.log('rateLimitResponse', rateLimitResponse);
-      })
-      .catch((rateLimitError) => {
-        console.log('rateLimitError', rateLimitError);
-      });
+    const rateLimitResponse = await cartRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    // if (rateLimitResponse) {
-    //   logger.warn('Rate limit exceeded for cart API', {
-    //     user: req.user?.email,
-    //   });
+    if (rateLimitResponse) {
+      logger.warn('Rate limit exceeded for cart API', {
+        user: req.user?.email,
+      });
 
-    //   return rateLimitResponse;
-    // }
+      return rateLimitResponse;
+    }
 
     // Connecter à la base de données avec timeout
     const connectionInstance = await dbConnect();

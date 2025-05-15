@@ -503,39 +503,36 @@ export function applyRateLimit(preset = 'PUBLIC_API', options = {}) {
           },
           setHeader(name, value) {
             this.headers[name] = value;
-            console.log('Header set:', this.headers);
             return this;
           },
-          // json(body) {
-          //   console.log('JSON response:', body);
-          //   // Créer une réponse Next.js avec le statut 429 (Too Many Requests)
-          //   const response = NextResponse.json(body, {
-          //     status: this.statusCode,
-          //     headers: this.headers,
-          //   });
-          //   resolve(response);
-          // },
-          // send(body) {
-          //   console.log('Response body:', body);
-          //   const response = new NextResponse(
-          //     typeof body === 'string' ? body : JSON.stringify(body),
-          //     {
-          //       status: this.statusCode,
-          //       headers: {
-          //         ...this.headers,
-          //         'Content-Type': 'application/json',
-          //       },
-          //     },
-          //   );
-          //   resolve(response);
-          // },
-          // end() {
-          //   const response = new NextResponse(null, {
-          //     status: this.statusCode,
-          //     headers: this.headers,
-          //   });
-          //   resolve(response);
-          // },
+          json(body) {
+            // Créer une réponse Next.js avec le statut 429 (Too Many Requests)
+            const response = NextResponse.json(body, {
+              status: this.statusCode,
+              headers: this.headers,
+            });
+            resolve(response);
+          },
+          send(body) {
+            const response = new NextResponse(
+              typeof body === 'string' ? body : JSON.stringify(body),
+              {
+                status: this.statusCode,
+                headers: {
+                  ...this.headers,
+                  'Content-Type': 'application/json',
+                },
+              },
+            );
+            resolve(response);
+          },
+          end() {
+            const response = new NextResponse(null, {
+              status: this.statusCode,
+              headers: this.headers,
+            });
+            resolve(response);
+          },
         };
 
         // Fonction next() - utilisée quand la requête n'est pas limitée
