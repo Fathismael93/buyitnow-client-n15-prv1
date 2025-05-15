@@ -10,6 +10,7 @@ import { appCache, getCacheKey } from '@/utils/cache';
 import logger from '@/utils/logger';
 import { createRateLimiter } from '@/utils/rateLimit';
 import { captureException } from '@/monitoring/sentry';
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 export async function GET(req) {
   // Journalisation structurée de la requête
@@ -22,33 +23,21 @@ export async function GET(req) {
     // Vérifier l'authentification
     await isAuthenticatedUser(req, NextResponse);
 
-    // Appliquer le rate limiting pour les requêtes authentifiées
-    const rateLimiter = createRateLimiter('AUTHENTICATED_API', {
+    // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
+    const cartRateLimiter = applyRateLimit('AUTHENTICATED_API', {
       prefix: 'cart_api',
-      getTokenFromReq: (req) => req.user?.email || req.user?.id,
     });
 
-    try {
-      // APRÈS:
-      await rateLimiter.check(req);
-    } catch (rateLimitError) {
+    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await cartRateLimiter(req);
+
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
       logger.warn('Rate limit exceeded for cart API', {
         user: req.user?.email,
-        error: rateLimitError.message,
       });
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Too many requests, please try again later',
-        },
-        {
-          status: 429,
-          headers: rateLimitError.headers || {
-            'Retry-After': '60',
-          },
-        },
-      );
+      return rateLimitResponse;
     }
 
     // Connecter à la base de données avec timeout
