@@ -39,6 +39,7 @@ export async function GET(req) {
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
     if (rateLimitResponse) {
+      console.log('Rate limit');
       return rateLimitResponse;
     }
 
