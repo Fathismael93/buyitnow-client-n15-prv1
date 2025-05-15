@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 
@@ -13,34 +12,39 @@ import {
 import { registerSchema } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
-import { rateLimit, RATE_LIMIT_PRESETS } from '@/utils/rateLimit';
-
-// Limiter les tentatives d'inscription pour éviter les attaques par spam
-const registerLimiter = rateLimit({
-  ...RATE_LIMIT_PRESETS.PUBLIC_API,
-  prefix: 'auth_register',
-  limit: 10, // Maximum 10 inscriptions par intervalle
-  interval: 60 * 60 * 1000, // Période de 1 heure
-  blockDuration: 24 * 60 * 60 * 1000, // 24 heures de blocage en cas d'abus
-});
+import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 export async function POST(req) {
-  // Récupération de l'IP pour rate limiting
+  // Récupération de l'IP pour logging
   const headersList = headers();
   const ip =
     (headersList.get('x-forwarded-for') || '').split(',').shift().trim() ||
     'unknown';
-  const token = `ip:${ip}`;
 
   try {
-    // Vérification du rate limiting
-    try {
-      await registerLimiter.check(req, null, token);
-    } catch (error) {
+    // Appliquer le rate limiting pour les inscriptions
+    const registerRateLimiter = applyRateLimit('PUBLIC_API', {
+      prefix: 'auth_register',
+      // Utiliser les options spécifiques comme dans l'ancien code
+      // Celles-ci seront fusionnées avec les préréglages définis dans integratedRateLimit.js
+      max: 10, // Maximum 10 inscriptions par intervalle
+      windowMs: 60 * 60 * 1000, // Période de 1 heure
+      blockDuration: 24 * 60 * 60 * 1000, // 24 heures de blocage en cas d'abus
+    });
+
+    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
+    const rateLimitResponse = await registerRateLimiter(req);
+
+    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
+    if (rateLimitResponse) {
       logger.warn('Registration rate limit exceeded', {
         ip: ip.replace(/\d+$/, 'xxx'), // Anonymisation partielle
         timestamp: new Date().toISOString(),
       });
+
+      // Renvoyer la réponse du rate limiter avec message personnalisé et headers
+      const customHeaders = new Headers(rateLimitResponse.headers);
+      customHeaders.set('Retry-After', '3600'); // 1 heure
 
       return NextResponse.json(
         {
@@ -49,9 +53,7 @@ export async function POST(req) {
         },
         {
           status: 429,
-          headers: {
-            'Retry-After': '3600', // 1 heure
-          },
+          headers: customHeaders,
         },
       );
     }
