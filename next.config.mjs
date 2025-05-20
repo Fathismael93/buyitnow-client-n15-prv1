@@ -46,7 +46,7 @@ const securityHeaders = [
   },
   {
     key: 'Content-Security-Policy',
-    value: `default-src 'self'; manifest-src 'self'; worker-src ${process.env.NEXT_PUBLIC_SITE_URL}; frame-src 'self' https://upload-widget.cloudinary.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://upload-widget.cloudinary.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; media-src 'self' https://res.cloudinary.com ; img-src 'self' data: blob: https://res.cloudinary.com; font-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; connect-src 'self' https://res.cloudinary.com https://sentry.io https://*.ingest.sentry.io https://*.sentry.io;`,
+    value: `default-src 'self'; manifest-src 'self'; worker-src ${process.env.NEXT_PUBLIC_SITE_URL}; frame-src 'self' https://upload-widget.cloudinary.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; media-src 'self' https://res.cloudinary.com ; img-src 'self' data: blob: https://res.cloudinary.com; font-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; connect-src 'self' https://res.cloudinary.com https://sentry.io https://*.ingest.sentry.io https://*.sentry.io;`,
   },
 ];
 
