@@ -129,15 +129,23 @@ jobs:
 
             cd /var/www/buyitnow-client
 
-            echo "🧹 Cleaning old build files..."
+            echo "🧹 Cleaning old build and dependency files..."
             # Sauvegarde du build actuel avant suppression
             if [ -d ".next" ]; then
               mv .next .next.backup.$(date +%Y%m%d_%H%M%S)
             fi
 
-            # Suppression des anciens fichiers de build
-            rm -rf public/
+            # Suppression complète des anciens fichiers
+            echo "🗑️ Removing old node_modules and lock files..."
             rm -rf node_modules/
+            rm -f package-lock.json
+            rm -f npm-shrinkwrap.json
+            rm -rf public/
+            rm -rf .npm/
+            rm -rf /tmp/.npm/
+
+            # Nettoyage du cache npm
+            npm cache clean --force
 
             # Nettoyage des anciennes sauvegardes (garder seulement les 3 dernières)
             ls -dt .next.backup.* 2>/dev/null | tail -n +4 | xargs rm -rf 2>/dev/null || true
@@ -146,8 +154,9 @@ jobs:
             tar -xzf deployment.tar.gz
             rm deployment.tar.gz
 
-            echo "📚 Installing production dependencies..."
-            npm ci --omit=dev
+            echo "📚 Installing fresh production dependencies..."
+            # Installation complètement propre avec optimisations mémoire
+            npm ci --only=production --prefer-offline --no-audit --n
 
             echo "🔄 Restarting application..."
             pm2 restart buyitnow-client || pm2 start ecosystem.config.js
