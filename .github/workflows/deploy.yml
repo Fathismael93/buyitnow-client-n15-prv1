@@ -129,7 +129,20 @@ jobs:
 
             cd /var/www/buyitnow-client
 
-            echo "📂 Extracting build files..."
+            echo "🧹 Cleaning old build files..."
+            # Sauvegarde du build actuel avant suppression
+            if [ -d ".next" ]; then
+              mv .next .next.backup.$(date +%Y%m%d_%H%M%S)
+            fi
+
+            # Suppression des anciens fichiers de build
+            rm -rf public/
+            rm -rf node_modules/
+
+            # Nettoyage des anciennes sauvegardes (garder seulement les 3 dernières)
+            ls -dt .next.backup.* 2>/dev/null | tail -n +4 | xargs rm -rf 2>/dev/null || true
+
+            echo "📂 Extracting fresh build files..."
             tar -xzf deployment.tar.gz
             rm deployment.tar.gz
 
