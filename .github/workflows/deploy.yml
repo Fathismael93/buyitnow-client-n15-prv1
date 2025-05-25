@@ -40,7 +40,8 @@ jobs:
             package-lock.json \
             public \
             ecosystem.config.js \
-            next.config.js \
+            next.config.mjs \
+            middleware.js \
             || echo "Some files might not exist, continuing..."
 
       - name: Upload deployment package
@@ -81,26 +82,74 @@ jobs:
             mkdir -p /var/www/buyitnow-client
             cd /var/www/buyitnow-client
 
-            # Sauvegarde de l'ancien build si existant
+            # Nettoyage complet des anciens fichiers
+            echo "🧹 Cleaning old build and dependency files..."
+            # Sauvegarde du build actuel avant suppression
             if [ -d ".next" ]; then
               mv .next .next.backup.$(date +%Y%m%d_%H%M%S)
-              # Garder seulement les 3 dernières sauvegardes
-              ls -dt .next.backup.* 2>/dev/null | tail -n +4 | xargs rm -rf 2>/dev/null || true
             fi
+
+            # Suppression complète des anciens fichiers
+            echo "🗑️ Removing old node_modules and lock files..."
+            rm -rf node_modules/
+            rm -f package-lock.json
+            rm -f npm-shrinkwrap.json
+            rm -rf public/
+            rm -rf .npm/
+            rm -rf /tmp/.npm/
+
+            # Nettoyage du cache npm
+            npm cache clean --force
+
+            # Nettoyage des anciennes sauvegardes (garder seulement les 3 dernières)
+            ls -dt .next.backup.* 2>/dev/null | tail -n +4 | xargs rm -rf 2>/dev/null || true
 
             # Création/mise à jour des variables d'environnement
             echo "🔧 Updating environment variables..."
-            echo "NODE_ENV=production" > .env
-            echo "NEXT_PUBLIC_API_URL=https://testing-apps.me/" >> .env
+            cat > .env << 'EOF'
+              # API Configuration
+              API_URL=https://testing-apps.me/
+              NEXT_PUBLIC_API_URL=https://testing-apps.me/
 
-            # Ajout des secrets depuis GitHub (si définis)
-            if [ ! -z "${{ secrets.DATABASE_URL }}" ]; then
-              echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-            fi
-            if [ ! -z "${{ secrets.NEXTAUTH_SECRET }}" ]; then
-              echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> .env
-              echo "NEXTAUTH_URL=https://testing-apps.me/" >> .env
-            fi
+              # Site Configuration
+              NEXT_PUBLIC_SITE_URL=https://testing-apps.me/
+              NODE_ENV=production
+
+              # NextAuth Configuration
+              NEXTAUTH_URL=https://testing-apps.me/
+              NEXTAUTH_SECRET=codingwithabbas
+
+              # Database
+              DB_URI=mongodb+srv://fathismael:DXowWbj4R713448e@buyitnow.rxm23ra.mongodb.net/buyitnow
+
+              # Email Configuration
+              NODEMAILER_EMAIL_ACCOUNT=fathismael@gmail.com
+              NODEMAILER_PASSWORD_ACCOUNT=drclubstcasaasrn
+
+              # Cloudinary Configuration
+              NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=duzebhr9l
+              NEXT_PUBLIC_CLOUDINARY_API_KEY=393742869713134
+              CLOUDINARY_API_SECRET=pdfDsH-KgpjzeEccDEZsoRxA3ag
+
+              # Sentry Configuration
+              NEXT_PUBLIC_SENTRY_DSN=https://033fe39bb04df00bc177b66251444aa7@o4507932631040000.ingest.de.sentry.io/4507933004857424
+              SENTRY_URL=https://sentry.io/
+              SENTRY_PROJECT=buyitnow
+              SENTRY_ORG=benew
+              SENTRY_AUTH_TOKEN=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
+              SENTRY_IGNORE_API_RESOLUTION_ERROR=1
+
+              # Performance Configuration
+              ANALYZE=false
+              CACHE_MAX_AGE_CATEGORIES=7200
+              CACHE_MAX_AGE_PRODUCTS=600
+              DEFAULT_PRODUCTS_PER_PAGE=2
+              MAX_PRODUCTS_PER_PAGE=5
+              QUERY_TIMEOUT=5000
+
+              # PWA Configuration
+              NEXT_PUBLIC_ENABLE_SW=true
+              EOF
 
             # Sécurisation du fichier d'environnement
             chmod 600 .env
@@ -129,34 +178,13 @@ jobs:
 
             cd /var/www/buyitnow-client
 
-            echo "🧹 Cleaning old build and dependency files..."
-            # Sauvegarde du build actuel avant suppression
-            if [ -d ".next" ]; then
-              mv .next .next.backup.$(date +%Y%m%d_%H%M%S)
-            fi
-
-            # Suppression complète des anciens fichiers
-            echo "🗑️ Removing old node_modules and lock files..."
-            rm -rf node_modules/
-            rm -f package-lock.json
-            rm -f npm-shrinkwrap.json
-            rm -rf public/
-            rm -rf .npm/
-            rm -rf /tmp/.npm/
-
-            # Nettoyage du cache npm
-            npm cache clean --force
-
-            # Nettoyage des anciennes sauvegardes (garder seulement les 3 dernières)
-            ls -dt .next.backup.* 2>/dev/null | tail -n +4 | xargs rm -rf 2>/dev/null || true
-
             echo "📂 Extracting fresh build files..."
             tar -xzf deployment.tar.gz
             rm deployment.tar.gz
 
             echo "📚 Installing fresh production dependencies..."
             # Installation complètement propre avec optimisations mémoire
-            npm ci --only=production --prefer-offline --no-audit --n
+            npm ci --omit=dev --prefer-offline --no-audit --no-fund --maxsockets 1 --registry https://registry.npmjs.org/
 
             echo "🔄 Restarting application..."
             pm2 restart buyitnow-client || pm2 start ecosystem.config.js
@@ -178,4 +206,4 @@ jobs:
             fi
 
             echo "🎉 Deployment completed successfully!"
-            echo "🌐 Application available at: https://testing-apps.me/"
+            echo "🌐 Application available at: https://testing-apps.me"
