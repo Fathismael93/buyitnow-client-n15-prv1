@@ -182,7 +182,7 @@ jobs:
             tar -xzf deployment.tar.gz
             rm deployment.tar.gz
 
-            echo "📚 Installing fresh production dependencies..."
+            echo "📚 Installing production dependencies..."
             # Installation complètement propre avec optimisations mémoire
             npm ci --omit=dev --prefer-offline --no-audit --no-fund --maxsockets 1 --registry https://registry.npmjs.org/
 
