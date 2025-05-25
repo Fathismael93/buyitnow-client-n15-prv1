@@ -91,7 +91,7 @@ jobs:
             # Création/mise à jour des variables d'environnement
             echo "🔧 Updating environment variables..."
             echo "NODE_ENV=production" > .env
-            echo "NEXT_PUBLIC_API_URL=http://51.112.78.112" >> .env
+            echo "NEXT_PUBLIC_API_URL=https://testing-apps.me/" >> .env
 
             # Ajout des secrets depuis GitHub (si définis)
             if [ ! -z "${{ secrets.DATABASE_URL }}" ]; then
@@ -99,7 +99,7 @@ jobs:
             fi
             if [ ! -z "${{ secrets.NEXTAUTH_SECRET }}" ]; then
               echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> .env
-              echo "NEXTAUTH_URL=http://51.112.78.112" >> .env
+              echo "NEXTAUTH_URL=https://testing-apps.me/" >> .env
             fi
 
             # Sécurisation du fichier d'environnement
@@ -178,4 +178,4 @@ jobs:
             fi
 
             echo "🎉 Deployment completed successfully!"
-            echo "🌐 Application available at: http://51.112.78.112"
+            echo "🌐 Application available at: https://testing-apps.me/"
