@@ -51,6 +51,7 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  output: 'standalone', // ← AJOUTEZ CETTE LIGNE
   poweredByHeader: false,
   images: {
     remotePatterns: [
