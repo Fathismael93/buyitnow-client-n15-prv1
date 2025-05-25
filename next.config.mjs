@@ -4,8 +4,6 @@ import { fileURLToPath } from 'url';
 
 import { withSentryConfig } from '@sentry/nextjs';
 import withBundleAnalyzer from '@next/bundle-analyzer';
-// Import de la configuration centralisée des variables d'environnement
-import { getPublicRuntimeConfig } from './utils/env-config.mjs';
 
 // Au début du fichier
 const validateEnv = () => {
@@ -26,6 +24,20 @@ validateEnv();
 const bundleAnalyzer = withBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });
+
+// Configuration simplifiée pour la production (sans import externe)
+const getPublicRuntimeConfig = () => {
+  return {
+    NEXT_PUBLIC_SITE_URL:
+      process.env.NEXT_PUBLIC_SITE_URL || 'https://testing-apps.me',
+    NEXT_PUBLIC_API_URL:
+      process.env.NEXT_PUBLIC_API_URL || 'https://testing-apps.me',
+    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME:
+      process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    NEXT_PUBLIC_ENABLE_SW: process.env.NEXT_PUBLIC_ENABLE_SW,
+  };
+};
 
 const securityHeaders = [
   {
