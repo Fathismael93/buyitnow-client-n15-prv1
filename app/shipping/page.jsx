@@ -1,14 +1,14 @@
-import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import { Suspense, lazy } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { captureException } from '@/monitoring/sentry';
 import { getAllAddresses } from '@/backend/utils/server-only-methods';
 
-// Chargement dynamique du composant Shipping avec fallback
-const Shipping = dynamic(() => import('@/components/cart/Shipping'), {
-  ssr: true,
-});
+// Forcer le rendu dynamique pour cette page
+export const dynamic = 'force-dynamic';
+
+// Lazy loading du composant Shipping
+const Shipping = lazy(() => import('@/components/cart/Shipping'));
 
 // Métadonnées enrichies pour l'optimisation SEO
 export const metadata = {
@@ -37,7 +37,7 @@ export const metadata = {
 const ShippingPage = async () => {
   try {
     // Vérification de l'authentification côté serveur
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionCookie =
       cookieStore.get('next-auth.session-token') ||
       cookieStore.get('__Secure-next-auth.session-token');

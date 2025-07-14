@@ -1,18 +1,15 @@
-import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import { Suspense, lazy } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { captureException } from '@/monitoring/sentry';
 
 import { getAllAddresses } from '@/backend/utils/server-only-methods';
 
-// Chargement dynamique du composant ShippingChoice avec fallback pour optimiser le chargement
-const ShippingChoice = dynamic(
-  () => import('@/components/cart/ShippingChoice'),
-  {
-    ssr: true,
-  },
-);
+// Forcer le rendu dynamique pour cette page
+export const dynamic = 'force-dynamic';
+
+// Lazy loading du composant ShippingChoice
+const ShippingChoice = lazy(() => import('@/components/cart/ShippingChoice'));
 
 // Métadonnées enrichies pour le SEO
 export const metadata = {
@@ -41,7 +38,7 @@ export const metadata = {
 const ShippingChoicePage = async () => {
   try {
     // Vérification de l'authentification côté serveur
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionCookie =
       cookieStore.get('next-auth.session-token') ||
       cookieStore.get('__Secure-next-auth.session-token');
