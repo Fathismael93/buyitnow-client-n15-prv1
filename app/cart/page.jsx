@@ -1,15 +1,14 @@
-import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import { Suspense, lazy } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { captureException } from '@/monitoring/sentry';
 import CartSkeleton from '@/components/skeletons/CartSkeleton';
 
-// Import dynamique du composant Cart avec fallback spécifique
-const Cart = dynamic(() => import('@/components/cart/Cart'), {
-  loading: () => <CartSkeleton />,
-  ssr: true,
-});
+// Forcer le rendu dynamique pour cette page
+export const dynamic = 'force-dynamic';
+
+// Lazy loading du composant Cart
+const Cart = lazy(() => import('@/components/cart/Cart'));
 
 // Métadonnées enrichies pour le panier
 export const metadata = {
