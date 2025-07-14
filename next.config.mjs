@@ -65,6 +65,7 @@ const securityHeaders = [
 const nextConfig = {
   output: 'standalone', // ← AJOUTEZ CETTE LIGNE
   poweredByHeader: false,
+  serverExternalPackages: ['mongoose'],
   images: {
     remotePatterns: [
       {
@@ -76,9 +77,6 @@ const nextConfig = {
     ],
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 86400, // 1 jour
-  },
-  experimental: {
-    optimizePackageImports: ['react-toastify', 'yup', 'mongoose', 'lodash'],
   },
   compiler: {
     removeConsole:
