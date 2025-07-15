@@ -19,6 +19,7 @@ const ItemCart = dynamic(() => import('./components/ItemCart'), {
 import EmptyCart from './components/EmptyCart';
 import CartSummary from './components/CartSummary';
 import useCartOperations from '../../hooks/useCartOperations';
+import CartSkeleton from '../skeletons/CartSkeleton';
 
 const Cart = () => {
   const {
@@ -90,7 +91,7 @@ const Cart = () => {
 
   // Afficher un écran de chargement pendant le chargement initial
   if (!initialLoadComplete) {
-    return <Loading />;
+    return <CartSkeleton />;
   }
 
   return (
@@ -142,7 +143,7 @@ const CartHeader = memo(({ cartCount }) => (
           Mon Panier
         </h1>
         <span className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
-          {cartCount || 0} article{cartCount !== 1 ? 's' : ''}
+          {cartCount || 0} produit{cartCount !== 1 ? 's' : ''}
         </span>
       </div>
     </div>
@@ -173,9 +174,9 @@ const CartItemsList = memo(
         {!loading &&
           cart?.map((cartItem) => (
             <div
-              key={cartItem._id}
+              key={cartItem.id}
               className={`transition-all duration-300 ease-in-out transform ${
-                itemBeingRemoved === cartItem._id
+                itemBeingRemoved === cartItem.id
                   ? 'opacity-0 -translate-x-3 h-0 overflow-hidden'
                   : 'opacity-100 translate-x-0'
               }`}
