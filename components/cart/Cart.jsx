@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 
 import CartContext from '@/context/CartContext';
+import Loading from '@/app/loading';
 import dynamic from 'next/dynamic';
 import { captureException } from '@/monitoring/sentry';
+import CartItemSkeleton from '../skeletons/CartItemSkeleton';
 
 // Chargement dynamique du composant ItemCart
 const ItemCart = dynamic(() => import('./components/ItemCart'), {
@@ -15,11 +17,9 @@ const ItemCart = dynamic(() => import('./components/ItemCart'), {
 });
 
 // Composants et hooks extraits pour meilleure organisation
-import CartItemSkeleton from '../skeletons/CartItemSkeleton';
 import EmptyCart from './components/EmptyCart';
 import CartSummary from './components/CartSummary';
 import useCartOperations from '../../hooks/useCartOperations';
-import CartSkeleton from '../skeletons/CartSkeleton';
 
 const Cart = () => {
   const {
@@ -48,11 +48,11 @@ const Cart = () => {
   // Ajoutons un useRef pour suivre si une requête de chargement est en cours
   const isLoadingCart = useRef(false);
 
-  // Handle auth context updates
   useEffect(() => {
+    // Nettoyage de l'erreur si elle existe
     if (error) {
-      toast.error(error);
       clearError();
+      toast.error('Une erreur est survenue lors du chargement du panier.');
     }
   }, [error, clearError]);
 
@@ -84,16 +84,14 @@ const Cart = () => {
     };
 
     // Ne charger qu'une seule fois au montage du composant
-    // if (!initialLoadComplete && !isLoadingCart.current) {
-    //   loadCart();
-    // }
-
-    loadCart();
-  }, [initialLoadComplete]);
+    if (!initialLoadComplete && !isLoadingCart.current) {
+      loadCart();
+    }
+  }, [router, setCartToState, initialLoadComplete]);
 
   // Afficher un écran de chargement pendant le chargement initial
   if (!initialLoadComplete) {
-    return <CartSkeleton />;
+    return <Loading />;
   }
 
   return (
@@ -145,7 +143,7 @@ const CartHeader = memo(({ cartCount }) => (
           Mon Panier
         </h1>
         <span className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
-          {cartCount || 0} produit{cartCount !== 1 ? 's' : ''}
+          {cartCount || 0} article{cartCount !== 1 ? 's' : ''}
         </span>
       </div>
     </div>
@@ -176,9 +174,9 @@ const CartItemsList = memo(
         {!loading &&
           cart?.map((cartItem) => (
             <div
-              key={cartItem.id}
+              key={cartItem._id}
               className={`transition-all duration-300 ease-in-out transform ${
-                itemBeingRemoved === cartItem.id
+                itemBeingRemoved === cartItem._id
                   ? 'opacity-0 -translate-x-3 h-0 overflow-hidden'
                   : 'opacity-100 translate-x-0'
               }`}
