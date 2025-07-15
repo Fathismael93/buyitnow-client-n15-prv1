@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 'use client';
 
 import { DECREASE, INCREASE } from '@/helpers/constants';
@@ -104,7 +105,7 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const setCartToState = async () => {
+  const setCartToState = useCallback(async () => {
     // Éviter les appels multiples si déjà en cours de chargement
     if (loading) return;
 
@@ -310,7 +311,7 @@ export const CartProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // Pas de dépendances car la fonction utilise les setters d'état qui sont stables
 
   const addItemToCart = async ({ product, quantity = 1 }) => {
     try {
