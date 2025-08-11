@@ -233,6 +233,7 @@ export const getAllProducts = async (
 
     try {
       responseBody = await res.json();
+      console.log('API response body:', responseBody);
     } catch (parseError) {
       isJsonResponse = false;
       parseErrorMessage = parseError.message;
@@ -246,6 +247,7 @@ export const getAllProducts = async (
       try {
         // Si ce n'est pas du JSON, essayer de récupérer comme texte
         responseBody = await res.clone().text();
+        console.log('API response text:', responseBody);
       } catch (textError) {
         logger.error('Failed to get response text after JSON parse failure', {
           requestId,
