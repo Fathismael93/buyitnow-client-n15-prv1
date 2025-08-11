@@ -33,6 +33,11 @@ const HomePage = async ({ searchParams }) => {
     categories: [],
   }));
 
+  console.log('Products');
+  console.log(productsData);
+  console.log('Categories');
+  console.log(categories);
+
   return (
     <Suspense fallback={<ListProductsSkeleton />}>
       <main>
