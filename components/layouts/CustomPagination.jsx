@@ -83,8 +83,6 @@ const CustomPagination = memo(({ totalPages = 1 }) => {
     [currentPage, searchParams, pathname, router, isNavigating],
   );
 
-  // 68762f666719d28854fa83fb
-
   // Ne pas afficher la pagination s'il n'y a qu'une seule page
   if (totalPages <= 1) {
     return null;
