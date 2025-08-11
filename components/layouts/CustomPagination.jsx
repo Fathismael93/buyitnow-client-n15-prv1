@@ -120,7 +120,6 @@ const CustomPagination = memo(({ totalPages = 1 }) => {
           total={totalPages}
           onPageChange={handlePageChange}
           maxWidth={300}
-          // className="responsive-pagination"
           ariaPreviousLabel="Page précédente"
           ariaNextLabel="Page suivante"
           previousLabel="«"
