@@ -581,6 +581,9 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
       action: 'api_request_start',
     });
 
+    console.log('API URL:');
+    console.log(process.env.API_URL);
+
     const cacheControl = getCacheHeaders('categories');
     const apiUrl = `${process.env.API_URL || ''}/api/category`;
 
@@ -1041,9 +1044,6 @@ export const getProductDetails = async (
     // Utiliser les headers de cache optimisés pour un seul produit
     const cacheControl = getCacheHeaders('singleProduct');
     const apiUrl = `${process.env.API_URL || ''}/api/products/${id}`;
-
-    console.log('API URL:');
-    console.log(process.env.API_URL);
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
