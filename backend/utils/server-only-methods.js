@@ -177,9 +177,6 @@ export const getAllProducts = async (
     const searchQuery = new URLSearchParams(urlParams).toString();
     const cacheControl = getCacheHeaders('products');
 
-    console.log('API URL:');
-    console.log(process.env.API_URL);
-
     // S'assurer que l'URL est correctement formatée
     const apiUrl = `${process.env.API_URL || ''}/api/products${searchQuery ? `?${searchQuery}` : ''}`;
 
