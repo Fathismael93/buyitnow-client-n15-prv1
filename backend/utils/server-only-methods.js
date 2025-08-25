@@ -177,6 +177,9 @@ export const getAllProducts = async (
     const searchQuery = new URLSearchParams(urlParams).toString();
     const cacheControl = getCacheHeaders('products');
 
+    console.log('API URL:');
+    console.log(process.env.API_URL);
+
     // S'assurer que l'URL est correctement formatée
     const apiUrl = `${process.env.API_URL || ''}api/products${searchQuery ? `?${searchQuery}` : ''}`;
 
@@ -580,9 +583,6 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
       retryAttempt,
       action: 'api_request_start',
     });
-
-    console.log('API URL:');
-    console.log(process.env.API_URL);
 
     const cacheControl = getCacheHeaders('categories');
     const apiUrl = `${process.env.API_URL || ''}/api/category`;
