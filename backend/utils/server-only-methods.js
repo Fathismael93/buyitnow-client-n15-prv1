@@ -181,7 +181,7 @@ export const getAllProducts = async (
     console.log(process.env.API_URL);
 
     // S'assurer que l'URL est correctement formatée
-    const apiUrl = `${process.env.API_URL || ''}api/products${searchQuery ? `?${searchQuery}` : ''}`;
+    const apiUrl = `${process.env.API_URL || ''}/api/products${searchQuery ? `?${searchQuery}` : ''}`;
 
     // On vérifie le cache avant de faire l'appel API
     // La clé de cache doit correspondre au format utilisé dans l'API
