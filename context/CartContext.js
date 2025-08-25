@@ -128,6 +128,9 @@ export const CartProvider = ({ children }) => {
         Expires: '0',
       };
 
+      console.log('NEXT PUBLIC_API_URL:');
+      console.log(process.env.NEXT_PUBLIC_API_URL);
+
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cart`, {
           method: 'GET',

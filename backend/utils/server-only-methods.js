@@ -1042,6 +1042,9 @@ export const getProductDetails = async (
     const cacheControl = getCacheHeaders('singleProduct');
     const apiUrl = `${process.env.API_URL || ''}/api/products/${id}`;
 
+    console.log('API URL:');
+    console.log(process.env.API_URL);
+
     const res = await fetch(apiUrl, {
       signal: controller.signal,
       next: {
