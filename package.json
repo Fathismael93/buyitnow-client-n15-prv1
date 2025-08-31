@@ -15,7 +15,7 @@
     "dependencies": {
         "@edge-csrf/nextjs": "^2.5.2",
         "@next/bundle-analyzer": "^15.2.4",
-        "@sentry/nextjs": "^9.11.0",
+        "@sentry/nextjs": "^10.8.0",
         "bcryptjs": "^3.0.2",
         "chalk": "^5.4.1",
         "cloudinary": "^2.6.0",
