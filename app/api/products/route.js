@@ -15,7 +15,7 @@ import {
 import { captureException } from '@/monitoring/sentry';
 import { getCacheHeaders, getCacheKey } from '@/utils/cache';
 import { appCache } from '@/utils/cache';
-import { applyRateLimit } from '@/utils/integratedRateLimit';
+// import { applyRateLimit } from '@/utils/integratedRateLimit';
 // Importer les fonctions de sanitisation
 import {
   sanitizeProductSearchParams,
@@ -28,19 +28,19 @@ const DEFAULT_PER_PAGE = parseInt(process.env.DEFAULT_PRODUCTS_PER_PAGE || 10);
 const MAX_PER_PAGE = parseInt(process.env.MAX_PRODUCTS_PER_PAGE || 50);
 
 // Création d'un middleware de rate limiting pour l'API de produits
-const productsRateLimiter = applyRateLimit('PUBLIC_API', {
-  prefix: 'products-api',
-});
+// const productsRateLimiter = applyRateLimit('PUBLIC_API', {
+//   prefix: 'products-api',
+// });
 
 export async function GET(req) {
   try {
     // Appliquer le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await productsRateLimiter(req);
+    // const rateLimitResponse = await productsRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      return rateLimitResponse;
-    }
+    // if (rateLimitResponse) {
+    //   return rateLimitResponse;
+    // }
 
     // Validation avec les schémas Yup après sanitisation
     const validationPromises = [];

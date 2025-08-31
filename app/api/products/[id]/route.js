@@ -6,7 +6,7 @@ import { headers } from 'next/headers';
 import dbConnect from '@/backend/config/dbConnect';
 import Product from '@/backend/models/product';
 import Category from '@/backend/models/category';
-import { applyRateLimit } from '@/utils/integratedRateLimit';
+// import { applyRateLimit } from '@/utils/integratedRateLimit';
 import { appCache, getCacheHeaders, getCacheKey } from '@/utils/cache';
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
@@ -20,9 +20,9 @@ const SAFE_FIELDS =
   'name description price images category stock sold isActive slug';
 
 // Création d'un middleware de rate limiting pour les détails de produit
-const productDetailRateLimiter = applyRateLimit('PUBLIC_API', {
-  prefix: 'product-detail',
-});
+// const productDetailRateLimiter = applyRateLimit('PUBLIC_API', {
+//   prefix: 'product-detail',
+// });
 
 /**
  * Gestionnaire GET pour récupérer les détails d'un produit
@@ -37,17 +37,17 @@ export async function GET(req, { params }) {
 
   try {
     // Appliquer le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await productDetailRateLimiter(req);
+    // const rateLimitResponse = await productDetailRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for product detail', {
-        ip: headersList.get('x-forwarded-for') || 'unknown',
-        requestId,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for product detail', {
+    //     ip: headersList.get('x-forwarded-for') || 'unknown',
+    //     requestId,
+    //   });
 
-      return rateLimitResponse;
-    }
+    //   return rateLimitResponse;
+    // }
 
     // Validation de l'ID MongoDB
     const { id } = params;

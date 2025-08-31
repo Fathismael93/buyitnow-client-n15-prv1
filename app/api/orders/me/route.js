@@ -15,7 +15,7 @@ import {
   buildSanitizedSearchParams,
   sanitizePage,
 } from '@/utils/inputSanitizer';
-import { applyRateLimit } from '@/utils/integratedRateLimit';
+// import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 // Constantes pour la configuration
 const DEFAULT_PER_PAGE = parseInt(process.env.DEFAULT_PRODUCTS_PER_PAGE || 10);
@@ -43,37 +43,37 @@ export async function GET(req) {
     await isAuthenticatedUser(req, NextResponse);
 
     // Application du rate limiting pour les requêtes d'historique de commandes avec la nouvelle implémentation
-    const ordersRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-      prefix: 'orders_history',
-    });
+    // const ordersRateLimiter = applyRateLimit('AUTHENTICATED_API', {
+    //   prefix: 'orders_history',
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await ordersRateLimiter(req);
+    // const rateLimitResponse = await ordersRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for orders history', {
-        user: req.user?.email,
-        requestId,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for orders history', {
+    //     user: req.user?.email,
+    //     requestId,
+    //   });
 
-      // Ajouter l'ID de requête aux en-têtes de réponse
-      const headers = new Headers(rateLimitResponse.headers);
-      headers.set('X-Request-ID', requestId);
+    //   // Ajouter l'ID de requête aux en-têtes de réponse
+    //   const headers = new Headers(rateLimitResponse.headers);
+    //   headers.set('X-Request-ID', requestId);
 
-      // Créer une nouvelle réponse avec les en-têtes mis à jour
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Trop de requêtes. Veuillez réessayer plus tard.',
-          requestId,
-        },
-        {
-          status: 429,
-          headers,
-        },
-      );
-    }
+    //   // Créer une nouvelle réponse avec les en-têtes mis à jour
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       message: 'Trop de requêtes. Veuillez réessayer plus tard.',
+    //       requestId,
+    //     },
+    //     {
+    //       status: 429,
+    //       headers,
+    //     },
+    //   );
+    // }
 
     // 2. Connexion à la base de données avec timeout et gestion d'erreur
     try {
