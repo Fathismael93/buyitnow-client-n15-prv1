@@ -1,778 +1,230 @@
 /**
- * Configuration et utilitaires pour la gestion du cache utilisant la bibliothèque lru-cache
+ * Système de cache simple pour e-commerce (~500 visiteurs/jour)
+ * Sans dépendances externes
  */
 
-import { LRUCache } from 'lru-cache';
-import { compress, decompress } from 'lz-string';
-import { captureException } from '@/monitoring/sentry';
-import { memoizeWithTTL } from '@/utils/performance';
-
-// Configuration du cache pour les différentes ressources
-export const CACHE_CONFIGS = {
-  // Configuration pour les utilisateurs authentifiés (5 minutes)
-  authUsers: {
-    maxAge: 5 * 60, // 5 minutes
-    staleWhileRevalidate: 0, // Pas de revalidation en arrière-plan pour les données sensibles
-    immutable: false, // Non immutable car les données utilisateur peuvent changer
-    mustRevalidate: true, // Doit revalider pour des raisons de sécurité
-  },
-
-  // Durée de cache pour les produits (3 heures)
-  products: {
-    maxAge: 3 * 60 * 60,
-    staleWhileRevalidate: 60 * 60,
-  },
-
-  // Configuration spécifique pour un seul produit
-  singleProduct: {
-    maxAge: 5 * 60 * 60, // 5 heures (durée plus longue car les détails d'un produit changent moins fréquemment)
-    staleWhileRevalidate: 2 * 60 * 60, // 2 heures (période plus longue de revalidation en arrière-plan)
-    sMaxAge: 12 * 60 * 60, // 12 heures pour les CDN/proxies partagés
-    immutable: false, // Non immutable car le produit peut être mis à jour
-    mustRevalidate: false, // Permet l'utilisation de contenus périmés en cas de problèmes réseau
-  },
-
-  // Configuration pour les paniers utilisateur (2 minutes)
-  cart: {
-    maxAge: 2 * 60, // 2 minutes car les paniers peuvent être modifiés fréquemment
-    staleWhileRevalidate: 30, // 30 secondes de revalidation en arrière-plan
-    sMaxAge: 5 * 60, // 5 minutes pour les CDN/proxies partagés
-    immutable: false, // Non immutable car le panier peut être mis à jour
-    mustRevalidate: true, // Doit revalider car les données sont importantes pour les commandes
-  },
-
-  // Dans CACHE_CONFIGS
-  orders: {
-    maxAge: 5 * 60, // 5 minutes
-    staleWhileRevalidate: 60, // 1 minute de revalidation en arrière-plan
-    immutable: false, // Non immutable car les commandes peuvent être mises à jour
-    mustRevalidate: true, // Doit revalider car les données de commande sont importantes
-  },
-
-  // Configuration pour les prix de livraison (1 heure)
-  deliveryPrices: {
-    maxAge: 60 * 60, // 1 heure car les prix changent rarement
-    staleWhileRevalidate: 10 * 60, // 10 minutes de revalidation en arrière-plan
-    immutable: false, // Non immutable car les prix peuvent être mis à jour
-    mustRevalidate: false, // Moins critique que les commandes
-  },
-
-  // Durée de cache pour les catégories (2 jours)
-  categories: {
-    maxAge: 2 * 24 * 60 * 60,
-    staleWhileRevalidate: 24 * 60 * 60,
-  },
-
-  // Configuration pour les adresses utilisateur (5 minutes)
-  addresses: {
-    maxAge: 5 * 60, // 5 minutes car les adresses peuvent être modifiées fréquemment
-    staleWhileRevalidate: 60, // 1 minute de revalidation en arrière-plan
-    sMaxAge: 10 * 60, // 10 minutes pour les CDN/proxies partagés
-    immutable: false, // Non immutable car les adresses peuvent être mises à jour
-    mustRevalidate: true, // Doit revalider car les données sont sensibles pour la livraison
-  },
-
-  // Configuration pour les détails d'une adresse spécifique (5 minutes)
-  addressDetail: {
-    maxAge: 5 * 60, // 5 minutes comme pour les listes d'adresses
-    staleWhileRevalidate: 60, // 1 minute de revalidation en arrière-plan
-    sMaxAge: 10 * 60, // 10 minutes pour les CDN/proxies partagés
-    immutable: false, // Non immutable car l'adresse peut être mise à jour
-    mustRevalidate: true, // Doit revalider car les données sont sensibles
-  },
-
-  // Configuration pour les contacts (10 minutes)
-  contacts: {
-    maxAge: 10 * 60, // 10 minutes
-    staleWhileRevalidate: 5 * 60, // 5 minutes de revalidation en arrière-plan
-    immutable: false, // Non immutable car les contacts peuvent être mis à jour
-    mustRevalidate: false, // Les contacts sont moins critiques que les données d'adresse ou de panier
-  },
-
-  // Durée de cache pour les pages statiques (1 jour)
-  staticPages: {
-    maxAge: 24 * 60 * 60,
-    staleWhileRevalidate: 60 * 60,
-  },
-
-  // Durée de cache pour les ressources statiques (1 semaine)
-  staticAssets: {
-    maxAge: 7 * 24 * 60 * 60,
-    immutable: true,
-  },
+// Configuration simple des durées de cache (en millisecondes)
+export const CACHE_DURATIONS = {
+  products: 10 * 60 * 1000, // 10 minutes
+  singleProduct: 15 * 60 * 1000, // 15 minutes
+  categories: 30 * 60 * 1000, // 30 minutes
+  cart: 5 * 60 * 1000, // 5 minutes
+  user: 5 * 60 * 1000, // 5 minutes
+  staticPages: 60 * 60 * 1000, // 1 heure
 };
 
 /**
- * Génère les entêtes de cache pour Next.js
- * @param {string} resourceType - Type de ressource ('products', 'categories', etc.)
- * @returns {Object} - Les entêtes de cache pour Next.js
+ * Cache simple en mémoire avec expiration automatique
  */
-export function getCacheHeaders(resourceType) {
-  const config = CACHE_CONFIGS[resourceType] || CACHE_CONFIGS.staticPages;
-
-  if (config.noStore) {
-    return {
-      'Cache-Control': 'no-store',
-    };
-  }
-
-  let cacheControl = `max-age=${config.maxAge}`;
-
-  if (config.staleWhileRevalidate) {
-    cacheControl += `, stale-while-revalidate=${config.staleWhileRevalidate}`;
-  }
-
-  if (config.immutable) {
-    cacheControl += ', immutable';
-  }
-
-  return {
-    'Cache-Control': cacheControl,
-  };
-}
-
-// Implémentation minimaliste d'un EventEmitter compatible avec le navigateur et Node.js
-export const cacheEvents = (() => {
-  const listeners = {};
-
-  return {
-    on(event, callback) {
-      listeners[event] = listeners[event] || [];
-      listeners[event].push(callback);
-      return this;
-    },
-
-    emit(event, data) {
-      if (listeners[event]) {
-        listeners[event].forEach((callback) => {
-          try {
-            callback(data);
-          } catch (error) {
-            console.error(`Event error: ${error.message}`);
-          }
-        });
-      }
-      return this;
-    },
-
-    off(event, callback) {
-      if (!listeners[event]) return this;
-
-      if (callback) {
-        listeners[event] = listeners[event].filter((cb) => cb !== callback);
-      } else {
-        delete listeners[event];
-      }
-
-      return this;
-    },
-
-    once(event, callback) {
-      const onceCallback = (data) => {
-        this.off(event, onceCallback);
-        callback(data);
-      };
-
-      return this.on(event, onceCallback);
-    },
-  };
-})();
-
-/**
- * Fonction utilitaire pour journaliser les erreurs de cache
- * @param {Object} instance - Instance de cache
- * @param {string} operation - Opération qui a échoué
- * @param {string} key - Clé concernée
- * @param {Error} error - Erreur survenue
- */
-function logCacheError(instance, operation, key, error) {
-  const log = instance.log || console.debug;
-
-  log(`Cache error during ${operation} for key '${key}': ${error.message}`);
-
-  // Log plus détaillé pour le développement
-  if (process.env.NODE_ENV !== 'production') {
-    log(error);
-  }
-
-  // Capturer l'exception pour Sentry en production
-  if (
-    process.env.NODE_ENV === 'production' &&
-    typeof captureException === 'function'
-  ) {
-    captureException(error, {
-      tags: {
-        component: 'cache',
-        operation,
-      },
-      extra: {
-        key,
-        cacheInfo: {
-          size: instance.size || 0,
-          calculatedSize: instance.calculatedSize || 0,
-          maxSize: instance.maxSize || 0,
-        },
-      },
-    });
-  }
-}
-
-/**
- * Sérialise une valeur pour le stockage avec compression optionnelle
- * @param {any} value - Valeur à sérialiser
- * @param {boolean} useCompression - Si true, compresse les grandes valeurs
- * @returns {Object} Objet avec la valeur et métadonnées
- * @throws {Error} Si la valeur ne peut pas être sérialisée/compressée
- */
-function serializeValue(value, useCompression = false) {
-  try {
-    const serialized = JSON.stringify(value);
-    const size = serialized.length;
-
-    // Compression pour les grandes valeurs
-    if (useCompression && size > 10000) {
-      // 10KB seuil
-      const compressed = compress(serialized);
-      return {
-        value: compressed,
-        originalSize: size,
-        compressed: true,
-        size: compressed.length,
-      };
-    }
-
-    return { value: serialized, size, compressed: false };
-  } catch (error) {
-    throw new Error(`Failed to serialize cache value: ${error.message}`);
-  }
-}
-
-/**
- * Désérialise une valeur du cache
- * @param {Object} storedData - Données stockées
- * @returns {any} Valeur désérialisée
- * @throws {Error} Si la valeur ne peut pas être désérialisée
- */
-function deserializeValue(storedData) {
-  try {
-    if (!storedData) return null;
-
-    const value = storedData.compressed
-      ? decompress(storedData.value)
-      : storedData.value;
-
-    return JSON.parse(value);
-  } catch (error) {
-    throw new Error(`Failed to deserialize cache value: ${error.message}`);
-  }
-}
-
-/**
- * Classe utilitaire pour gérer un cache avec lru-cache, compatible avec l'API précédente
- */
-export class MemoryCache {
-  /**
-   * Crée une nouvelle instance du cache
-   * @param {Object|number} options - Options de configuration ou TTL
-   */
-  constructor(options = {}) {
-    const opts = typeof options === 'number' ? { ttl: options } : options;
-
-    const {
-      ttl = 60 * 1000,
-      maxSize = 1000,
-      maxBytes = 50 * 1024 * 1024, // 50MB
-      logFunction = console.debug,
-      compress = false,
-      name = 'memory-cache',
-    } = opts;
-
-    this.ttl = ttl;
-    this.maxSize = maxSize;
-    this.maxBytes = maxBytes;
-    this.log = logFunction;
-    this.compress = compress;
+class SimpleCache {
+  constructor(name = 'cache', maxSize = 100) {
     this.name = name;
-    this.cleanupIntervalId = null;
-    this.currentBytes = 0;
-    this.locks = new Map();
-
-    // Initialisation du cache LRU
-    this.cache = new LRUCache({
-      max: maxSize,
-      ttl: ttl,
-      // Fonction de calcul de taille pour respecter maxBytes
-      sizeCalculation: (value, key) => {
-        return value.data?.size || 0;
-      },
-      maxSize: maxBytes, // Taille maximale en octets
-      allowStale: false,
-      updateAgeOnGet: true,
-      updateAgeOnHas: false,
-      // Événements
-      disposeAfter: (value, key) => {
-        // Mise à jour du compteur de bytes après suppression
-        if (value.data?.size) {
-          this.currentBytes -= value.data.size;
-        }
-        cacheEvents.emit('delete', { key, cache: this });
-      },
-    });
-
-    // Démarrer le nettoyage périodique
-    this._startCleanupInterval();
+    this.maxSize = maxSize;
+    this.cache = new Map();
+    this.timers = new Map();
   }
 
   /**
-   * Obtenir une valeur du cache avec verrouillage pour les opérations concurrentes
-   * @param {string} key - Clé de cache
-   * @returns {Promise<any>} - Valeur en cache ou null si absente/expirée
-   */
-  async getWithLock(key) {
-    if (this.locks.has(key)) {
-      await this.locks.get(key);
-    }
-
-    let resolver;
-    const lock = new Promise((resolve) => {
-      resolver = resolve;
-    });
-    this.locks.set(key, lock);
-
-    try {
-      return this.get(key);
-    } finally {
-      this.locks.delete(key);
-      resolver();
-    }
-  }
-
-  /**
-   * Obtenir une valeur du cache
-   * @param {string} key - Clé de cache
-   * @returns {any|null} - Valeur en cache ou null si absente/expirée
+   * Récupérer une valeur du cache
    */
   get(key) {
-    try {
-      const entry = this.cache.get(key);
-
-      if (!entry) {
-        cacheEvents.emit('miss', { key, cache: this });
-        return null;
-      }
-
-      cacheEvents.emit('hit', { key, cache: this });
-      return deserializeValue(entry.data);
-    } catch (error) {
-      logCacheError(this, 'get', key, error);
-      cacheEvents.emit('error', { error, operation: 'get', key, cache: this });
+    if (!this.cache.has(key)) {
       return null;
     }
+
+    return this.cache.get(key);
   }
 
   /**
-   * Mettre une valeur en cache
-   * @param {string} key - Clé de cache
-   * @param {any} value - Valeur à mettre en cache
-   * @param {Object|number} options - Options ou durée de vie personnalisée
-   * @returns {boolean} - True si l'opération a réussi
+   * Stocker une valeur dans le cache
    */
-  set(key, value, options = {}) {
-    try {
-      // Validation de la clé
-      if (!key || typeof key !== 'string') {
-        throw new Error('Invalid cache key');
-      }
-
-      // Nettoyer les options
-      const opts = typeof options === 'number' ? { ttl: options } : options;
-      const ttl = opts.ttl || this.ttl;
-      const compress =
-        opts.compress !== undefined ? opts.compress : this.compress;
-
-      // Sérialiser la valeur
-      const serialized = serializeValue(value, compress);
-
-      // Vérifier la taille
-      if (serialized.size > this.maxBytes * 0.1) {
-        // Une entrée ne doit pas dépasser 10% du cache
-        this.log(`Cache entry too large: ${key} (${serialized.size} bytes)`);
-        return false;
-      }
-
-      // Si la clé existe déjà, soustraire sa taille actuelle
-      const existingEntry = this.cache.get(key);
-      if (existingEntry?.data?.size) {
-        this.currentBytes -= existingEntry.data.size;
-      }
-
-      // Ajouter au cache avec TTL spécifique
-      const entry = {
-        data: serialized,
-        lastAccessed: Date.now(),
-      };
-
-      this.cache.set(key, entry, {
-        ttl: ttl,
-        size: serialized.size,
-      });
-
-      // Mettre à jour la taille totale
-      this.currentBytes += serialized.size;
-
-      cacheEvents.emit('set', { key, size: serialized.size, cache: this });
-      return true;
-    } catch (error) {
-      logCacheError(this, 'set', key, error);
-      cacheEvents.emit('error', { error, operation: 'set', key, cache: this });
-      return false;
+  set(key, value, ttl = 300000) {
+    // 5min par défaut
+    // Protection contre les fuites mémoire (bonne pratique 2025)
+    if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
+      // Supprimer 10% du cache pour éviter l'effet yo-yo
+      const keysToDelete = Math.ceil(this.maxSize * 0.1);
+      const keys = Array.from(this.cache.keys()).slice(0, keysToDelete);
+      keys.forEach((k) => this.delete(k));
     }
+
+    // Supprimer ancien timer si existe
+    if (this.timers.has(key)) {
+      clearTimeout(this.timers.get(key));
+    }
+
+    // Stocker la valeur
+    this.cache.set(key, value);
+
+    // Programmer la suppression automatique
+    const timer = setTimeout(() => {
+      this.delete(key);
+    }, ttl);
+
+    this.timers.set(key, timer);
+
+    return true;
   }
 
   /**
-   * Supprimer une valeur du cache
-   * @param {string} key - Clé de cache
-   * @returns {boolean} - True si la valeur existait
+   * Supprimer une valeur
    */
   delete(key) {
-    try {
-      const hadKey = this.cache.has(key);
-      this.cache.delete(key);
-      return hadKey;
-    } catch (error) {
-      logCacheError(this, 'delete', key, error);
-      return false;
+    // Nettoyer le timer
+    if (this.timers.has(key)) {
+      clearTimeout(this.timers.get(key));
+      this.timers.delete(key);
     }
+
+    return this.cache.delete(key);
   }
 
   /**
    * Vider tout le cache
-   * @returns {boolean} - True si l'opération a réussi
    */
   clear() {
-    try {
-      this.cache.clear();
-      this.currentBytes = 0;
-      cacheEvents.emit('clear', { cache: this });
-      return true;
-    } catch (error) {
-      logCacheError(this, 'clear', 'all', error);
-      return false;
+    // Nettoyer tous les timers
+    for (const timer of this.timers.values()) {
+      clearTimeout(timer);
     }
+
+    this.cache.clear();
+    this.timers.clear();
   }
 
   /**
-   * Obtenir la taille du cache
-   * @returns {Object} - Statistiques de taille du cache
+   * Taille du cache
    */
   size() {
-    return {
-      entries: this.cache.size,
-      bytes: this.currentBytes,
-      maxEntries: this.maxSize,
-      maxBytes: this.maxBytes,
-      utilization: Math.round((this.currentBytes / this.maxBytes) * 100) / 100,
-    };
+    return this.cache.size;
   }
 
   /**
-   * Supprimer toutes les entrées correspondant à un pattern
-   * @param {RegExp|string} pattern - Pattern de clé à supprimer
-   * @returns {number} - Nombre d'entrées supprimées
+   * Récupérer ou définir (get or set)
    */
-  invalidatePattern(pattern) {
-    try {
-      const regex = pattern instanceof RegExp ? pattern : new RegExp(pattern);
-      const keysToDelete = [];
-
-      // Collecter d'abord les clés pour éviter de modifier pendant l'itération
-      for (const key of this.cache.keys()) {
-        if (regex.test(key)) {
-          keysToDelete.push(key);
-        }
-      }
-
-      // Supprimer les clés collectées
-      keysToDelete.forEach((key) => this.delete(key));
-
-      cacheEvents.emit('invalidatePattern', {
-        pattern: pattern.toString(),
-        count: keysToDelete.length,
-        cache: this,
-      });
-
-      return keysToDelete.length;
-    } catch (error) {
-      logCacheError(this, 'invalidatePattern', pattern.toString(), error);
-      return 0;
+  async getOrSet(key, fetchFn, ttl) {
+    const cached = this.get(key);
+    if (cached !== null) {
+      return cached;
     }
+
+    const result = await fetchFn();
+    this.set(key, result, ttl);
+    return result;
   }
 
   /**
-   * Nettoie les entrées expirées du cache
-   * LRU-cache gère automatiquement les expirations, mais cette méthode est conservée
-   * pour la compatibilité avec l'API précédente
-   * @returns {number} - Nombre d'entrées nettoyées (toujours 0, car lru-cache gère l'expiration automatiquement)
+   * Supprimer par pattern simple
    */
-  cleanup() {
-    try {
-      // LRU Cache gère déjà automatiquement l'expiration
-      // Forcer la suppression des entrées périmées
-      this.cache.purgeStale();
-      return 0;
-    } catch (error) {
-      logCacheError(this, 'cleanup', 'all', error);
-      return 0;
-    }
-  }
+  deletePattern(pattern) {
+    const keys = Array.from(this.cache.keys());
+    const regex = new RegExp(pattern);
+    let deleted = 0;
 
-  /**
-   * Démarre l'intervalle de nettoyage automatique
-   * @private
-   */
-  _startCleanupInterval() {
-    if (typeof setInterval !== 'undefined' && !this.cleanupIntervalId) {
-      // Nettoyer toutes les 5 minutes
-      this.cleanupIntervalId = setInterval(
-        () => {
-          this.cleanup();
-        },
-        5 * 60 * 1000,
-      );
-
-      // Assurer que l'intervalle ne bloque pas le garbage collector
-      if (
-        this.cleanupIntervalId &&
-        typeof this.cleanupIntervalId === 'object'
-      ) {
-        this.cleanupIntervalId.unref?.();
+    for (const key of keys) {
+      if (regex.test(key)) {
+        this.delete(key);
+        deleted++;
       }
     }
-  }
 
-  /**
-   * Arrête l'intervalle de nettoyage automatique
-   */
-  stopCleanupInterval() {
-    if (this.cleanupIntervalId && typeof clearInterval !== 'undefined') {
-      clearInterval(this.cleanupIntervalId);
-      this.cleanupIntervalId = null;
-    }
-  }
-
-  /**
-   * S'assure que les ressources sont libérées lors de la destruction
-   */
-  destroy() {
-    this.stopCleanupInterval();
-    this.clear();
-  }
-
-  /**
-   * Récupère en cache si disponible, sinon exécute la fonction et met en cache
-   * @param {string} key - Clé de cache
-   * @param {Function} fn - Fonction à exécuter si cache manquant
-   * @param {Object} options - Options de cache
-   * @returns {Promise<any>} - Valeur en cache ou résultat de la fonction
-   */
-  async getOrSet(key, fn, options = {}) {
-    const cachedValue = this.get(key);
-    if (cachedValue !== null) {
-      return cachedValue;
-    }
-
-    try {
-      const result = await Promise.resolve(fn());
-      this.set(key, result, options);
-      return result;
-    } catch (error) {
-      logCacheError(this, 'getOrSet', key, error);
-      throw error;
-    }
+    return deleted;
   }
 }
 
+// Instances de cache pour l'application (tailles adaptées à 500 visiteurs/jour)
+export const appCache = {
+  products: new SimpleCache('products', 30), // 30 produits max (optimisé)
+  categories: new SimpleCache('categories', 15), // 15 catégories max
+  users: new SimpleCache('users', 25), // 25 utilisateurs max (concurrence réaliste)
+  cart: new SimpleCache('cart', 25), // 25 paniers max
+  static: new SimpleCache('static', 10), // 10 pages statiques max
+};
+
 /**
- * Fonction utilitaire pour obtenir une clé de cache canonique
- * @param {string} prefix - Préfixe de la clé
- * @param {Object} params - Paramètres pour générer la clé
- * @returns {string} - Clé de cache unique
+ * Générer une clé de cache simple
  */
 export function getCacheKey(prefix, params = {}) {
-  // Vérifier et nettoyer les entrées pour la sécurité
-  const cleanParams = {};
-
-  for (const [key, value] of Object.entries(params)) {
-    // Ignorer les valeurs nulles ou undefined
-    if (value === undefined || value === null) continue;
-
-    // Éviter les injections en supprimant les caractères spéciaux
-    const cleanKey = String(key).replace(/[^a-zA-Z0-9_-]/g, '');
-    let cleanValue;
-
-    // Traiter différemment selon le type
-    if (typeof value === 'object') {
-      cleanValue = JSON.stringify(value);
-    } else {
-      cleanValue = String(value);
-    }
-
-    // Limiter la taille des valeurs pour éviter des clés trop longues
-    if (cleanValue.length > 100) {
-      cleanValue = cleanValue.substring(0, 97) + '...';
-    }
-
-    cleanParams[cleanKey] = encodeURIComponent(cleanValue);
-  }
-
-  // Trier les paramètres pour garantir l'unicité
-  const sortedParams = Object.keys(cleanParams)
-    .sort()
-    .map((key) => `${key}=${cleanParams[key]}`)
+  const paramStr = Object.entries(params)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
     .join('&');
 
-  // Préfixe validé
-  const safePrefix = String(prefix).replace(/[^a-zA-Z0-9_-]/g, '');
-
-  return `${safePrefix}:${sortedParams || 'default'}`;
+  return `${prefix}:${paramStr || 'default'}`;
 }
 
 /**
- * Crée une fonction memoizée avec intégration du système de cache
- * Combine les fonctionnalités de memoizeWithTTL et lru-cache
- * @param {Function} fn - Fonction à mettre en cache
- * @param {Object} options - Options de cache
- * @returns {Function} - Fonction mise en cache
+ * Headers de cache pour Next.js (simplifié)
  */
-export function createCachedFunction(fn, options = {}) {
-  const {
-    ttl = 60 * 1000,
-    maxEntries = 100,
-    keyGenerator = (...args) => JSON.stringify(args),
-    name = fn.name || 'anonymous',
-  } = options;
+export function getCacheHeaders(resourceType) {
+  const durations = {
+    products: 600, // 10 minutes
+    categories: 1800, // 30 minutes
+    staticPages: 3600, // 1 heure
+    staticAssets: 86400, // 1 jour
+  };
 
-  // Vérifier si memoizeWithTTL est disponible
-  if (typeof memoizeWithTTL === 'function') {
-    // Utiliser la fonction de performance.js si disponible
-    return memoizeWithTTL(fn, ttl);
-  }
+  const maxAge = durations[resourceType] || durations.staticPages;
 
-  // Créer un cache dédié pour cette fonction
-  const functionCache = new MemoryCache({
-    ttl,
-    maxSize: maxEntries,
-    name: `function-${name}`,
-    logFunction: (msg) => console.debug(`[CachedFn:${name}] ${msg}`),
-  });
-
-  // Créer la fonction enveloppante
-  return async function (...args) {
-    try {
-      const cacheKey = keyGenerator(...args);
-
-      // Vérifier le cache
-      const cachedResult = functionCache.get(cacheKey);
-      if (cachedResult !== null) {
-        return cachedResult;
-      }
-
-      // Exécuter la fonction
-      const result = await Promise.resolve(fn.apply(this, args));
-
-      // Mettre en cache
-      functionCache.set(cacheKey, result);
-
-      return result;
-    } catch (error) {
-      logCacheError(functionCache, 'execution', fn.name, error);
-      throw error;
-    }
+  return {
+    'Cache-Control': `max-age=${maxAge}, stale-while-revalidate=${Math.floor(maxAge / 2)}`,
   };
 }
 
-// Instances de cache pour l'application avec les configurations améliorées
-export const appCache = {
-  authUsers: new MemoryCache({
-    ttl: CACHE_CONFIGS.authUsers.maxAge * 1000,
-    maxSize: 1000, // Capacité pour 1000 utilisateurs
-    compress: false, // Pas besoin de compression pour les petits objets utilisateur
-    name: 'auth-users',
-    logFunction: (msg) => console.debug(`[AuthUserCache] ${msg}`),
-  }),
+/**
+ * Fonction de cache avec memoization simple
+ */
+export function createCachedFunction(
+  fn,
+  cacheName,
+  ttl = CACHE_DURATIONS.products,
+) {
+  const cache = new SimpleCache(cacheName, 50);
 
-  products: new MemoryCache({
-    ttl: CACHE_CONFIGS.products.maxAge * 1000,
-    maxSize: 500,
-    compress: true,
-    name: 'products',
-    logFunction: (msg) => console.debug(`[ProductCache] ${msg}`),
-  }),
+  return async function (...args) {
+    const key = JSON.stringify(args);
+    return cache.getOrSet(key, () => fn.apply(this, args), ttl);
+  };
+}
 
-  // Nouveau cache spécifique pour les produits individuels
-  singleProducts: new MemoryCache({
-    ttl: CACHE_CONFIGS.singleProduct.maxAge * 1000,
-    maxSize: 1000, // Plus d'entrées car chaque produit est une entrée distincte
-    compress: true,
-    name: 'single-products',
-    logFunction: (msg) => console.debug(`[SingleProductCache] ${msg}`),
-  }),
+/**
+ * Utilitaires pour e-commerce
+ */
 
-  cart: new MemoryCache({
-    ttl: CACHE_CONFIGS.cart.maxAge * 1000,
-    maxSize: 300, // Taille adaptée pour les paniers
-    compress: true, // Les paniers peuvent contenir beaucoup d'articles, donc la compression peut être utile
-    name: 'cart',
-    logFunction: (msg) => console.debug(`[CartCache] ${msg}`),
-  }),
+// Cache produit par ID
+export const getCachedProduct = createCachedFunction(
+  async (productId) => {
+    // Votre fonction fetch produit ici
+    // return await fetchProduct(productId);
+  },
+  'product-by-id',
+  CACHE_DURATIONS.singleProduct,
+);
 
-  orders: new MemoryCache({
-    ttl: CACHE_CONFIGS.orders.maxAge * 1000,
-    maxSize: 300, // Taille adaptée pour les commandes
-    compress: true, // Les commandes peuvent contenir beaucoup de détails
-    name: 'orders',
-    logFunction: (msg) => console.debug(`[OrdersCache] ${msg}`),
-  }),
+// Cache catégories
+export const getCachedCategories = createCachedFunction(
+  async () => {
+    // Votre fonction fetch catégories ici
+    // return await fetchCategories();
+  },
+  'categories',
+  CACHE_DURATIONS.categories,
+);
 
-  deliveryPrices: new MemoryCache({
-    ttl: CACHE_CONFIGS.deliveryPrices.maxAge * 1000,
-    maxSize: 50, // Petit nombre de prix de livraison
-    compress: false, // Pas besoin de compression pour des petits objets
-    name: 'delivery-prices',
-    logFunction: (msg) => console.debug(`[DeliveryPricesCache] ${msg}`),
-  }),
+// Invalidation du cache produit quand modifié
+export function invalidateProduct(productId) {
+  appCache.products.deletePattern(`.*${productId}.*`);
+}
 
-  categories: new MemoryCache({
-    ttl: CACHE_CONFIGS.categories.maxAge * 1000,
-    maxSize: 100,
-    name: 'categories',
-    logFunction: (msg) => console.debug(`[CategoryCache] ${msg}`),
-  }),
+// Invalidation du cache utilisateur
+export function invalidateUser(userId) {
+  appCache.users.deletePattern(`.*${userId}.*`);
+  appCache.cart.deletePattern(`.*${userId}.*`);
+}
 
-  addresses: new MemoryCache({
-    ttl: CACHE_CONFIGS.addresses.maxAge * 1000, // Utilise la configuration centralisée
-    maxSize: 200,
-    compress: false,
-    name: 'addresses',
-    logFunction: (msg) => console.debug(`[AddressCache] ${msg}`),
-  }),
-
-  contacts: new MemoryCache({
-    ttl: CACHE_CONFIGS.contacts.maxAge * 1000,
-    maxSize: 200, // Taille adaptée pour les contacts
-    compress: true, // Compression utile pour les messages potentiellement longs
-    name: 'contacts',
-    logFunction: (msg) => console.debug(`[ContactsCache] ${msg}`),
-  }),
-};
-
-// Enregistrer un handler pour nettoyer les caches à l'arrêt de l'application
+// Nettoyage à la fermeture (optionnel)
 if (typeof process !== 'undefined' && process.on) {
   process.on('SIGTERM', () => {
-    Object.values(appCache).forEach((cache) => {
-      if (cache && typeof cache.destroy === 'function') {
-        cache.destroy();
-      }
-    });
+    Object.values(appCache).forEach((cache) => cache.clear());
   });
 }
