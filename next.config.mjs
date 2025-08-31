@@ -25,20 +25,6 @@ const bundleAnalyzer = withBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });
 
-// Configuration simplifiée pour la production (sans import externe)
-const getPublicRuntimeConfig = () => {
-  return {
-    NEXT_PUBLIC_SITE_URL:
-      process.env.NEXT_PUBLIC_SITE_URL || 'https://testing-apps.me',
-    NEXT_PUBLIC_API_URL:
-      process.env.NEXT_PUBLIC_API_URL || 'https://testing-apps.me',
-    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME:
-      process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
-    NEXT_PUBLIC_ENABLE_SW: process.env.NEXT_PUBLIC_ENABLE_SW,
-  };
-};
-
 const securityHeaders = [
   {
     key: 'Strict-Transport-Security',
@@ -176,9 +162,8 @@ const nextConfig = {
   serverRuntimeConfig: {
     PROJECT_ROOT: __dirname,
   },
-  // Configuration des variables d'environnement côté client
-  // Utilisation de la fonction centralisée pour publicRuntimeConfig
-  publicRuntimeConfig: getPublicRuntimeConfig(),
+
+  // Configuration Webpack
   webpack: (config, { dev, isServer }) => {
     // Optimisations webpack supplémentaires
     config.optimization.moduleIds = 'deterministic';
@@ -228,13 +213,9 @@ const nextConfig = {
 
     return config;
   },
-  // En développement, ne pas ignorer les erreurs
-  typescript: {
-    ignoreBuildErrors: process.env.NODE_ENV === 'production', // Ignorer uniquement en production si nécessaire
-  },
   eslint: {
     // Même approche pour ESLint
-    ignoreDuringBuilds: process.env.NODE_ENV === 'production',
+    ignoreDuringBuilds: false,
   },
 };
 
