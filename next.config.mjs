@@ -5,24 +5,101 @@ import { fileURLToPath } from 'url';
 import { withSentryConfig } from '@sentry/nextjs';
 import withBundleAnalyzer from '@next/bundle-analyzer';
 
-// Au début du fichier
+// ===== VALIDATION INTELLIGENTE DES VARIABLES D'ENVIRONNEMENT =====
 const validateEnv = () => {
-  const requiredVars = ['NEXT_PUBLIC_SITE_URL', 'NEXT_PUBLIC_API_URL'];
+  const NODE_ENV = process.env.NODE_ENV || 'development';
+  const IS_CI =
+    process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+  const IS_BUILD_PHASE = process.env.NEXT_PHASE === 'phase-production-build';
+
+  console.log(`🔍 Environment Detection:
+    - NODE_ENV: ${NODE_ENV}
+    - IS_CI: ${IS_CI}
+    - IS_BUILD_PHASE: ${IS_BUILD_PHASE}
+  `);
+
+  // 📋 CATÉGORISATION DES VARIABLES
+  const BUILD_TIME_VARS = [
+    'NEXT_PUBLIC_SITE_URL',
+    'NEXT_PUBLIC_API_URL',
+    'NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME',
+    'NEXT_PUBLIC_CLOUDINARY_API_KEY',
+    'NEXT_PUBLIC_SENTRY_DSN',
+    'NEXT_PUBLIC_ENABLE_SW',
+  ];
+
+  const RUNTIME_VARS = [
+    'API_URL',
+    'DB_URI',
+    'NEXTAUTH_URL',
+    'NEXTAUTH_SECRET',
+    'CLOUDINARY_API_SECRET',
+    'NODEMAILER_EMAIL_ACCOUNT',
+    'NODEMAILER_PASSWORD_ACCOUNT',
+    'SENTRY_URL',
+    'SENTRY_PROJECT',
+    'SENTRY_ORG',
+    'SENTRY_AUTH_TOKEN',
+    'SENTRY_IGNORE_API_RESOLUTION_ERROR',
+    'DEFAULT_PRODUCTS_PER_PAGE',
+    'MAX_PRODUCTS_PER_PAGE',
+    'QUERY_TIMEOUT',
+    'CACHE_MAX_AGE_CATEGORIES',
+    'CACHE_MAX_AGE_PRODUCTS',
+  ];
+
+  const ALWAYS_REQUIRED = ['NODE_ENV'];
+
+  // 🎯 LOGIQUE DE VALIDATION SELON LE CONTEXTE
+  let requiredVars = [];
+
+  if (NODE_ENV === 'development') {
+    // 🔧 DÉVELOPPEMENT : Validation permissive
+    requiredVars = [...ALWAYS_REQUIRED];
+    console.log('🔧 Dev mode: Basic validation only');
+  } else if (IS_CI && NODE_ENV === 'production') {
+    // 🏗️ BUILD CI/CD : Variables nécessaires au build
+    requiredVars = [...ALWAYS_REQUIRED, ...BUILD_TIME_VARS];
+    console.log('🏗️ CI Build mode: Validating BUILD_TIME_VARS');
+  } else if (NODE_ENV === 'production' && !IS_CI) {
+    // 🚀 PRODUCTION RUNTIME : Validation complète
+    requiredVars = [...ALWAYS_REQUIRED, ...RUNTIME_VARS, ...BUILD_TIME_VARS];
+    console.log('🚀 Production runtime: Validating ALL variables');
+  }
+
+  // ✅ VÉRIFICATION DES VARIABLES
   const missingVars = requiredVars.filter((varName) => !process.env[varName]);
 
   if (missingVars.length > 0) {
-    console.warn(`⚠️ Missing environment variables: ${missingVars.join(', ')}`);
+    const context = IS_CI ? 'CI Build' : NODE_ENV;
+    console.warn(
+      `⚠️ [${context}] Missing environment variables: ${missingVars.join(', ')}`,
+    );
+
+    // 🛡️ ÉCHEC STRICT EN PRODUCTION RUNTIME SEULEMENT
+    if (NODE_ENV === 'production' && !IS_CI) {
+      throw new Error(
+        `❌ Production runtime failed: Missing critical environment variables: ${missingVars.join(', ')}`,
+      );
+    }
+  } else {
+    const context = IS_CI ? 'CI Build' : NODE_ENV;
+    console.log(
+      `✅ [${context}] All required environment variables are present`,
+    );
   }
 };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Appeler cette fonction au début
+// 🚀 EXÉCUTER LA VALIDATION
 validateEnv();
 
 const bundleAnalyzer = withBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
+  analyzerMode: 'static',
+  openAnalyzer: false,
 });
 
 const securityHeaders = [
@@ -49,9 +126,16 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
-  output: 'standalone', // ← AJOUTEZ CETTE LIGNE
+  // Configuration de base
+  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
   poweredByHeader: false,
+  reactStrictMode: true,
+  compress: true,
+
+  // Configuration des packages externes
   serverExternalPackages: ['mongoose'],
+
+  // Configuration des images Cloudinary
   images: {
     remotePatterns: [
       {
@@ -63,17 +147,22 @@ const nextConfig = {
     ],
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 86400, // 1 jour
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
+
+  // Configuration du compilateur
   compiler: {
     removeConsole:
       process.env.NODE_ENV === 'production'
         ? {
-            exclude: ['log', 'error', 'warn'],
+            exclude: ['error', 'warn'], // Garde error et warn en production
           }
         : false,
   },
-  // Configuration du cache des pages statiques
-  staticPageGenerationTimeout: 180,
+
+  // Timeout pour la génération de pages statiques (réduit de 180 à 60)
+  staticPageGenerationTimeout: 60,
   // Configuration des headers de sécurité
   async headers() {
     return [
@@ -158,83 +247,101 @@ const nextConfig = {
       },
     ];
   },
-  // Configuration du runtime
+
+  // Configuration du runtime serveur
   serverRuntimeConfig: {
     PROJECT_ROOT: __dirname,
   },
 
-  // Configuration Webpack
+  // Configuration Webpack simplifiée
   webpack: (config, { dev, isServer }) => {
-    // Optimisations webpack supplémentaires
-    config.optimization.moduleIds = 'deterministic';
-
-    // Pour les gros modules
-    if (!dev && !isServer) {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        minSize: 20000,
-        maxSize: 244000,
-        minChunks: 1,
-        maxAsyncRequests: 30,
-        maxInitialRequests: 30,
-        automaticNameDelimiter: '~',
-        cacheGroups: {
-          defaultVendors: {
-            test: /[/\\]node_modules[/\\]/,
-            priority: -10,
-            reuseExistingChunk: true,
-          },
-          default: {
-            minChunks: 2,
-            priority: -20,
-            reuseExistingChunk: true,
-          },
-        },
-      };
-    }
-
-    // Ajouter cette configuration pour le cache
+    // Configuration minimale pour la production
     if (!dev) {
+      // Optimisations de base
+      config.optimization.moduleIds = 'deterministic';
+
+      // Split chunks simple
+      if (!isServer) {
+        config.optimization.splitChunks = {
+          chunks: 'all',
+          cacheGroups: {
+            vendor: {
+              test: /[\\/]node_modules[\\/]/,
+              name: 'vendor',
+              priority: 10,
+              reuseExistingChunk: true,
+            },
+            default: {
+              minChunks: 2,
+              priority: -20,
+              reuseExistingChunk: true,
+            },
+          },
+        };
+      }
+
+      // Cache filesystem pour builds plus rapides
       config.cache = {
         type: 'filesystem',
-        buildDependencies: {
-          config: [__dirname],
-        },
-        cacheDirectory: path.resolve(__filename, '.next/cache/webpack'),
+        cacheDirectory: path.resolve(__dirname, '.next/cache/webpack'),
       };
-    }
 
-    // Supprimer les avertissements pour les grandes chaînes
-    if (!dev) {
+      // Réduction des logs
       config.infrastructureLogging = {
-        level: 'error', // Réduit le niveau de log pour ne montrer que les erreurs
+        level: 'error',
       };
     }
 
     return config;
   },
+
+  // ESLint - Ne pas ignorer les erreurs
   eslint: {
-    // Même approche pour ESLint
     ignoreDuringBuilds: false,
+  },
+
+  // Logging en développement seulement
+  logging: {
+    fetches: {
+      fullUrl: process.env.NODE_ENV === 'development',
+    },
   },
 };
 
-// Configuration Sentry
+// Configuration Sentry - ERREURS SEULEMENT (pas de performance/replay)
 const sentryWebpackPluginOptions = {
   org: process.env.SENTRY_ORG || 'benew',
   project: process.env.SENTRY_PROJECT || 'buyitnow',
   authToken: process.env.SENTRY_AUTH_TOKEN,
-  silent: true, // Supprime les logs de Sentry pendant le build
-  disableServerWebpackPlugin: false,
-  disableClientWebpackPlugin: false,
+
+  // Configuration silencieuse en production
+  silent: true,
+
+  // Désactivation des plugins si pas d'auth token
+  disableServerWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+  disableClientWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+
+  // Upload des sourcemaps
   widenClientFileUpload: true,
   transpileClientSDK: true,
   hideSourceMaps: true,
-  dryRun: process.env.NODE_ENV !== 'production',
+
+  // Mode dry-run si pas en production ou pas de token
+  dryRun:
+    process.env.NODE_ENV !== 'production' || !process.env.SENTRY_AUTH_TOKEN,
+
+  // Debug seulement en développement
   debug: false,
+
+  // Ignorer l'erreur de résolution API si configuré
+  // tunnelRoute: '/monitoring',
+
+  // Configuration des fichiers à inclure
+  include: '.next',
+  ignore: ['node_modules', '.next/cache'],
 };
 
-// Export avec Sentry et l'analyseur de bundle
+// Export avec Sentry et Bundle Analyzer
 export default withSentryConfig(
   bundleAnalyzer(nextConfig),
   sentryWebpackPluginOptions,
