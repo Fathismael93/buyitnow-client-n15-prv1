@@ -9,7 +9,7 @@ import { DECREASE, INCREASE } from '@/helpers/constants';
 import { appCache, getCacheKey } from '@/utils/cache';
 import logger from '@/utils/logger';
 import { captureException } from '@/monitoring/sentry';
-import { applyRateLimit } from '@/utils/integratedRateLimit';
+// import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 export async function GET(req) {
   // Journalisation structurée de la requête
@@ -23,21 +23,21 @@ export async function GET(req) {
     await isAuthenticatedUser(req, NextResponse);
 
     // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
-    const cartRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-      prefix: 'cart_api',
-    });
+    // const cartRateLimiter = applyRateLimit('AUTHENTICATED_API', {
+    //   prefix: 'cart_api',
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await cartRateLimiter(req);
+    // const rateLimitResponse = await cartRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for cart API', {
-        user: req.user?.email,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for cart API', {
+    //     user: req.user?.email,
+    //   });
 
-      return rateLimitResponse;
-    }
+    //   return rateLimitResponse;
+    // }
 
     // Connecter à la base de données avec timeout
     const connectionInstance = await dbConnect();
@@ -327,21 +327,21 @@ export async function POST(req) {
     await isAuthenticatedUser(req, NextResponse);
 
     // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
-    const cartRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-      prefix: 'cart_api',
-    });
+    // const cartRateLimiter = applyRateLimit('AUTHENTICATED_API', {
+    //   prefix: 'cart_api',
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await cartRateLimiter(req);
+    // const rateLimitResponse = await cartRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for cart API', {
-        user: req.user?.email,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for cart API', {
+    //     user: req.user?.email,
+    //   });
 
-      return rateLimitResponse;
-    }
+    //   return rateLimitResponse;
+    // }
 
     // Connecter à la base de données avec timeout
     const connectionInstance = await dbConnect();
@@ -686,21 +686,21 @@ export async function PUT(req) {
     await isAuthenticatedUser(req, NextResponse);
 
     // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
-    const cartRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-      prefix: 'cart_api',
-    });
+    // const cartRateLimiter = applyRateLimit('AUTHENTICATED_API', {
+    //   prefix: 'cart_api',
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await cartRateLimiter(req);
+    // const rateLimitResponse = await cartRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for cart API', {
-        user: req.user?.email,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for cart API', {
+    //     user: req.user?.email,
+    //   });
 
-      return rateLimitResponse;
-    }
+    //   return rateLimitResponse;
+    // }
 
     // Connecter à la base de données avec timeout
     const connectionInstance = await dbConnect();

@@ -2,12 +2,10 @@ import { NextResponse } from 'next/server';
 
 import dbConnect from '@/backend/config/dbConnect';
 import Category from '@/backend/models/category';
-import { applyRateLimit } from '@/utils/integratedRateLimit';
+// import { applyRateLimit } from '@/utils/integratedRateLimit';
 import logger from '@/utils/logger';
 import { captureException } from '@/monitoring/sentry';
 import {
-  MemoryCache,
-  CACHE_CONFIGS,
   getCacheHeaders,
   getCacheKey,
   cacheEvents,
@@ -18,16 +16,16 @@ import {
 const categoryCache = appCache.categories;
 
 // Configurez un rate limiter optimisé pour cette route spécifique
-const categoryRateLimiter = applyRateLimit('PUBLIC_API', {
-  prefix: 'api:category',
-  // Ignorer le rate limiting pour les administrateurs ou en mode développement
-  skip: (req) => {
-    return (
-      process.env.NODE_ENV === 'development' ||
-      (req.user && req.user.isAdmin === true)
-    );
-  },
-});
+// const categoryRateLimiter = applyRateLimit('PUBLIC_API', {
+//   prefix: 'api:category',
+//   // Ignorer le rate limiting pour les administrateurs ou en mode développement
+//   skip: (req) => {
+//     return (
+//       process.env.NODE_ENV === 'development' ||
+//       (req.user && req.user.isAdmin === true)
+//     );
+//   },
+// });
 
 // Enregistrer des événements pour monitorer le comportement du cache
 cacheEvents.on('hit', (data) => {
@@ -81,18 +79,18 @@ export async function GET(req) {
 
   try {
     // 1. Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await categoryRateLimiter(req);
+    // const rateLimitResponse = await categoryRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for categories API', {
-        component: 'categoryAPI',
-        path: '/api/category',
-        userAgent: req.headers.get('user-agent'),
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for categories API', {
+    //     component: 'categoryAPI',
+    //     path: '/api/category',
+    //     userAgent: req.headers.get('user-agent'),
+    //   });
 
-      return rateLimitResponse;
-    }
+    //   return rateLimitResponse;
+    // }
 
     // 2. Vérifier si les données sont en cache en utilisant getWithLock pour gérer la concurrence
     const cachedResult = await categoryCache.getWithLock(cacheKey);

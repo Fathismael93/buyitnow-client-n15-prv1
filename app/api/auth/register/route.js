@@ -12,7 +12,7 @@ import {
 import { registerSchema } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
-import { applyRateLimit } from '@/utils/integratedRateLimit';
+// import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 export async function POST(req) {
   // Récupération de l'IP pour logging
@@ -23,40 +23,40 @@ export async function POST(req) {
 
   try {
     // Appliquer le rate limiting pour les inscriptions
-    const registerRateLimiter = applyRateLimit('PUBLIC_API', {
-      prefix: 'auth_register',
-      // Utiliser les options spécifiques comme dans l'ancien code
-      // Celles-ci seront fusionnées avec les préréglages définis dans integratedRateLimit.js
-      max: 10, // Maximum 10 inscriptions par intervalle
-      windowMs: 60 * 60 * 1000, // Période de 1 heure
-      blockDuration: 24 * 60 * 60 * 1000, // 24 heures de blocage en cas d'abus
-    });
+    // const registerRateLimiter = applyRateLimit('PUBLIC_API', {
+    //   prefix: 'auth_register',
+    //   // Utiliser les options spécifiques comme dans l'ancien code
+    //   // Celles-ci seront fusionnées avec les préréglages définis dans integratedRateLimit.js
+    //   max: 10, // Maximum 10 inscriptions par intervalle
+    //   windowMs: 60 * 60 * 1000, // Période de 1 heure
+    //   blockDuration: 24 * 60 * 60 * 1000, // 24 heures de blocage en cas d'abus
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await registerRateLimiter(req);
+    // const rateLimitResponse = await registerRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Registration rate limit exceeded', {
-        ip: ip.replace(/\d+$/, 'xxx'), // Anonymisation partielle
-        timestamp: new Date().toISOString(),
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Registration rate limit exceeded', {
+    //     ip: ip.replace(/\d+$/, 'xxx'), // Anonymisation partielle
+    //     timestamp: new Date().toISOString(),
+    //   });
 
-      // Renvoyer la réponse du rate limiter avec message personnalisé et headers
-      const customHeaders = new Headers(rateLimitResponse.headers);
-      customHeaders.set('Retry-After', '3600'); // 1 heure
+    //   // Renvoyer la réponse du rate limiter avec message personnalisé et headers
+    //   const customHeaders = new Headers(rateLimitResponse.headers);
+    //   customHeaders.set('Retry-After', '3600'); // 1 heure
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Too many registration attempts. Please try again later.',
-        },
-        {
-          status: 429,
-          headers: customHeaders,
-        },
-      );
-    }
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       message: 'Too many registration attempts. Please try again later.',
+    //     },
+    //     {
+    //       status: 429,
+    //       headers: customHeaders,
+    //     },
+    //   );
+    // }
 
     // Connexion à la base de données
     const connectionInstance = await dbConnect();

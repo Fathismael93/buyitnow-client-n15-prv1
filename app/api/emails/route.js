@@ -9,7 +9,7 @@ import { validateContactMessage } from '@/helpers/schemas';
 import logger from '@/utils/logger';
 import { captureException, captureMessage } from '@/monitoring/sentry';
 import { appCache, getCacheKey } from '@/utils/cache';
-import { applyRateLimit } from '@/utils/integratedRateLimit';
+// import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 /**
  * Gère l'envoi d'emails et l'enregistrement des messages de contact
@@ -32,37 +32,37 @@ export async function POST(req) {
     await isAuthenticatedUser(req, NextResponse);
 
     // 2. Appliquer le rate limiting pour éviter les abus avec la nouvelle implémentation
-    const emailRateLimiter = applyRateLimit('AUTH_ENDPOINTS', {
-      prefix: 'email_send',
-    });
+    // const emailRateLimiter = applyRateLimit('AUTH_ENDPOINTS', {
+    //   prefix: 'email_send',
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await emailRateLimiter(req);
+    // const rateLimitResponse = await emailRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for email sending', {
-        user: req.user?.email,
-        requestId,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for email sending', {
+    //     user: req.user?.email,
+    //     requestId,
+    //   });
 
-      // Ajouter l'ID de requête aux en-têtes de réponse
-      const headers = new Headers(rateLimitResponse.headers);
-      headers.set('X-Request-ID', requestId);
+    //   // Ajouter l'ID de requête aux en-têtes de réponse
+    //   const headers = new Headers(rateLimitResponse.headers);
+    //   headers.set('X-Request-ID', requestId);
 
-      // Créer une nouvelle réponse avec les en-têtes mis à jour
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Too many email requests, please try again later',
-          requestId,
-        },
-        {
-          status: 429,
-          headers,
-        },
-      );
-    }
+    //   // Créer une nouvelle réponse avec les en-têtes mis à jour
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       message: 'Too many email requests, please try again later',
+    //       requestId,
+    //     },
+    //     {
+    //       status: 429,
+    //       headers,
+    //     },
+    //   );
+    // }
 
     // 3. Connexion à la base de données avec timeout
     let connectionInstance;

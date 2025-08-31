@@ -5,7 +5,7 @@ import User from '@/backend/models/user';
 import { captureException } from '@/monitoring/sentry';
 import { appCache, getCacheKey } from '@/utils/cache';
 import logger from '@/utils/logger';
-import { applyRateLimit } from '@/utils/integratedRateLimit';
+// import { applyRateLimit } from '@/utils/integratedRateLimit';
 import { NextResponse } from 'next/server';
 
 export async function DELETE(req, { params }) {
@@ -21,21 +21,21 @@ export async function DELETE(req, { params }) {
     await isAuthenticatedUser(req, NextResponse);
 
     // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
-    const cartRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-      prefix: 'cart_api',
-    });
+    // const cartRateLimiter = applyRateLimit('AUTHENTICATED_API', {
+    //   prefix: 'cart_api',
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await cartRateLimiter(req);
+    // const rateLimitResponse = await cartRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for cart delete API', {
-        user: req.user?.email,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for cart delete API', {
+    //     user: req.user?.email,
+    //   });
 
-      return rateLimitResponse;
-    }
+    //   return rateLimitResponse;
+    // }
 
     // Connecter à la base de données avec timeout
     const connectionPromise = new Promise((resolve, reject) => {
