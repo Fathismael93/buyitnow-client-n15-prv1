@@ -12,7 +12,7 @@ import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
 import { validateWithLogging } from '@/helpers/schemas';
 import { appCache, getCacheKey } from '@/utils/cache';
-import { applyRateLimit } from '@/utils/integratedRateLimit';
+// import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 export async function GET(req) {
   // Récupérer le contexte depuis l'URL
@@ -40,21 +40,21 @@ export async function GET(req) {
     await isAuthenticatedUser(req, NextResponse);
 
     // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
-    const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-      prefix: 'address_api',
-    });
+    // const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
+    //   prefix: 'address_api',
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await addressRateLimiter(req);
+    // const rateLimitResponse = await addressRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for address API', {
-        user: req.user?.email,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for address API', {
+    //     user: req.user?.email,
+    //   });
 
-      return rateLimitResponse;
-    }
+    //   return rateLimitResponse;
+    // }
 
     // Connecter à la base de données avec timeout
     const connectionPromise = dbConnect();
@@ -343,21 +343,21 @@ export async function POST(req) {
     await isAuthenticatedUser(req, NextResponse);
 
     // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
-    const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-      prefix: 'address_api',
-    });
+    // const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
+    //   prefix: 'address_api',
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await addressRateLimiter(req);
+    // const rateLimitResponse = await addressRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for address API', {
-        user: req.user?.email,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for address API', {
+    //     user: req.user?.email,
+    //   });
 
-      return rateLimitResponse;
-    }
+    //   return rateLimitResponse;
+    // }
 
     // Connecter à la base de données avec timeout
     const connectionPromise = dbConnect();

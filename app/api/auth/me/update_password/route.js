@@ -8,7 +8,7 @@ import logger from '@/utils/logger';
 import { appCache, getCacheKey } from '@/utils/cache';
 import { updatePasswordSchema, validateWithLogging } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
-import { applyRateLimit } from '@/utils/integratedRateLimit';
+// import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 export async function PUT(req) {
   // Structured logging of request
@@ -22,30 +22,30 @@ export async function PUT(req) {
     await isAuthenticatedUser(req, NextResponse);
 
     // Apply rate limiting for authenticated requests with the new implementation
-    const passwordRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-      prefix: 'password_update_api',
-    });
+    // const passwordRateLimiter = applyRateLimit('AUTHENTICATED_API', {
+    //   prefix: 'password_update_api',
+    // });
 
     // Verify rate limiting and get a response if the limit is exceeded
-    const rateLimitResponse = await passwordRateLimiter(req);
+    // const rateLimitResponse = await passwordRateLimiter(req);
 
     // If a rate limit response is returned, return it immediately
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for password update API', {
-        user: req.user?.email,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for password update API', {
+    //     user: req.user?.email,
+    //   });
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Too many password update attempts. Please try again later.',
-        },
-        {
-          status: 429,
-          headers: rateLimitResponse.headers,
-        },
-      );
-    }
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       message: 'Too many password update attempts. Please try again later.',
+    //     },
+    //     {
+    //       status: 429,
+    //       headers: rateLimitResponse.headers,
+    //     },
+    //   );
+    // }
 
     // Connect to the database with timeout
     const connectionPromise = new Promise((resolve, reject) => {

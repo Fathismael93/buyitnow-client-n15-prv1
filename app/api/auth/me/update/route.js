@@ -7,7 +7,7 @@ import logger from '@/utils/logger';
 import { captureException } from '@/monitoring/sentry';
 import { validateProfileWithLogging } from '@/helpers/schemas';
 import { appCache, getCacheKey } from '@/utils/cache';
-import { applyRateLimit } from '@/utils/integratedRateLimit';
+// import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 /**
  * Gère la mise à jour du profil utilisateur
@@ -30,37 +30,37 @@ export async function PUT(req) {
     await isAuthenticatedUser(req, NextResponse);
 
     // 2. Appliquer le rate limiting pour éviter les abus avec la nouvelle implémentation
-    const profileRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-      prefix: 'profile_update',
-    });
+    // const profileRateLimiter = applyRateLimit('AUTHENTICATED_API', {
+    //   prefix: 'profile_update',
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await profileRateLimiter(req);
+    // const rateLimitResponse = await profileRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for profile update', {
-        user: req.user?.email,
-        requestId,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for profile update', {
+    //     user: req.user?.email,
+    //     requestId,
+    //   });
 
-      // Ajouter l'ID de requête aux en-têtes de réponse
-      const headers = new Headers(rateLimitResponse.headers);
-      headers.set('X-Request-ID', requestId);
+    //   // Ajouter l'ID de requête aux en-têtes de réponse
+    //   const headers = new Headers(rateLimitResponse.headers);
+    //   headers.set('X-Request-ID', requestId);
 
-      // Créer une nouvelle réponse avec les en-têtes mis à jour
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Too many update requests, please try again later',
-          requestId,
-        },
-        {
-          status: 429,
-          headers,
-        },
-      );
-    }
+    //   // Créer une nouvelle réponse avec les en-têtes mis à jour
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       message: 'Too many update requests, please try again later',
+    //       requestId,
+    //     },
+    //     {
+    //       status: 429,
+    //       headers,
+    //     },
+    //   );
+    // }
 
     // 3. Connexion à la base de données avec timeout
     let connectionInstance;

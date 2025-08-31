@@ -9,7 +9,7 @@ import { appCache, getCacheKey } from '@/utils/cache';
 import { captureException } from '@/monitoring/sentry';
 import { sanitizeAddress } from '@/utils/addressSanitizer';
 import { addressSchema, validateWithLogging } from '@/helpers/schemas';
-import { applyRateLimit } from '@/utils/integratedRateLimit';
+// import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 export async function GET(req, { params }) {
   // Structured logging of request
@@ -24,21 +24,21 @@ export async function GET(req, { params }) {
     await isAuthenticatedUser(req, NextResponse);
 
     // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
-    const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-      prefix: 'address_detail_api',
-    });
+    // const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
+    //   prefix: 'address_detail_api',
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await addressRateLimiter(req);
+    // const rateLimitResponse = await addressRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for single address API', {
-        user: req.user?.email,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for single address API', {
+    //     user: req.user?.email,
+    //   });
 
-      return rateLimitResponse;
-    }
+    //   return rateLimitResponse;
+    // }
 
     // Connect to the database with timeout
     const connectionPromise = new Promise((resolve, reject) => {
@@ -312,21 +312,21 @@ export async function PUT(req, { params }) {
     await isAuthenticatedUser(req, NextResponse);
 
     // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
-    const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-      prefix: 'address_api',
-    });
+    // const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
+    //   prefix: 'address_api',
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await addressRateLimiter(req);
+    // const rateLimitResponse = await addressRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for address PUT API', {
-        user: req.user?.email,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for address PUT API', {
+    //     user: req.user?.email,
+    //   });
 
-      return rateLimitResponse;
-    }
+    //   return rateLimitResponse;
+    // }
 
     // Connect to the database with timeout
     const connectionPromise = new Promise((resolve, reject) => {
@@ -741,21 +741,21 @@ export async function DELETE(req, { params }) {
     await isAuthenticatedUser(req, NextResponse);
 
     // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
-    const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-      prefix: 'address_api',
-    });
+    // const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
+    //   prefix: 'address_api',
+    // });
 
     // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    const rateLimitResponse = await addressRateLimiter(req);
+    // const rateLimitResponse = await addressRateLimiter(req);
 
     // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    if (rateLimitResponse) {
-      logger.warn('Rate limit exceeded for address DELETE API', {
-        user: req.user?.email,
-      });
+    // if (rateLimitResponse) {
+    //   logger.warn('Rate limit exceeded for address DELETE API', {
+    //     user: req.user?.email,
+    //   });
 
-      return rateLimitResponse;
-    }
+    //   return rateLimitResponse;
+    // }
 
     // Connect to the database with timeout
     const connectionPromise = new Promise((resolve, reject) => {
