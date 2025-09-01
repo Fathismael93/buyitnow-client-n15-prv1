@@ -2,8 +2,12 @@
 // Schémas de validation pour les produits et recherche
 
 import * as yup from 'yup';
-import { validationUtils, REGEX } from '../core/constants';
-import { validateWithLogging, formatValidationErrors } from '../core/utils';
+import { validationUtils, PERFORMANCE_LIMITS } from '../core/constants';
+import {
+  validateWithLogging,
+  formatValidationErrors,
+  validateBatch,
+} from '../core/utils';
 
 /**
  * Schéma de validation pour la recherche de produits
@@ -141,17 +145,22 @@ export const categorySchema = yup.object().shape({
   value: yup
     .string()
     .required('La catégorie est requise')
-    .trim()
+    .transform(validationUtils.sanitizeString)
     .test(
       'is-valid-object-id',
       'Identifiant de catégorie invalide',
       validationUtils.isValidObjectId,
     )
-    .test('no-injection', 'Format de catégorie non autorisé', (value) => {
-      if (!value) return true;
-      const dangerousPatterns = [/\$/, /\.\./, /\{.*\:.*\}/, /\[.*\]/];
-      return !dangerousPatterns.some((pattern) => pattern.test(value));
-    })
+    .test(
+      'no-sql-injection',
+      'Format de catégorie non autorisé',
+      validationUtils.noSqlInjection,
+    )
+    .test(
+      'no-nosql-injection',
+      'Format de catégorie non autorisé',
+      validationUtils.noNoSqlInjection,
+    )
     .transform((value) => (value ? value.toLowerCase() : value)),
 });
 
@@ -397,10 +406,16 @@ export const wishlistSchema = yup.object().shape({
 });
 
 /**
- * Fonction de validation de recherche avec optimisations
+ * Fonction de validation de recherche avec optimisations et limites de performance
  */
 export const validateProductSearch = async (searchData) => {
   try {
+    // Vérification de la taille des données pour éviter les abus
+    const dataString = JSON.stringify(searchData);
+    if (dataString.length > PERFORMANCE_LIMITS.MAX_STRING_LENGTH) {
+      throw new Error('Données de recherche trop volumineuses');
+    }
+
     const validatedData = await validateWithLogging(
       productQuerySchema,
       searchData,
@@ -412,7 +427,9 @@ export const validateProductSearch = async (searchData) => {
       ...validatedData,
       // Nettoyer les valeurs nulles pour éviter les requêtes inutiles
       ...Object.fromEntries(
-        Object.entries(validatedData).filter(([_, value]) => value !== null),
+        Object.entries(validatedData).filter(
+          ([_, value]) => value !== null && value !== undefined,
+        ),
       ),
     };
 
@@ -425,6 +442,11 @@ export const validateProductSearch = async (searchData) => {
 
     if (optimizedData.minPrice === 0 && optimizedData.maxPrice >= 1000000) {
       warnings.push('price_range_too_broad');
+    }
+
+    // Vérification des limites de pagination pour éviter les abus
+    if (optimizedData.page > 100 || optimizedData.limit > 50) {
+      warnings.push('pagination_limits_exceeded');
     }
 
     return {
@@ -446,48 +468,211 @@ export const validateProductSearch = async (searchData) => {
 };
 
 /**
+ * Validation batch pour les reviews de produits
+ */
+export const validateProductReviewsBatch = async (
+  reviewsData,
+  options = {},
+) => {
+  try {
+    const { results, errors } = await validateBatch(
+      productReviewSchema,
+      reviewsData,
+      {
+        concurrent: 5, // Traitement parallèle limité
+        stopOnFirstError: false, // Continuer même en cas d'erreur
+        ...options,
+      },
+    );
+
+    // Analyse globale anti-spam
+    const spamAnalysis = results.reduce(
+      (analysis, review, index) => {
+        const { spamScore, spamFlags } = validateSpamHeuristics(review.data);
+        if (spamScore >= 3 || spamFlags.length >= 2) {
+          analysis.suspiciousReviews.push({ index, spamScore, spamFlags });
+        }
+        analysis.totalSpamScore += spamScore;
+        return analysis;
+      },
+      { suspiciousReviews: [], totalSpamScore: 0 },
+    );
+
+    return {
+      isValid: errors.length === 0,
+      validatedData: results.map((r) => r.data),
+      errors: errors.map((e) => ({
+        index: e.index,
+        errors: formatValidationErrors(e.error),
+      })),
+      spamAnalysis,
+    };
+  } catch (error) {
+    console.warn('Batch review validation failed', {
+      error: error.message,
+      count: reviewsData.length,
+    });
+
+    return {
+      isValid: false,
+      errors: [{ general: 'Erreur de validation batch des reviews' }],
+    };
+  }
+};
+
+/**
+ * Analyse heuristique du spam (fonction helper)
+ */
+const validateSpamHeuristics = (reviewData) => {
+  const spamFlags = [];
+  const { title, comment } = reviewData;
+  const combinedText = `${title} ${comment}`.toLowerCase();
+
+  // Détection de mots-clés de spam
+  const spamKeywords = [
+    'buy now',
+    'click here',
+    'free money',
+    'guaranteed',
+    'no risk',
+    'limited time',
+    'act now',
+    'discount',
+    'casino',
+    'lottery',
+    'viagra',
+    'investment opportunity',
+  ];
+
+  const spamScore = spamKeywords.reduce(
+    (score, keyword) => score + (combinedText.includes(keyword) ? 1 : 0),
+    0,
+  );
+
+  if (spamScore >= 2) spamFlags.push('high_spam_keywords');
+
+  // Détection de répétition excessive
+  const words = combinedText.split(/\s+/);
+  const wordCount = {};
+  words.forEach((word) => {
+    if (word.length > 3) {
+      wordCount[word] = (wordCount[word] || 0) + 1;
+    }
+  });
+
+  const maxRepeats = Math.max(...Object.values(wordCount));
+  if (maxRepeats > 5) spamFlags.push('excessive_word_repetition');
+
+  // Détection de caractères répétés
+  if (/(.)\1{4,}/.test(combinedText)) spamFlags.push('repeated_characters');
+
+  // URLs multiples
+  const urlCount = (combinedText.match(/(https?:\/\/[^\s]+)/g) || []).length;
+  if (urlCount > 2) spamFlags.push('multiple_urls');
+
+  return { spamScore, spamFlags };
+};
+
+/**
  * Validation d'évaluation de produit avec détection de spam
  */
-// export const validateProductReview = async (reviewData) => {
-//   try {
-//     const validatedData = await validateWithLogging(productReviewSchema, reviewData);
+export const validateProductReview = async (reviewData) => {
+  try {
+    const validatedData = await validateWithLogging(
+      productReviewSchema,
+      reviewData,
+    );
 
-//     // Analyse anti-spam
-//     const spamFlags = [];
-//     const { title, comment } = validatedData;
-//     const combinedText = `${title} ${comment}`.toLowerCase();
+    // Utilisation de la fonction helper pour l'analyse de spam
+    const { spamScore, spamFlags } = validateSpamHeuristics(validatedData);
 
-//     // Détection de mots-clés de spam
-//     const spamKeywords = [
-//       'buy now', 'click here', 'free money', 'guaranteed',
-//       'no risk', 'limited time', 'act now', 'discount'
-//     ];
+    return {
+      isValid: true,
+      data: validatedData,
+      spamFlags,
+      spamScore,
+      requiresModeration: spamScore >= 2 || spamFlags.length >= 1,
+    };
+  } catch (error) {
+    console.warn('Product review validation failed', {
+      error: error.message,
+      rating: reviewData?.rating,
+      titleLength: reviewData?.title?.length || 0,
+    });
 
-//     const spamScore = spamKeywords.reduce(
-//       (score, keyword) => score + (combinedText.includes(keyword) ? 1 : 0), 0
-//     );
+    return {
+      isValid: false,
+      errors: formatValidationErrors(error),
+    };
+  }
+};
 
-//     if (spamScore >= 2) spamFlags.push('high_spam_keywords');
+/**
+ * Validation batch pour les listes de souhaits avec plusieurs produits
+ */
+export const validateWishlistBatch = async (wishlistsData, options = {}) => {
+  try {
+    // Utilisation de l'utilitaire batch du core
+    const { results, errors } = await validateBatch(
+      wishlistSchema,
+      wishlistsData,
+      {
+        concurrent: 3, // Limite pour éviter la surcharge
+        ...options,
+      },
+    );
 
-//     // Détection de répétition excessive
-//     const words = combinedText.split(/\s+/);
-//     const wordCount = {};
-//     words.forEach(word => {
-//       if (word.length > 3) {
-//         wordCount[word] = (wordCount[word] || 0) + 1;
-//       }
-//     });
+    return {
+      isValid: errors.length === 0,
+      validatedData: results.map((r) => r.data),
+      errors: errors.map((e) => ({
+        index: e.index,
+        errors: formatValidationErrors(e.error),
+      })),
+    };
+  } catch (error) {
+    console.warn('Batch wishlist validation failed', {
+      error: error.message,
+      count: wishlistsData.length,
+    });
 
-//     const maxRepeats = Math.max(...Object.values(wordCount));
-//     if (maxRepeats > 5) spamFlags.push('excessive_word_repetition');
+    return {
+      isValid: false,
+      errors: [{ general: 'Erreur de validation batch des listes' }],
+    };
+  }
+};
 
-//     // Détection de caractères répétés
-//     if (/(.)\1{4,}/.test(combinedText)) spamFlags.push('repeated_characters');
+/**
+ * Validation de liste de souhaits
+ */
+export const validateWishlist = async (wishlistData) => {
+  try {
+    const validatedData = await validateWithLogging(
+      wishlistSchema,
+      wishlistData,
+    );
 
-//     return {
-//       isValid: true,
-//       data: validatedData,
-//       spamFlags,
-//       spamScore,
-//     };
-//   } catch (error) {
+    // Vérifications métier
+    const warnings = [];
+
+    if (validatedData.products?.length === 0) {
+      warnings.push('empty_wishlist');
+    }
+
+    if (validatedData.isPublic && !validatedData.description) {
+      warnings.push('public_wishlist_without_description');
+    }
+
+    return {
+      isValid: true,
+      data: validatedData,
+      warnings,
+    };
+  } catch (error) {
+    return {
+      isValid: false,
+      errors: formatValidationErrors(error),
+    };
+  }
+};
