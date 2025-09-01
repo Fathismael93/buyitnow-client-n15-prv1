@@ -1,236 +1,130 @@
-/* eslint-disable no-control-regex */
 /**
- * @fileoverview Utilitaire de sanitisation avancée pour les entrées utilisateur
- * Complète la validation Yup avec des sanitisations spécifiques à chaque type d'entrée
+ * Sanitisation simple des entrées - Complément minimal à Yup
+ * Adapté pour 500 visiteurs/jour
  */
 
 /**
- * Sanitise une chaîne de texte en supprimant les caractères potentiellement dangereux
- * @param {string} value - La valeur à sanitiser
- * @returns {string} - La valeur sanitisée
+ * Nettoie une chaîne basique (trim + espaces multiples)
+ * PAS d'encodage HTML - React le fait automatiquement
  */
-export const sanitizeString = (value) => {
-  if (value === null || value === undefined) return '';
-  if (typeof value !== 'string') {
-    value = String(value);
-  }
-
-  // Suppression des caractères de contrôle et non-imprimables
-  value = value.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
-
-  // Encodage des caractères HTML spéciaux pour éviter les attaques XSS
-  value = value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-
-  // Suppression des caractères utilisés dans les attaques SQL/NoSQL
-  value = value.replace(/(\$|;|--|\/\*|\*\/|@@|@)/g, '');
-
-  // Normalisation des espaces multiples
-  value = value.replace(/\s+/g, ' ').trim();
-
-  return value;
+export const cleanString = (value) => {
+  if (!value || typeof value !== 'string') return '';
+  return value.trim().replace(/\s+/g, ' ');
 };
 
 /**
- * Sanitise une valeur numérique
- * @param {number|string} value - La valeur à sanitiser
- * @param {Object} options - Options de sanitisation
- * @returns {number|null} - La valeur sanitisée
+ * Parse un nombre de manière sûre
  */
-export const sanitizeNumber = (value, options = {}) => {
-  const {
-    min = Number.MIN_SAFE_INTEGER,
-    max = Number.MAX_SAFE_INTEGER,
-    allowNull = true,
-  } = options;
-
-  if ((value === null || value === undefined || value === '') && allowNull) {
-    return null;
+export const parseNumber = (value, defaultValue = null) => {
+  if (value === null || value === undefined || value === '') {
+    return defaultValue;
   }
 
-  // Conversion en nombre
-  let sanitized = typeof value === 'string' ? value.trim() : value;
-
-  // Suppression de tous les caractères non numériques sauf le point décimal
-  if (typeof sanitized === 'string') {
-    // On garde uniquement les chiffres et le point décimal
-    sanitized = sanitized.replace(/[^\d.eE-]/g, '');
-    // Si format scientifique, convertir directement
-    sanitized = Number(sanitized);
-  }
-
-  // Vérification que c'est un nombre valide et dans les limites
-  if (isNaN(sanitized) || !isFinite(sanitized)) {
-    return allowNull ? null : 0;
-  }
-
-  // Application des limites min et max
-  return Math.min(Math.max(sanitized, min), max);
+  const num = Number(value);
+  return isNaN(num) || !isFinite(num) ? defaultValue : num;
 };
 
 /**
- * Sanitise un identifiant MongoDB ObjectId
- * @param {string} value - La valeur à sanitiser
- * @returns {string|null} - L'ObjectId sanitisé ou null si invalide
+ * Parse un booléen
  */
-export const sanitizeObjectId = (value) => {
-  if (!value) return null;
-
-  // Convertir en chaîne si ce n'est pas déjà le cas
-  const strValue = String(value).trim();
-
-  // Vérifier si l'ID correspond au format d'un ObjectId MongoDB
-  if (/^[0-9a-fA-F]{24}$/.test(strValue)) {
-    return strValue;
-  }
-
-  return null;
-};
-
-/**
- * Sanitise une valeur booléenne ou un état de checkbox
- * @param {boolean|string|number} value - La valeur à sanitiser
- * @returns {boolean} - La valeur booléenne sanitisée
- */
-export const sanitizeBoolean = (value) => {
+export const parseBoolean = (value) => {
   if (typeof value === 'boolean') return value;
-
   if (typeof value === 'string') {
-    const lowercased = value.toLowerCase().trim();
-    return (
-      lowercased === 'true' ||
-      lowercased === 'on' ||
-      lowercased === '1' ||
-      lowercased === 'yes'
-    );
+    return ['true', 'on', '1', 'yes'].includes(value.toLowerCase().trim());
   }
-
-  if (typeof value === 'number') {
-    return value === 1;
-  }
-
-  return false;
+  return Boolean(value);
 };
 
 /**
- * Sanitise une valeur de page de pagination
- * @param {number|string} value - La valeur de page à sanitiser
- * @param {number} defaultPage - La page par défaut (généralement 1)
- * @param {number} maxPage - La page maximale autorisée
- * @returns {number} - Le numéro de page sanitisé
+ * Vérifie un ObjectId MongoDB (format seulement)
  */
-export const sanitizePage = (value, defaultPage = 1, maxPage = 1000) => {
-  const sanitized = sanitizeNumber(value, {
-    min: 1,
-    max: maxPage,
-    allowNull: false,
-  });
-  return sanitized || defaultPage;
+export const isValidObjectId = (value) => {
+  if (!value) return false;
+  return /^[0-9a-fA-F]{24}$/.test(String(value).trim());
 };
 
 /**
- * Sanitise les paramètres de recherche de produits
- * @param {URLSearchParams} searchParams - Les paramètres de recherche
- * @returns {Object} - Les paramètres sanitisés
+ * Parse les paramètres de recherche produits
+ * Simple extraction sans sur-sanitisation
  */
-export const sanitizeProductSearchParams = (searchParams) => {
-  // Crée un objet pour stocker les paramètres sanitisés
-  const sanitized = {};
+export const parseProductSearchParams = (searchParams) => {
+  const params = {};
 
-  // Sanitise le mot-clé de recherche
-  if (searchParams.has('keyword')) {
-    sanitized.keyword = sanitizeString(searchParams.get('keyword'));
+  // Keyword - juste un trim
+  const keyword = searchParams.get('keyword');
+  if (keyword) {
+    params.keyword = cleanString(keyword);
   }
 
-  // Sanitise la catégorie (ObjectId)
-  if (searchParams.has('category')) {
-    sanitized.category = sanitizeObjectId(searchParams.get('category'));
+  // Category - vérifier si c'est un ObjectId valide
+  const category = searchParams.get('category');
+  if (category && isValidObjectId(category)) {
+    params.category = category.trim();
   }
 
-  // Sanitise les prix min et max
-  if (searchParams.has('price[gte]')) {
-    sanitized.minPrice = sanitizeNumber(searchParams.get('price[gte]'), {
-      min: 0,
-      max: 999999999,
-      allowNull: true,
-    });
-  }
-
-  if (searchParams.has('price[lte]')) {
-    sanitized.maxPrice = sanitizeNumber(searchParams.get('price[lte]'), {
-      min: 0,
-      max: 999999999,
-      allowNull: true,
-    });
-  }
-
-  // Sanitise la page
-  if (searchParams.has('page')) {
-    sanitized.page = sanitizePage(searchParams.get('page'));
-  } else {
-    sanitized.page = 1; // Page par défaut
-  }
-
-  return sanitized;
-};
-
-/**
- * Convertit l'objet de paramètres sanitisés en URLSearchParams
- * Utile pour reconstruire une URL propre
- * @param {Object} sanitizedParams - Les paramètres sanitisés
- * @returns {URLSearchParams} - Objet URLSearchParams
- */
-export const buildSanitizedSearchParams = (sanitizedParams) => {
-  const params = new URLSearchParams();
-
-  Object.entries(sanitizedParams).forEach(([key, value]) => {
-    if (value !== null && value !== undefined && value !== '') {
-      if (key === 'minPrice') {
-        params.set('price[gte]', value);
-      } else if (key === 'maxPrice') {
-        params.set('price[lte]', value);
-      } else {
-        params.set(key, value);
-      }
+  // Prix min/max - parser en nombre
+  const minPrice = searchParams.get('min') || searchParams.get('price[gte]');
+  if (minPrice) {
+    const min = parseNumber(minPrice);
+    if (min !== null && min >= 0) {
+      params.min = min;
     }
-  });
+  }
+
+  const maxPrice = searchParams.get('max') || searchParams.get('price[lte]');
+  if (maxPrice) {
+    const max = parseNumber(maxPrice);
+    if (max !== null && max >= 0) {
+      params.max = max;
+    }
+  }
+
+  // Page - avec défaut à 1
+  const page = parseNumber(searchParams.get('page'), 1);
+  params.page = Math.max(1, Math.min(page, 1000));
 
   return params;
 };
 
 /**
- * Sanitise et valide les données en une seule étape
- * @param {Object} data - Les données à sanitiser et valider
- * @param {Object} schema - Le schéma Yup pour la validation
- * @param {Function} sanitizeFn - La fonction de sanitisation
- * @returns {Promise<Object>} - Les données sanitisées et validées
- * @throws {Error} - Si la validation échoue
+ * Construit des paramètres d'URL propres
  */
-export const sanitizeAndValidate = async (data, schema, sanitizeFn) => {
-  // Étape 1: Sanitiser les données
-  const sanitizedData = sanitizeFn(data);
+export const buildQueryString = (params) => {
+  const searchParams = new URLSearchParams();
 
-  // Étape 2: Valider les données sanitisées
-  try {
-    const validatedData = await schema.validate(sanitizedData, {
-      abortEarly: false,
-    });
-    return validatedData;
-  } catch (error) {
-    // Transformer l'erreur Yup en format plus exploitable
-    const errors = error.inner?.map((e) => ({
-      field: e.path,
-      message: e.message,
-    })) || [{ field: 'unknown', message: error.message }];
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== '') {
+      searchParams.set(key, value);
+    }
+  });
 
-    throw {
-      name: 'ValidationError',
-      errors,
-      message: 'Validation failed after sanitization',
-    };
-  }
+  return searchParams.toString();
+};
+
+/**
+ * Nettoie les données de formulaire avant validation Yup
+ * Utiliser UNIQUEMENT pour les formulaires, pas pour les API
+ */
+export const cleanFormData = (data) => {
+  const cleaned = {};
+
+  Object.entries(data).forEach(([key, value]) => {
+    if (typeof value === 'string') {
+      cleaned[key] = cleanString(value);
+    } else {
+      cleaned[key] = value;
+    }
+  });
+
+  return cleaned;
+};
+
+export default {
+  cleanString,
+  parseNumber,
+  parseBoolean,
+  isValidObjectId,
+  parseProductSearchParams,
+  buildQueryString,
+  cleanFormData,
 };
