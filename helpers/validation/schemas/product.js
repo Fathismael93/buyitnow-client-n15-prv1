@@ -1,371 +1,109 @@
-// helpers/validation/schemas/product.js
-// Schémas de validation simplifiés pour les produits et recherche
+/**
+ * Schémas de validation pour les produits et recherche
+ */
 
 import * as yup from 'yup';
-import { validationUtils } from '../core/constants';
-import { validateWithLogging, formatValidationErrors } from '../core/utils';
+import {
+  sanitizeString,
+  isValidObjectId,
+  validate,
+  noNoSqlInjection,
+} from '../utils';
 
-/**
- * Schéma de validation pour la recherche de produits (basique)
- */
+// Schéma de recherche
 export const searchSchema = yup.object().shape({
   keyword: yup
     .string()
-    .required('Veuillez saisir un nom de produit')
-    .transform(validationUtils.sanitizeString)
-    .min(2, 'Le nom du produit doit contenir au moins 2 caractères')
-    .max(100, 'Le nom du produit ne peut pas dépasser 100 caractères')
+    .required('Nom de produit requis')
+    .transform(sanitizeString)
+    .min(2, 'Minimum 2 caractères')
+    .max(100, 'Maximum 100 caractères')
     .matches(
       /^[a-zA-Z0-9\u00C0-\u017F\s.,'\-&()[\]]+$/,
-      'Le nom du produit contient des caractères non autorisés',
+      'Caractères non autorisés',
     )
-    .test(
-      'no-sql-injection',
-      'Le nom du produit contient des motifs non autorisés',
-      validationUtils.noSqlInjection,
-    )
-    .test(
-      'no-nosql-injection',
-      'Le nom du produit contient des caractères non autorisés',
-      validationUtils.noNoSqlInjection,
-    ),
+    .test('no-nosql', 'Format invalide', noNoSqlInjection),
 });
 
-/**
- * Schéma de validation pour les prix minimum
- */
-export const minPriceSchema = yup.object().shape({
-  minPrice: yup
+// Schéma de filtres de prix
+export const priceFiltersSchema = yup.object().shape({
+  min: yup
     .number()
     .nullable()
-    .transform((value, originalValue) => {
-      return originalValue === '' ? null : value;
-    })
-    .typeError('Le prix minimum doit être un nombre valide')
-    .min(0, 'Le prix minimum doit être supérieur ou égal à 0')
-    .max(999999, 'Le prix minimum ne peut pas dépasser 999 999€')
-    .test(
-      'valid-decimal-places',
-      'Le prix minimum doit avoir au maximum 2 décimales',
-      (value) => {
-        if (value === null || value === undefined) return true;
-        return Number(value.toFixed(2)) === value;
-      },
-    ),
-});
+    .min(0, 'Prix minimum doit être >= 0')
+    .max(999999, 'Prix maximum dépassé'),
 
-/**
- * Schéma de validation pour les prix maximum
- */
-export const maxPriceSchema = yup.object().shape({
-  maxPrice: yup
+  max: yup
     .number()
     .nullable()
-    .transform((value, originalValue) => {
-      return originalValue === '' ? null : value;
-    })
-    .typeError('Le prix maximum doit être un nombre valide')
-    .min(0, 'Le prix maximum doit être supérieur ou égal à 0')
-    .max(999999, 'Le prix maximum ne peut pas dépasser 999 999€')
-    .test(
-      'valid-decimal-places',
-      'Le prix maximum doit avoir au maximum 2 décimales',
-      (value) => {
-        if (value === null || value === undefined) return true;
-        return Number(value.toFixed(2)) === value;
-      },
-    )
-    .test(
-      'max-greater-than-min',
-      'Le prix maximum doit être supérieur au prix minimum',
-      function (value) {
-        // Accéder au contexte parent pour obtenir minPrice
-        const minPrice = this.parent.minPrice || this.options.context?.minPrice;
-        if (value === null || minPrice === null || minPrice === undefined) {
-          return true;
-        }
-        return value >= minPrice;
-      },
-    ),
+    .min(0, 'Prix maximum doit être >= 0')
+    .max(999999, 'Prix maximum dépassé')
+    .test('greater-than-min', 'Doit être > prix minimum', function (value) {
+      const { min } = this.parent;
+      return !value || !min || value >= min;
+    }),
 });
 
-/**
- * Schéma de validation pour les catégories
- */
+// Schéma de catégorie
 export const categorySchema = yup.object().shape({
   category: yup
     .string()
     .nullable()
-    .transform(validationUtils.sanitizeString)
-    .test('valid-object-id', 'Identifiant de catégorie invalide', (value) => {
-      if (!value) return true; // null/undefined sont autorisés
-      return validationUtils.isValidObjectId(value);
-    })
+    .transform(sanitizeString)
     .test(
-      'no-sql-injection',
-      'Format de catégorie non autorisé',
-      validationUtils.noSqlInjection,
-    )
-    .test(
-      'no-nosql-injection',
-      'Format de catégorie non autorisé',
-      validationUtils.noNoSqlInjection,
+      'valid-id',
+      'ID catégorie invalide',
+      (value) => !value || isValidObjectId(value),
     ),
 });
 
-/**
- * Schéma de validation pour les filtres de prix combinés
- */
-export const priceFiltersSchema = yup
-  .object()
-  .shape({
-    min: minPriceSchema.fields.minPrice.nullable(),
-    max: maxPriceSchema.fields.maxPrice.nullable(),
-  })
-  .test(
-    'price-range-valid',
-    'Le prix maximum doit être supérieur au prix minimum',
-    function (values) {
-      const { min, max } = values;
-      if (
-        min === null ||
-        max === null ||
-        min === undefined ||
-        max === undefined
-      ) {
-        return true;
-      }
-      return max >= min;
-    },
-  );
-
-/**
- * Schéma complet pour les filtres de recherche
- */
+// Schéma complet des filtres
 export const productFiltersSchema = yup.object().shape({
-  keyword: searchSchema.fields.keyword.nullable(),
+  keyword: yup.string().nullable().transform(sanitizeString),
   category: categorySchema.fields.category,
-  min: minPriceSchema.fields.minPrice,
-  max: maxPriceSchema.fields.maxPrice,
+  min: priceFiltersSchema.fields.min,
+  max: priceFiltersSchema.fields.max,
   page: yup
     .number()
     .nullable()
-    .transform((value, originalValue) => {
-      return originalValue === '' ? null : value;
-    })
-    .integer('La page doit être un nombre entier')
-    .min(1, 'La page doit être au moins 1')
-    .max(1000, 'La page ne peut pas dépasser 1000')
+    .integer('Page doit être un entier')
+    .min(1, 'Page minimum 1')
+    .max(1000, 'Page maximum 1000')
     .default(1),
 });
 
-/**
- * Fonction de validation simplifiée pour la recherche
- */
-export const validateProductSearch = async (searchData) => {
-  try {
-    const validatedData = await validateWithLogging(
-      searchSchema,
-      searchData,
-      { enableCache: false }, // Pas de cache pour simplifier
-    );
-
-    return {
-      isValid: true,
-      data: validatedData,
-    };
-  } catch (error) {
-    console.warn('Product search validation failed', {
-      error: error.message,
-      keyword: searchData?.keyword?.substring(0, 20), // Log partiel pour la confidentialité
-    });
-
-    return {
-      isValid: false,
-      errors: formatValidationErrors(error),
-    };
-  }
-};
-
-/**
- * Fonction de validation pour les filtres de prix
- */
-export const validatePriceFilters = async (priceData, context = {}) => {
-  try {
-    // Ajouter le contexte pour les validations croisées
-    const validatedData = await validateWithLogging(
-      priceFiltersSchema,
-      priceData,
-      { context, enableCache: false },
-    );
-
-    return {
-      isValid: true,
-      data: validatedData,
-    };
-  } catch (error) {
-    console.warn('Price filters validation failed', {
-      error: error.message,
-      hasMin: !!priceData?.min,
-      hasMax: !!priceData?.max,
-    });
-
-    return {
-      isValid: false,
-      errors: formatValidationErrors(error),
-    };
-  }
-};
-
-/**
- * Fonction de validation pour les catégories
- */
-export const validateCategory = async (categoryData) => {
-  try {
-    const validatedData = await validateWithLogging(
-      categorySchema,
-      categoryData,
-      { enableCache: false },
-    );
-
-    return {
-      isValid: true,
-      data: validatedData,
-    };
-  } catch (error) {
-    console.warn('Category validation failed', {
-      error: error.message,
-      categoryId: categoryData?.category,
-    });
-
-    return {
-      isValid: false,
-      errors: formatValidationErrors(error),
-    };
-  }
-};
-
-/**
- * Fonction de validation complète pour tous les filtres
- */
-export const validateProductFilters = async (filtersData) => {
-  try {
-    // Nettoyer les valeurs vides
-    const cleanedData = Object.fromEntries(
-      Object.entries(filtersData).filter(
-        ([_, value]) => value !== null && value !== undefined && value !== '',
-      ),
-    );
-
-    const validatedData = await validateWithLogging(
-      productFiltersSchema,
-      cleanedData,
-      { enableCache: false },
-    );
-
-    // Vérifications métier simples
-    const warnings = [];
-
-    // Avertir si recherche trop large
-    if (
-      !validatedData.keyword &&
-      !validatedData.category &&
-      !validatedData.min &&
-      !validatedData.max
-    ) {
-      warnings.push('broad_search');
-    }
-
-    // Avertir si plage de prix très large
-    if (validatedData.min === 0 && validatedData.max >= 100000) {
-      warnings.push('very_broad_price_range');
-    }
-
-    return {
-      isValid: true,
-      data: validatedData,
-      warnings,
-    };
-  } catch (error) {
-    console.warn('Product filters validation failed', {
-      error: error.message,
-      filtersCount: Object.keys(filtersData).length,
-    });
-
-    return {
-      isValid: false,
-      errors: formatValidationErrors(error),
-    };
-  }
-};
-
-/**
- * Schéma simple pour les avis produits (si nécessaire)
- */
+// Schéma d'avis produit
 export const productReviewSchema = yup.object().shape({
   rating: yup
     .number()
-    .required('La note est requise')
-    .min(1, 'La note minimum est 1')
-    .max(5, 'La note maximum est 5')
-    .integer('La note doit être un nombre entier'),
+    .required('Note requise')
+    .min(1, 'Note minimum 1')
+    .max(5, 'Note maximum 5')
+    .integer('Note doit être entière'),
 
   title: yup
     .string()
-    .required("Le titre de l'avis est requis")
-    .transform(validationUtils.sanitizeString)
-    .min(5, 'Le titre doit contenir au moins 5 caractères')
-    .max(100, 'Le titre ne peut pas dépasser 100 caractères')
-    .matches(
-      /^[a-zA-Z0-9\u00C0-\u017F\s.,!?'\-()]+$/,
-      'Le titre contient des caractères non autorisés',
-    )
-    .test(
-      'no-sql-injection',
-      'Format de titre non autorisé',
-      validationUtils.noSqlInjection,
-    ),
+    .required('Titre requis')
+    .transform(sanitizeString)
+    .min(5, 'Minimum 5 caractères')
+    .max(100, 'Maximum 100 caractères'),
 
   comment: yup
     .string()
-    .required('Le commentaire est requis')
-    .transform(validationUtils.sanitizeString)
-    .min(10, 'Le commentaire doit contenir au moins 10 caractères')
-    .max(500, 'Le commentaire ne peut pas dépasser 500 caractères')
-    .test(
-      'no-sql-injection',
-      'Format de commentaire non autorisé',
-      validationUtils.noSqlInjection,
-    ),
+    .required('Commentaire requis')
+    .transform(sanitizeString)
+    .min(10, 'Minimum 10 caractères')
+    .max(500, 'Maximum 500 caractères'),
 
   wouldRecommend: yup.boolean().nullable(),
 });
 
-/**
- * Fonction de validation pour les avis produits
- */
-export const validateProductReview = async (reviewData) => {
-  try {
-    const validatedData = await validateWithLogging(
-      productReviewSchema,
-      reviewData,
-      { enableCache: false },
-    );
-
-    return {
-      isValid: true,
-      data: validatedData,
-    };
-  } catch (error) {
-    console.warn('Product review validation failed', {
-      error: error.message,
-      rating: reviewData?.rating,
-      titleLength: reviewData?.title?.length || 0,
-    });
-
-    return {
-      isValid: false,
-      errors: formatValidationErrors(error),
-    };
-  }
-};
+// Fonctions de validation
+export const validateProductSearch = (data) => validate(searchSchema, data);
+export const validatePriceFilters = (data) =>
+  validate(priceFiltersSchema, data);
+export const validateCategory = (data) => validate(categorySchema, data);
+export const validateProductFilters = (data) =>
+  validate(productFiltersSchema, data);
+export const validateProductReview = (data) =>
+  validate(productReviewSchema, data);

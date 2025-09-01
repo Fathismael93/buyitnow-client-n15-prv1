@@ -1,42 +1,84 @@
-// helpers/validation/index.js
-// Point d'entrée principal avec exports sélectifs
+/**
+ * Point d'entrée principal pour la validation
+ * Version simplifiée pour 500 visiteurs/jour
+ */
 
-// Core utilities (toujours chargés)
-export { REGEX, validationUtils } from './core/constants';
-export { validateWithLogging } from './core/utils';
+// Export des utilitaires de base
+export {
+  REGEX,
+  sanitizeString,
+  isValidObjectId,
+  isValidPhone,
+  isValidDjiboutiPhone,
+  validate,
+  formatValidationErrors,
+} from './utils';
 
-// Auth schemas (lazy loading)
-export const loadAuthSchemas = () => import('./schemas/auth');
-export const loadUserSchemas = () => import('./schemas/user');
-export const loadProductSchemas = () => import('./schemas/product');
-export const loadAddressSchemas = () => import('./schemas/address');
-export const loadPaymentSchemas = () => import('./schemas/payment');
-export const loadContactSchemas = () => import('./schemas/contact');
+// Export des schémas d'authentification
+export {
+  loginSchema,
+  registerSchema,
+  updatePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  validateLogin,
+  validateRegister,
+  validatePasswordUpdate,
+  validateForgotPassword,
+  validateResetPassword,
+} from './schemas/auth';
 
-// Direct exports pour les schémas critiques (performance)
-export { loginSchema, registerSchema } from './schemas/auth';
-export { searchSchema } from './schemas/product';
+// Export des schémas utilisateur
+export {
+  profileSchema,
+  emailVerificationSchema,
+  validateProfile,
+  validateProfileWithLogging,
+  validateEmailVerification,
+} from './schemas/user';
 
-// Utilitaire de chargement dynamique
-export const getSchema = async (category, schemaName) => {
-  const schemaModules = {
-    auth: () => import('./schemas/auth'),
-    user: () => import('./schemas/user'),
-    product: () => import('./schemas/product'),
-    address: () => import('./schemas/address'),
-    payment: () => import('./schemas/payment'),
-    contact: () => import('./schemas/contact'),
-  };
+// Export des schémas produit
+export {
+  searchSchema,
+  priceFiltersSchema,
+  categorySchema,
+  productFiltersSchema,
+  productReviewSchema,
+  validateProductSearch,
+  validatePriceFilters,
+  validateCategory,
+  validateProductFilters,
+  validateProductReview,
+} from './schemas/product';
 
-  if (!schemaModules[category]) {
-    throw new Error(`Unknown schema category: ${category}`);
-  }
+// Export des schémas adresse
+export {
+  addressSchema,
+  addressSelectionSchema,
+  validateAddress,
+  validateAddressSelection,
+  formatAddressDisplay,
+  formatAddressShort,
+  isAddressComplete,
+} from './schemas/address';
 
-  const module = await schemaModules[category]();
+// Export des schémas paiement
+export {
+  SUPPORTED_PLATFORMS,
+  djiboutiPaymentSchema,
+  simpleInvoiceSchema,
+  getPlatformName,
+  getPlatformOptions,
+  formatDjiboutiPhone,
+  validateDjiboutiPayment,
+  validateSimpleInvoice,
+} from './schemas/payment';
 
-  if (!module[schemaName]) {
-    throw new Error(`Schema ${schemaName} not found in ${category}`);
-  }
-
-  return module[schemaName];
-};
+// Export des schémas contact
+export {
+  contactSchema,
+  validateContactMessage,
+  classifyMessageType,
+  isMessageUrgent,
+  formatContactEmail,
+} from './schemas/contact';
