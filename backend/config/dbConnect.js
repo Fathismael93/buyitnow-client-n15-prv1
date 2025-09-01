@@ -8,36 +8,19 @@ class CircuitBreaker {
   constructor(options = {}) {
     this.failureThreshold = options.failureThreshold || 5;
     this.resetTimeout = options.resetTimeout || 60000; // 60 secondes
-    this.monitoringPeriod = options.monitoringPeriod || 120000; // 2 minutes
 
     // États possibles : CLOSED, OPEN, HALF_OPEN
     this.state = 'CLOSED';
     this.failureCount = 0;
     this.lastFailureTime = null;
     this.successCount = 0;
-    this.requestCount = 0;
-
-    // Métriques pour monitoring
-    this.metrics = {
-      totalRequests: 0,
-      totalFailures: 0,
-      totalSuccesses: 0,
-      lastStateChange: Date.now(),
-      stateHistory: [],
-    };
-
-    // Nettoyage des métriques anciennes
-    this.startMetricsCleanup();
   }
 
   async execute(operation) {
-    this.requestCount++;
-    this.metrics.totalRequests++;
-
     if (this.state === 'OPEN') {
       if (Date.now() - this.lastFailureTime >= this.resetTimeout) {
         this.state = 'HALF_OPEN';
-        this.logStateChange('HALF_OPEN', 'Reset timeout reached');
+        logger.info('Circuit breaker entering HALF_OPEN state');
       } else {
         throw new Error(
           `Circuit breaker OPEN - MongoDB unavailable (failed ${this.failureCount} times)`,
@@ -57,7 +40,6 @@ class CircuitBreaker {
 
   onSuccess() {
     this.successCount++;
-    this.metrics.totalSuccesses++;
 
     if (this.state === 'HALF_OPEN') {
       // En état HALF_OPEN, redevenir CLOSED après quelques succès
@@ -65,7 +47,7 @@ class CircuitBreaker {
         this.state = 'CLOSED';
         this.failureCount = 0;
         this.successCount = 0;
-        this.logStateChange('CLOSED', 'Recovery confirmed');
+        logger.info('Circuit breaker CLOSED - Recovery confirmed');
       }
     } else if (this.state === 'CLOSED') {
       // Reset le compteur d'échecs après un succès
@@ -75,15 +57,14 @@ class CircuitBreaker {
 
   onFailure(error) {
     this.failureCount++;
-    this.metrics.totalFailures++;
     this.lastFailureTime = Date.now();
 
     if (this.state === 'CLOSED' && this.failureCount >= this.failureThreshold) {
       this.state = 'OPEN';
-      this.logStateChange(
-        'OPEN',
-        `Failure threshold reached (${this.failureCount} failures)`,
-      );
+
+      logger.error(`Circuit breaker OPENED - ${this.failureCount} failures`, {
+        error: error.message,
+      });
 
       // Capturer l'événement critique
       captureMessage(`Circuit breaker OPENED for MongoDB`, {
@@ -100,174 +81,23 @@ class CircuitBreaker {
     } else if (this.state === 'HALF_OPEN') {
       // Retourner à OPEN si échec en HALF_OPEN
       this.state = 'OPEN';
-      this.logStateChange('OPEN', 'Failed in HALF_OPEN state');
+      logger.warn('Circuit breaker returned to OPEN from HALF_OPEN');
     }
   }
 
-  logStateChange(newState, reason) {
-    const stateChange = {
-      from: this.state,
-      to: newState,
-      timestamp: Date.now(),
-      reason,
-    };
-
-    this.metrics.stateHistory.push(stateChange);
-    this.metrics.lastStateChange = Date.now();
-
-    logger.warn(`Circuit breaker state change: ${this.state} -> ${newState}`, {
-      reason,
-      failureCount: this.failureCount,
-      successCount: this.successCount,
-    });
-  }
-
-  getMetrics() {
+  getState() {
     return {
-      ...this.metrics,
       currentState: this.state,
       failureCount: this.failureCount,
       successCount: this.successCount,
-      healthRatio:
-        this.metrics.totalRequests > 0
-          ? this.metrics.totalSuccesses / this.metrics.totalRequests
-          : 1,
     };
-  }
-
-  startMetricsCleanup() {
-    if (typeof setInterval !== 'undefined') {
-      setInterval(() => {
-        const cutoffTime = Date.now() - this.monitoringPeriod;
-        this.metrics.stateHistory = this.metrics.stateHistory.filter(
-          (entry) => entry.timestamp > cutoffTime,
-        );
-      }, this.monitoringPeriod);
-    }
-  }
-}
-
-// ===== MÉTRIQUES DE PERFORMANCE =====
-class ConnectionMetrics {
-  constructor() {
-    this.metrics = {
-      totalConnections: 0,
-      successfulConnections: 0,
-      failedConnections: 0,
-      averageConnectionTime: 0,
-      connectionTimes: [],
-      currentConnections: 0,
-      peakConnections: 0,
-      lastConnectionAttempt: null,
-      uptime: Date.now(),
-      errors: {
-        network: 0,
-        authentication: 0,
-        timeout: 0,
-        other: 0,
-      },
-    };
-
-    this.startPeriodicCleanup();
-  }
-
-  recordConnectionAttempt() {
-    this.metrics.totalConnections++;
-    this.metrics.lastConnectionAttempt = Date.now();
-    return Date.now(); // Retourne le timestamp de début pour mesurer la durée
-  }
-
-  recordConnectionSuccess(startTime) {
-    const connectionTime = Date.now() - startTime;
-    this.metrics.successfulConnections++;
-    this.metrics.currentConnections++;
-    this.metrics.peakConnections = Math.max(
-      this.metrics.peakConnections,
-      this.metrics.currentConnections,
-    );
-
-    // Maintenir un historique des temps de connexion (max 100 entrées)
-    this.metrics.connectionTimes.push(connectionTime);
-    if (this.metrics.connectionTimes.length > 100) {
-      this.metrics.connectionTimes.shift();
-    }
-
-    // Calculer la moyenne mobile
-    this.metrics.averageConnectionTime =
-      this.metrics.connectionTimes.reduce((a, b) => a + b, 0) /
-      this.metrics.connectionTimes.length;
-  }
-
-  recordConnectionFailure(error) {
-    this.metrics.failedConnections++;
-
-    // Catégoriser les erreurs
-    const errorMessage = error.message?.toLowerCase() || '';
-    if (
-      errorMessage.includes('network') ||
-      errorMessage.includes('econnrefused') ||
-      errorMessage.includes('timeout')
-    ) {
-      this.metrics.errors.network++;
-    } else if (
-      errorMessage.includes('auth') ||
-      errorMessage.includes('unauthorized')
-    ) {
-      this.metrics.errors.authentication++;
-    } else if (errorMessage.includes('timeout')) {
-      this.metrics.errors.timeout++;
-    } else {
-      this.metrics.errors.other++;
-    }
-  }
-
-  recordDisconnection() {
-    this.metrics.currentConnections = Math.max(
-      0,
-      this.metrics.currentConnections - 1,
-    );
-  }
-
-  getMetrics() {
-    const now = Date.now();
-    return {
-      ...this.metrics,
-      successRate:
-        this.metrics.totalConnections > 0
-          ? (this.metrics.successfulConnections /
-              this.metrics.totalConnections) *
-            100
-          : 100,
-      uptimeHours:
-        Math.round(((now - this.metrics.uptime) / (1000 * 60 * 60)) * 100) /
-        100,
-      isHealthy:
-        this.metrics.totalConnections === 0 ||
-        this.metrics.successfulConnections / this.metrics.totalConnections >
-          0.95,
-    };
-  }
-
-  startPeriodicCleanup() {
-    if (typeof setInterval !== 'undefined') {
-      // Nettoyer les métriques anciennes toutes les heures
-      setInterval(
-        () => {
-          if (this.metrics.connectionTimes.length > 50) {
-            this.metrics.connectionTimes =
-              this.metrics.connectionTimes.slice(-50);
-          }
-        },
-        60 * 60 * 1000,
-      );
-    }
   }
 }
 
 // ===== VARIABLES GLOBALES =====
 const MONGODB_URI = process.env.DB_URI;
 
-// Variables globales et système de cache amélioré
+// Variables globales et système de cache
 let cached = global.mongoose;
 
 if (!cached) {
@@ -275,42 +105,32 @@ if (!cached) {
     conn: null,
     promise: null,
     circuitBreaker: null,
-    metrics: null,
     isConnecting: false,
     lastHealthCheck: null,
     healthCheckInterval: null,
   };
 }
 
-// Initialiser le circuit breaker et les métriques
+// Initialiser le circuit breaker
 if (!cached.circuitBreaker) {
   cached.circuitBreaker = new CircuitBreaker({
     failureThreshold: 5,
     resetTimeout: 60000, // 1 minute
-    monitoringPeriod: 300000, // 5 minutes
   });
 }
 
-if (!cached.metrics) {
-  cached.metrics = new ConnectionMetrics();
-}
-
-// ===== FONCTIONS DE SANTÉ ET MONITORING =====
+// ===== FONCTIONS DE SANTÉ =====
 
 /**
- * Vérifie l'état de santé détaillé de la connexion MongoDB
- * @returns {Promise<Object>} État de santé avec métriques détaillées
+ * Vérifie l'état de santé de la connexion MongoDB
+ * @returns {Promise<Object>} État de santé
  */
 export const checkDbHealth = async () => {
   const healthCheck = {
     timestamp: new Date().toISOString(),
     status: 'unknown',
     healthy: false,
-    connection: null,
-    metrics: null,
-    circuitBreaker: null,
     latency: null,
-    details: {},
   };
 
   try {
@@ -318,7 +138,6 @@ export const checkDbHealth = async () => {
 
     if (!cached.conn) {
       healthCheck.status = 'disconnected';
-      healthCheck.details.message = 'No MongoDB connection established';
       return healthCheck;
     }
 
@@ -345,51 +164,17 @@ export const checkDbHealth = async () => {
     healthCheck.healthy = readyState === 1 && latency < 1000; // Sain si connecté et latence < 1s
     healthCheck.latency = latency;
 
-    // Ajouter les métriques
-    healthCheck.metrics = cached.metrics.getMetrics();
-    healthCheck.circuitBreaker = cached.circuitBreaker.getMetrics();
-
-    // Détails de connexion (sans données sensibles)
-    healthCheck.connection = {
-      readyState,
-      host: cached.conn.connection.host,
-      port: cached.conn.connection.port,
-      name: cached.conn.connection.name,
-      collections: cached.conn.connection.db
-        ? Object.keys(cached.conn.connection.db.collection).length
-        : 0,
-    };
-
-    // Vérifications supplémentaires
-    if (healthCheck.healthy) {
-      // Test d'une opération simple
-      try {
-        await cached.conn.connection.db
-          .collection('healthcheck')
-          .findOne({}, { limit: 1 });
-        healthCheck.details.operationalTest = 'passed';
-      } catch (opError) {
-        healthCheck.details.operationalTest = 'failed';
-        healthCheck.details.operationError = opError.message;
-        healthCheck.healthy = false;
-      }
-    }
-
     cached.lastHealthCheck = Date.now();
 
     return healthCheck;
   } catch (error) {
     logger.error('MongoDB health check failed', {
       error: error.message,
-      code: error.code,
     });
 
     healthCheck.status = 'unhealthy';
     healthCheck.healthy = false;
-    healthCheck.details.error = error.message;
-    healthCheck.details.code = error.code;
-    healthCheck.metrics = cached.metrics.getMetrics();
-    healthCheck.circuitBreaker = cached.circuitBreaker.getMetrics();
+    healthCheck.error = error.message;
 
     return healthCheck;
   }
@@ -401,6 +186,7 @@ export const checkDbHealth = async () => {
 export const startHealthMonitoring = () => {
   if (cached.healthCheckInterval) return;
 
+  // Check toutes les 5 minutes au lieu de toutes les minutes
   cached.healthCheckInterval = setInterval(async () => {
     try {
       const health = await checkDbHealth();
@@ -417,19 +203,18 @@ export const startHealthMonitoring = () => {
         });
       }
 
-      // Log périodique des métriques en développement
+      // Log uniquement en développement
       if (process.env.NODE_ENV === 'development') {
         logger.info('MongoDB Health Check', {
           status: health.status,
           healthy: health.healthy,
           latency: health.latency,
-          metrics: health.metrics,
         });
       }
     } catch (error) {
       logger.error('Health monitoring error', { error: error.message });
     }
-  }, 60000); // Toutes les minutes
+  }, 300000); // 5 minutes
 
   // Éviter que l'intervalle bloque le processus
   if (
@@ -457,7 +242,6 @@ export const closeDbConnection = async () => {
   if (cached.conn) {
     try {
       stopHealthMonitoring();
-      cached.metrics.recordDisconnection();
 
       await cached.conn.connection.close();
       cached.conn = null;
@@ -525,19 +309,19 @@ const dbConnect = async (forceNew = false) => {
 
   cached.isConnecting = true;
 
-  // Options de connexion optimisées
+  // Options de connexion optimisées pour 500 visiteurs/jour
   const opts = {
     bufferCommands: false,
-    maxPoolSize: 100,
-    minPoolSize: 5,
-    socketTimeoutMS: 45000,
-    connectTimeoutMS: 30000,
-    serverSelectionTimeoutMS: 30000,
+    maxPoolSize: parseInt(process.env.DB_MAX_POOL_SIZE) || 25,
+    minPoolSize: parseInt(process.env.DB_MIN_POOL_SIZE) || 2,
+    socketTimeoutMS: 30000,
+    connectTimeoutMS: 20000,
+    serverSelectionTimeoutMS: 20000,
     family: 4,
-    heartbeatFrequencyMS: 10000,
+    heartbeatFrequencyMS: 20000,
     autoIndex: process.env.NODE_ENV !== 'production',
     retryWrites: true,
-    ssl: true,
+    ssl: process.env.NODE_ENV === 'production',
   };
 
   mongoose.set('strictQuery', true);
@@ -554,20 +338,18 @@ const dbConnect = async (forceNew = false) => {
   });
 
   mongoose.connection.on('error', (err) => {
-    logger.error('MongoDB connection error event received', {
+    logger.error('MongoDB connection error', {
       error: err.message,
       code: err.code,
       name: err.name,
     });
-    cached.metrics.recordConnectionFailure(err);
     captureException(err, {
-      tags: { service: 'database', action: 'connect' },
+      tags: { service: 'database', event: 'connection-error' },
     });
   });
 
   mongoose.connection.on('disconnected', () => {
     logger.warn('MongoDB disconnected');
-    cached.metrics.recordDisconnection();
 
     // Reconnecter automatiquement en production
     if (!cached.isConnecting && process.env.NODE_ENV === 'production') {
@@ -594,20 +376,18 @@ const dbConnect = async (forceNew = false) => {
 
   // Fonction de connexion avec circuit breaker
   const connectOperation = async () => {
-    const startTime = cached.metrics.recordConnectionAttempt();
-
     try {
       logger.info('Attempting to connect to MongoDB via circuit breaker');
 
       const mongooseInstance = await mongoose.connect(MONGODB_URI, opts);
 
-      cached.metrics.recordConnectionSuccess(startTime);
-      logger.info('MongoDB connection established successfully');
+      logger.info('MongoDB connection established successfully', {
+        host: mongooseInstance.connection.host,
+        name: mongooseInstance.connection.name,
+      });
 
       return mongooseInstance;
     } catch (err) {
-      cached.metrics.recordConnectionFailure(err);
-
       logger.error('MongoDB connection attempt failed', {
         error: err.message,
         code: err.code,
@@ -625,7 +405,7 @@ const dbConnect = async (forceNew = false) => {
       captureException(err, {
         tags: { service: 'database', action: 'connect' },
         level: 'error',
-        extra: { circuitBreakerState: cached.circuitBreaker.state },
+        extra: { circuitBreakerState: cached.circuitBreaker.getState() },
       });
 
       throw err;
@@ -644,8 +424,7 @@ const dbConnect = async (forceNew = false) => {
     // Log spécifique si le circuit breaker est ouvert
     if (error.message.includes('Circuit breaker OPEN')) {
       logger.error('MongoDB connection blocked by circuit breaker', {
-        state: cached.circuitBreaker.state,
-        metrics: cached.circuitBreaker.getMetrics(),
+        state: cached.circuitBreaker.getState(),
       });
     }
 
@@ -656,24 +435,11 @@ const dbConnect = async (forceNew = false) => {
 };
 
 /**
- * Obtient les métriques complètes du système de base de données
- * @returns {Object} Métriques détaillées
+ * Obtient l'état du circuit breaker
+ * @returns {Object} État du circuit breaker
  */
-export const getDbMetrics = () => {
-  return {
-    connection: cached.metrics.getMetrics(),
-    circuitBreaker: cached.circuitBreaker.getMetrics(),
-    cache: cached.conn
-      ? {
-          readyState: cached.conn.connection.readyState,
-          host: cached.conn.connection.host,
-          port: cached.conn.connection.port,
-          name: cached.conn.connection.name,
-        }
-      : null,
-    lastHealthCheck: cached.lastHealthCheck,
-    timestamp: new Date().toISOString(),
-  };
+export const getCircuitBreakerState = () => {
+  return cached.circuitBreaker ? cached.circuitBreaker.getState() : null;
 };
 
 export default dbConnect;

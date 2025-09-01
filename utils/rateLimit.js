@@ -10,6 +10,14 @@ const requests = new Map();
 const blocked = new Map();
 
 /**
+ * Whitelist des IPs qui ne sont pas soumises au rate limiting
+ */
+const WHITELIST = new Set([
+  '127.0.0.1',
+  // IPs de monitoring, partenaires, etc.
+]);
+
+/**
  * Configurations pour votre e-commerce
  */
 const LIMITS = {
@@ -19,14 +27,25 @@ const LIMITS = {
 };
 
 /**
- * Obtenir l'IP client
+ * Vérifier si une IP est privée
+ */
+function isPrivateIP(ip) {
+  return /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(ip);
+}
+
+/**
+ * Obtenir l'IP client de manière robuste
  */
 function getIP(req) {
-  return (
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    req.headers.get('x-real-ip') ||
-    '0.0.0.0'
-  );
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const ips = forwarded.split(',').map((ip) => ip.trim());
+    // Prendre la première IP non-privée
+    const publicIP = ips.find((ip) => !isPrivateIP(ip));
+    if (publicIP) return publicIP;
+  }
+
+  return req.headers.get('x-real-ip') || req.socket?.remoteAddress || '0.0.0.0';
 }
 
 /**
@@ -35,6 +54,12 @@ function getIP(req) {
 export function withRateLimit(handler, type = 'api') {
   return async function rateLimitedHandler(req) {
     const ip = getIP(req);
+
+    // Skip rate limiting pour IPs whitelistées
+    if (WHITELIST.has(ip)) {
+      return handler(req);
+    }
+
     const config = LIMITS[type] || LIMITS.api;
     const key = `${type}:${ip}`;
     const now = Date.now();

@@ -161,7 +161,7 @@ const nextConfig = {
   },
 
   // Timeout pour la génération de pages statiques (réduit de 180 à 60)
-  staticPageGenerationTimeout: 60,
+  staticPageGenerationTimeout: 180,
   // Configuration des headers de sécurité
   async headers() {
     return [
