@@ -1,27 +1,30 @@
 // helpers/validation/schemas/auth.js
-// Schémas d'authentification - Chargés uniquement quand nécessaire
+// Schémas d'authentification simplifiés et adaptés aux composants existants
 
 import * as yup from 'yup';
 import { createBaseFields, validationUtils, REGEX } from '../core/constants';
-import { validateWithLogging } from '../core/utils';
+import { validateWithLogging, formatValidationErrors } from '../core/utils';
 
 // Création des champs de base avec yup
 const baseFields = createBaseFields(yup);
 
 /**
- * Schéma de connexion - Version optimisée
+ * Schéma de connexion - Version simplifiée
  */
 export const loginSchema = yup
   .object()
   .shape({
     email: baseFields.email(),
-    password: baseFields.password(),
+    password: baseFields
+      .password()
+      .min(6, 'Password must be at least 6 characters') // Aligné avec Login.jsx
+      .max(100, 'Password is too long'),
   })
   .noUnknown(true, 'Unknown fields are not allowed')
   .strict();
 
 /**
- * Schéma d'inscription standard
+ * Schéma d'inscription standard - Aligné avec Register.jsx
  */
 export const registerSchema = yup
   .object()
@@ -45,23 +48,7 @@ export const registerSchema = yup
   .strict();
 
 /**
- * Schéma d'inscription sécurisé avec confirmation
- */
-export const secureRegisterSchema = registerSchema.concat(
-  yup.object().shape({
-    passwordConfirmation: yup
-      .string()
-      .required('Password confirmation is required')
-      .oneOf([yup.ref('password')], 'Passwords must match'),
-    acceptTerms: yup
-      .boolean()
-      .required('You must accept the terms and conditions')
-      .oneOf([true], 'You must accept the terms and conditions'),
-  }),
-);
-
-/**
- * Schéma de mise à jour de mot de passe
+ * Schéma de mise à jour de mot de passe - Simplifié pour UpdatePassword.jsx
  */
 export const updatePasswordSchema = yup.object().shape({
   currentPassword: yup
@@ -99,32 +86,238 @@ export const updatePasswordSchema = yup.object().shape({
 
   confirmPassword: yup
     .string()
+    .required('Password confirmation is required')
     .test('passwords-match', 'Passwords do not match', function (value) {
       return !value || value === this.parent.newPassword;
     }),
 });
 
 /**
- * Fonction de validation avec analyse de sécurité du mot de passe
+ * Schéma pour la réinitialisation de mot de passe (email uniquement)
+ */
+export const forgotPasswordSchema = yup.object().shape({
+  email: baseFields.email(),
+});
+
+/**
+ * Schéma pour la réinitialisation avec token
+ */
+export const resetPasswordSchema = yup.object().shape({
+  token: yup
+    .string()
+    .required('Reset token is required')
+    .min(10, 'Invalid token format')
+    .max(200, 'Invalid token format')
+    .test(
+      'no-sql-injection',
+      'Invalid token format',
+      validationUtils.noSqlInjection,
+    ),
+
+  newPassword: baseFields
+    .password()
+    .matches(REGEX.STRONG_PASSWORD, 'Password must meet strength requirements'),
+
+  confirmPassword: yup
+    .string()
+    .required('Password confirmation is required')
+    .test('passwords-match', 'Passwords do not match', function (value) {
+      return !value || value === this.parent.newPassword;
+    }),
+});
+
+/**
+ * Fonction de validation de connexion
+ */
+export const validateLogin = async (loginData) => {
+  try {
+    const validatedData = await validateWithLogging(
+      loginSchema,
+      loginData,
+      { enableCache: false }, // Pas de cache pour les données sensibles
+    );
+
+    return {
+      isValid: true,
+      data: validatedData,
+    };
+  } catch (error) {
+    console.warn('Login validation failed', {
+      error: error.message,
+      hasEmail: !!loginData?.email,
+      hasPassword: !!loginData?.password,
+    });
+
+    return {
+      isValid: false,
+      errors: formatValidationErrors(error),
+    };
+  }
+};
+
+/**
+ * Fonction de validation d'inscription
+ */
+export const validateRegister = async (registerData) => {
+  try {
+    const validatedData = await validateWithLogging(
+      registerSchema,
+      registerData,
+      { enableCache: false },
+    );
+
+    return {
+      isValid: true,
+      data: validatedData,
+    };
+  } catch (error) {
+    console.warn('Registration validation failed', {
+      error: error.message,
+      hasName: !!registerData?.name,
+      hasEmail: !!registerData?.email,
+      hasPhone: !!registerData?.phone,
+    });
+
+    return {
+      isValid: false,
+      errors: formatValidationErrors(error),
+    };
+  }
+};
+
+/**
+ * Fonction de validation de mise à jour de mot de passe
+ * Simplifiée sans calcul de force (délégué au composant)
  */
 export const validatePasswordUpdate = async (passwordData) => {
   try {
     const validatedData = await validateWithLogging(
       updatePasswordSchema,
       passwordData,
+      { enableCache: false },
     );
-
-    // Analyse de force du mot de passe
-    const newPassword = validatedData.newPassword;
-    let passwordStrength = calculatePasswordStrength(newPassword);
 
     return {
       isValid: true,
       data: validatedData,
-      security: {
-        strength: getStrengthLevel(passwordStrength),
-        score: passwordStrength,
-      },
+    };
+  } catch (error) {
+    console.warn('Password update validation failed', {
+      error: error.message,
+      hasCurrentPassword: !!passwordData?.currentPassword,
+      hasNewPassword: !!passwordData?.newPassword,
+      hasConfirmPassword: !!passwordData?.confirmPassword,
+    });
+
+    return {
+      isValid: false,
+      errors: formatValidationErrors(error),
+    };
+  }
+};
+
+/**
+ * Fonction de validation pour mot de passe oublié
+ */
+export const validateForgotPassword = async (emailData) => {
+  try {
+    const validatedData = await validateWithLogging(
+      forgotPasswordSchema,
+      emailData,
+      { enableCache: false },
+    );
+
+    return {
+      isValid: true,
+      data: validatedData,
+    };
+  } catch (error) {
+    console.warn('Forgot password validation failed', {
+      error: error.message,
+      hasEmail: !!emailData?.email,
+    });
+
+    return {
+      isValid: false,
+      errors: formatValidationErrors(error),
+    };
+  }
+};
+
+/**
+ * Fonction de validation pour réinitialisation avec token
+ */
+export const validateResetPassword = async (resetData) => {
+  try {
+    const validatedData = await validateWithLogging(
+      resetPasswordSchema,
+      resetData,
+      { enableCache: false },
+    );
+
+    return {
+      isValid: true,
+      data: validatedData,
+    };
+  } catch (error) {
+    console.warn('Reset password validation failed', {
+      error: error.message,
+      hasToken: !!resetData?.token,
+      hasNewPassword: !!resetData?.newPassword,
+    });
+
+    return {
+      isValid: false,
+      errors: formatValidationErrors(error),
+    };
+  }
+};
+
+/**
+ * Fonction utilitaire pour valider un seul champ (utilisée dans la validation en temps réel)
+ */
+export const validateAuthField = async (fieldName, value, schema = null) => {
+  try {
+    // Déterminer le schéma à utiliser
+    let targetSchema = loginSchema;
+
+    if (schema === 'register') {
+      targetSchema = registerSchema;
+    } else if (schema === 'updatePassword') {
+      targetSchema = updatePasswordSchema;
+    }
+
+    await targetSchema.validateAt(fieldName, { [fieldName]: value });
+    return {
+      isValid: true,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      isValid: false,
+      error: error.message,
+    };
+  }
+};
+
+/**
+ * Fonction de validation pour vérification d'email (simple)
+ */
+export const validateEmail = async (email) => {
+  try {
+    const schema = yup.object().shape({
+      email: baseFields.email(),
+    });
+
+    const validatedData = await validateWithLogging(
+      schema,
+      { email },
+      { enableCache: false },
+    );
+
+    return {
+      isValid: true,
+      data: validatedData,
     };
   } catch (error) {
     return {
@@ -135,58 +328,24 @@ export const validatePasswordUpdate = async (passwordData) => {
 };
 
 /**
- * Calcul optimisé de la force du mot de passe
+ * Fonction utilitaire pour nettoyer les données d'authentification
  */
-function calculatePasswordStrength(password) {
-  if (!password) return 0;
+export const sanitizeAuthData = (authData) => {
+  const sanitized = {};
 
-  let strength = 0;
+  // Nettoyer et trimmer les champs texte
+  Object.keys(authData).forEach((key) => {
+    if (typeof authData[key] === 'string') {
+      sanitized[key] = validationUtils.sanitizeString(authData[key]);
+    } else {
+      sanitized[key] = authData[key];
+    }
+  });
 
-  // Longueur (max 40 points)
-  strength += Math.min(password.length * 4, 40);
-
-  // Complexité
-  if (/[a-z]/.test(password)) strength += 10;
-  if (/[A-Z]/.test(password)) strength += 10;
-  if (/\d/.test(password)) strength += 10;
-  if (/[^a-zA-Z\d]/.test(password)) strength += 15;
-
-  // Variété de caractères
-  const uniqueChars = new Set(password).size;
-  strength += Math.min(uniqueChars, 15);
-
-  // Pénalités
-  if (REGEX.COMMON_SEQUENCES.test(password)) strength -= 20;
-  if (/(.)\1{2,}/.test(password)) strength -= 10;
-
-  return Math.max(0, Math.min(strength, 100));
-}
-
-/**
- * Détermine le niveau de force
- */
-function getStrengthLevel(score) {
-  if (score >= 80) return 'fort';
-  if (score >= 60) return 'bon';
-  if (score >= 30) return 'moyen';
-  return 'faible';
-}
-
-/**
- * Formatage des erreurs de validation
- */
-function formatValidationErrors(error) {
-  const formattedErrors = {};
-
-  if (error.inner?.length) {
-    error.inner.forEach((err) => {
-      formattedErrors[err.path] = err.message;
-    });
-  } else if (error.path && error.message) {
-    formattedErrors[error.path] = error.message;
-  } else {
-    formattedErrors.general = error.message || 'Validation error';
+  // Email en minuscule
+  if (sanitized.email) {
+    sanitized.email = sanitized.email.toLowerCase();
   }
 
-  return formattedErrors;
-}
+  return sanitized;
+};

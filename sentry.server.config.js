@@ -18,7 +18,7 @@ const containsSensitiveData = (str) => {
     /auth/i,
     /key/i,
     /secret/i,
-    /credit\s*card/i,
+    /waafi|cac-pay|bci-pay|d-money/i,
     /mongodb/i,
     /connection/i,
     /email[=:]/i,
@@ -86,7 +86,7 @@ if (isValidDSN(sentryDSN)) {
         const url = breadcrumb.data.url;
 
         // Ignorer les routes sensibles
-        if (/\/(api\/)?(auth|login|checkout|payment|billing)/.test(url)) {
+        if (/\/(api\/)?(auth|login|payment|confirmation)/.test(url)) {
           return null;
         }
 
@@ -116,7 +116,7 @@ if (isValidDSN(sentryDSN)) {
       // Ignorer les erreurs des routes sensibles
       if (event.request?.url) {
         const url = event.request.url;
-        if (/\/(api\/)?(auth|login|checkout|payment|billing)/.test(url)) {
+        if (/\/(api\/)?(auth|login|payment|confirmation)/.test(url)) {
           return null;
         }
       }

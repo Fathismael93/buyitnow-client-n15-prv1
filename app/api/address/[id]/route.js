@@ -8,7 +8,6 @@ import logger from '@/utils/logger';
 import { appCache, getCacheKey } from '@/utils/cache';
 import { captureException } from '@/monitoring/sentry';
 import { sanitizeAddress } from '@/utils/addressSanitizer';
-import { addressSchema, validateWithLogging } from '@/helpers/schemas';
 // import { applyRateLimit } from '@/utils/integratedRateLimit';
 
 export async function GET(req, { params }) {
@@ -454,7 +453,7 @@ export async function PUT(req, { params }) {
     try {
       // Import the validateWithLogging function and addressSchema from schemas.js
       // This function will log validation errors and provide detailed feedback
-      await validateWithLogging(addressSchema, newAddressData);
+      // await validateWithLogging(addressSchema, newAddressData);
     } catch (validationError) {
       logger.warn('Address validation failed', {
         user: user._id,

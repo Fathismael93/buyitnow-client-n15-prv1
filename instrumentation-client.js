@@ -32,11 +32,11 @@ const containsSensitiveData = (str) => {
     /auth/i,
     /key/i,
     /secret/i,
-    /credit\s*card/i,
+    /waafi|cac-pay|bci-pay|d-money/i,
     /\b(?:\d{4}[ -]?){3}\d{4}\b/,
     /email[=:]/i,
     /login/i,
-    /checkout/i,
+    /confirmation/i,
     /payment/i,
   ];
 
@@ -96,9 +96,7 @@ Sentry.init({
           );
 
           // Généraliser les pages sensibles
-          if (
-            /\/(checkout|payment|billing|account|profile)/i.test(url.pathname)
-          ) {
+          if (/\/(payment|confirmation|account|profile)/i.test(url.pathname)) {
             event.request.url = `${url.origin}/[SENSITIVE_PAGE]`;
           } else {
             event.request.url = url.toString();
