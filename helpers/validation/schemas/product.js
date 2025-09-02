@@ -27,13 +27,13 @@ export const searchSchema = yup.object().shape({
 
 // Schéma de filtres de prix
 export const priceFiltersSchema = yup.object().shape({
-  min: yup
+  'price[gte]': yup
     .number()
     .nullable()
     .min(0, 'Prix minimum doit être >= 0')
     .max(999999, 'Prix maximum dépassé'),
 
-  max: yup
+  'price[lte]': yup
     .number()
     .nullable()
     .min(0, 'Prix maximum doit être >= 0')
@@ -61,8 +61,8 @@ export const categorySchema = yup.object().shape({
 export const productFiltersSchema = yup.object().shape({
   keyword: yup.string().nullable().transform(sanitizeString),
   category: categorySchema.fields.category,
-  'price[gte]': priceFiltersSchema.fields.min,
-  'price[lte]': priceFiltersSchema.fields.max,
+  'price[gte]': priceFiltersSchema.fields['price[gte]'],
+  'price[lte]': priceFiltersSchema.fields['price[lte]'],
   page: yup
     .number()
     .nullable()
