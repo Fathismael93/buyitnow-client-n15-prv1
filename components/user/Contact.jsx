@@ -3,7 +3,7 @@
 import { useState, useContext, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import AuthContext from '@/context/AuthContext';
-import { validateContactMessage } from '@/helpers/schemas';
+// import { validateContactMessage } from '@/helpers/schemas';
 
 /**
  * Formulaire de contact sécurisé avec validation avancée
@@ -83,23 +83,23 @@ const Contact = ({ referrerValidated = true }) => {
 
       // Validation côté client avec notre schéma amélioré
       const emailData = { subject, message };
-      const validation = await validateContactMessage(emailData);
+      // const validation = await validateContactMessage(emailData);
 
-      if (!validation.isValid) {
-        setErrors(validation.errors);
-        toast.error('Veuillez corriger les erreurs dans le formulaire');
-        return;
-      }
+      // if (!validation.isValid) {
+      //   setErrors(validation.errors);
+      //   toast.error('Veuillez corriger les erreurs dans le formulaire');
+      //   return;
+      // }
 
       // Vérifier si des indicateurs de sécurité ont été levés
-      if (validation.securityFlags?.includes('potential_spam')) {
-        // Option 1: Bloquer complètement
-        // toast.error('Votre message semble contenir du contenu non autorisé');
-        // return;
+      // if (validation.securityFlags?.includes('potential_spam')) {
+      //   // Option 1: Bloquer complètement
+      //   // toast.error('Votre message semble contenir du contenu non autorisé');
+      //   // return;
 
-        // Option 2: Laisser passer mais marquer pour modération
-        emailData.flaggedForModeration = true;
-      }
+      //   // Option 2: Laisser passer mais marquer pour modération
+      //   emailData.flaggedForModeration = true;
+      // }
 
       await sendEmail(emailData);
     } catch (error) {

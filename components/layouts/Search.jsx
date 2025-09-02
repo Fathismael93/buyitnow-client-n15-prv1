@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
-import { searchSchema } from '@/helpers/schemas';
+// import { searchSchema } from '@/helpers/schemas';
 
 // Fonction de debounce pour limiter les requêtes
 const useDebounce = (fn, delay) => {
@@ -54,7 +54,7 @@ const Search = ({ setLoading }) => {
         }
 
         // Validation avec le schéma Yup
-        await searchSchema.validate({ keyword }, { abortEarly: false });
+        // await searchSchema.validate({ keyword }, { abortEarly: false });
 
         // Navigation vers la page de résultats
         router.push(`/?keyword=${encodeURIComponent(keyword.trim())}`);

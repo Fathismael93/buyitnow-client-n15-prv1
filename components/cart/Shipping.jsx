@@ -20,7 +20,7 @@ import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
 import { isArrayEmpty, formatPrice, safeValue } from '@/helpers/helpers';
 import { useOnlineStatus } from '@/hooks/useCustomHooks';
-import { validateShippingAddressSelection } from '@/helpers/schemas';
+// import { validateShippingAddressSelection } from '@/helpers/schemas';
 
 // Chargement dynamique des composants
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
@@ -174,29 +174,26 @@ const Shipping = ({ initialData }) => {
     async (addressId) => {
       try {
         // Valider la sélection d'adresse
-        const { isValid, error } = await validateShippingAddressSelection(
-          addressId,
-          addressList,
-        );
-
-        if (isValid) {
-          setSelectedAddress(addressId);
-          setShippinInfo(addressId);
-
-          // Feedback positif (optionnel)
-          toast.success('Adresse de livraison sélectionnée', {
-            position: 'bottom-right',
-            autoClose: 2000,
-          });
-        } else {
-          // Afficher l'erreur de validation
-          toast.error(error || 'Adresse de livraison invalide', {
-            position: 'bottom-right',
-          });
-
-          // Ne pas mettre à jour la sélection
-          console.warn("Sélection d'adresse non valide:", error);
-        }
+        // const { isValid, error } = await validateShippingAddressSelection(
+        //   addressId,
+        //   addressList,
+        // );
+        // if (isValid) {
+        //   setSelectedAddress(addressId);
+        //   setShippinInfo(addressId);
+        //   // Feedback positif (optionnel)
+        //   toast.success('Adresse de livraison sélectionnée', {
+        //     position: 'bottom-right',
+        //     autoClose: 2000,
+        //   });
+        // } else {
+        //   // Afficher l'erreur de validation
+        //   toast.error(error || 'Adresse de livraison invalide', {
+        //     position: 'bottom-right',
+        //   });
+        //   // Ne pas mettre à jour la sélection
+        //   console.warn("Sélection d'adresse non valide:", error);
+        // }
       } catch (error) {
         console.error("Erreur lors de la validation d'adresse:", error);
         captureException(error, {

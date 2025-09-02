@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import DOMPurify from 'dompurify';
 
 import AuthContext from '@/context/AuthContext';
-import { addressSchema } from '@/helpers/schemas';
+// import { addressSchema } from '@/helpers/schemas';
 
 /**
  * NewAddress component for managing address entry
@@ -93,24 +93,24 @@ const NewAddress = ({ userId, referer }) => {
   }, []);
 
   // Validate form against schema
-  const validateForm = useCallback(async () => {
-    try {
-      await addressSchema.validate(formState, { abortEarly: false });
-      setValidationErrors({});
-      return true;
-    } catch (err) {
-      const errors = {};
-      if (err.inner) {
-        err.inner.forEach((error) => {
-          errors[error.path] = error.message;
-        });
-      } else {
-        errors.general = err.message;
-      }
-      setValidationErrors(errors);
-      return false;
-    }
-  }, [formState]);
+  // const validateForm = useCallback(async () => {
+  //   try {
+  //     await addressSchema.validate(formState, { abortEarly: false });
+  //     setValidationErrors({});
+  //     return true;
+  //   } catch (err) {
+  //     const errors = {};
+  //     if (err.inner) {
+  //       err.inner.forEach((error) => {
+  //         errors[error.path] = error.message;
+  //       });
+  //     } else {
+  //       errors.general = err.message;
+  //     }
+  //     setValidationErrors(errors);
+  //     return false;
+  //   }
+  // }, [formState]);
 
   // Submit handler with validation
   const submitHandler = async (e) => {
@@ -120,13 +120,13 @@ const NewAddress = ({ userId, referer }) => {
 
     try {
       // Validate all fields
-      const isValid = await validateForm();
+      // const isValid = await validateForm();
 
-      if (!isValid) {
-        toast.error('Veuillez corriger les erreurs dans le formulaire');
-        setIsSubmitting(false);
-        return;
-      }
+      // if (!isValid) {
+      //   toast.error('Veuillez corriger les erreurs dans le formulaire');
+      //   setIsSubmitting(false);
+      //   return;
+      // }
 
       // Additional custom validations
       if (formState.zipCode && !/^\d{2,5}$/.test(formState.zipCode)) {

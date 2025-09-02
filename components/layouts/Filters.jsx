@@ -3,9 +3,10 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-toastify';
+import { getPriceQueryParams, isArrayEmpty } from '@/helpers/helpers';
 
-import { isArrayEmpty, getPriceQueryParams } from '@/helpers/helpers';
-import { maxPriceSchema, minPriceSchema } from '@/helpers/schemas';
+// import { isArrayEmpty, getPriceQueryParams } from '@/helpers/helpers';
+// import { maxPriceSchema, minPriceSchema } from '@/helpers/schemas';
 
 const Filters = ({ categories, setLocalLoading }) => {
   const router = useRouter();
@@ -52,13 +53,13 @@ const Filters = ({ categories, setLocalLoading }) => {
     }
 
     // Validation avec les schémas Yup
-    if (min !== '') {
-      await minPriceSchema.validate({ minPrice: min }, { abortEarly: false });
-    }
+    // if (min !== '') {
+    //   await minPriceSchema.validate({ minPrice: min }, { abortEarly: false });
+    // }
 
-    if (max !== '') {
-      await maxPriceSchema.validate({ maxPrice: max }, { abortEarly: false });
-    }
+    // if (max !== '') {
+    //   await maxPriceSchema.validate({ maxPrice: max }, { abortEarly: false });
+    // }
   }, [min, max]);
 
   // Gestionnaire de clic sur catégorie

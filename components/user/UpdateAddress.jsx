@@ -7,7 +7,7 @@ import DOMPurify from 'dompurify';
 import { useRouter } from 'next/navigation';
 
 import AuthContext from '@/context/AuthContext';
-import { addressSchema } from '@/helpers/schemas';
+// import { addressSchema } from '@/helpers/schemas';
 
 /**
  * UpdateAddress component for managing address modification and deletion
@@ -122,24 +122,24 @@ const UpdateAddress = ({ id, address, userId, referer }) => {
   }, []);
 
   // Validate form against schema
-  const validateForm = useCallback(async () => {
-    try {
-      await addressSchema.validate(formState, { abortEarly: false });
-      setValidationErrors({});
-      return true;
-    } catch (err) {
-      const errors = {};
-      if (err.inner) {
-        err.inner.forEach((error) => {
-          errors[error.path] = error.message;
-        });
-      } else {
-        errors.general = err.message;
-      }
-      setValidationErrors(errors);
-      return false;
-    }
-  }, [formState]);
+  // const validateForm = useCallback(async () => {
+  //   try {
+  //     await addressSchema.validate(formState, { abortEarly: false });
+  //     setValidationErrors({});
+  //     return true;
+  //   } catch (err) {
+  //     const errors = {};
+  //     if (err.inner) {
+  //       err.inner.forEach((error) => {
+  //         errors[error.path] = error.message;
+  //       });
+  //     } else {
+  //       errors.general = err.message;
+  //     }
+  //     setValidationErrors(errors);
+  //     return false;
+  //   }
+  // }, [formState]);
 
   // Submit handler with validation
   const submitHandler = async (e) => {
@@ -149,13 +149,13 @@ const UpdateAddress = ({ id, address, userId, referer }) => {
 
     try {
       // Validate all fields
-      const isValid = await validateForm();
+      // const isValid = await validateForm();
 
-      if (!isValid) {
-        toast.error('Veuillez corriger les erreurs dans le formulaire');
-        setIsSubmitting(false);
-        return;
-      }
+      // if (!isValid) {
+      //   toast.error('Veuillez corriger les erreurs dans le formulaire');
+      //   setIsSubmitting(false);
+      //   return;
+      // }
 
       // Additional custom validations for zipCode (optional field, min 2 digits if present)
       if (formState.zipCode && !/^\d{2,5}$/.test(formState.zipCode)) {
