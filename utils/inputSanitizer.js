@@ -55,38 +55,36 @@ export const parseProductSearchParams = async (searchParams) => {
   console.log('Checking test:', test); // Log pour debug
 
   // Keyword - juste un trim
-  const keyword = await searchParams?.get('keyword');
+  const keyword = await searchParams?.keyword;
   if (keyword) {
     params.keyword = cleanString(keyword);
   }
 
   // Category - vérifier si c'est un ObjectId valide
-  const category = await searchParams?.get('category');
+  const category = await searchParams?.category;
   if (category && isValidObjectId(category)) {
     params.category = category?.trim();
   }
 
   // Prix min/max - parser en nombre
-  const minPrice =
-    (await searchParams?.get('min')) || (await searchParams?.get('price[gte]'));
+  const minPrice = await searchParams?.min;
   if (minPrice) {
     const min = parseNumber(minPrice);
     if (min !== null && min >= 0) {
-      params.min = min;
+      params['price[gte]'] = min;
     }
   }
 
-  const maxPrice =
-    (await searchParams?.get('max')) || (await searchParams?.get('price[lte]'));
+  const maxPrice = await searchParams?.max;
   if (maxPrice) {
     const max = parseNumber(maxPrice);
     if (max !== null && max >= 0) {
-      params.max = max;
+      params['price[lte]'] = max;
     }
   }
 
   // Page - avec défaut à 1
-  const page = parseNumber(await searchParams?.get('page'), 1);
+  const page = parseNumber(await searchParams?.page, 1);
   params.page = Math.max(1, Math.min(page, 1000));
 
   console.log('Parsed search params:', params); // Log pour debug
