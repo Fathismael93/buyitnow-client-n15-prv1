@@ -47,8 +47,7 @@ export async function POST(req) {
     if (
       !orderData?.orderItems?.length ||
       !orderData.paymentInfo ||
-      !orderData.totalAmount ||
-      !orderData.shippingInfo
+      !orderData.totalAmount
     ) {
       return NextResponse.json(
         { success: false, message: 'Missing required order information' },
