@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/backend/config/dbConnect';
 import Product from '@/backend/models/product';
+import Category from '@/backend/models/category';
 import { captureException } from '@/monitoring/sentry';
 
 /**
