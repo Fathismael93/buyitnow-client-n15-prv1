@@ -1,232 +1,73 @@
-/* eslint-disable no-unused-vars */
 import { NextResponse } from 'next/server';
-import { isValidObjectId } from 'mongoose';
-import { headers } from 'next/headers';
-
 import dbConnect from '@/backend/config/dbConnect';
 import Product from '@/backend/models/product';
-import Category from '@/backend/models/category';
-// import { applyRateLimit } from '@/utils/integratedRateLimit';
-import { appCache, getCacheHeaders, getCacheKey } from '@/utils/cache';
 import { captureException } from '@/monitoring/sentry';
-import logger from '@/utils/logger';
-
-// Configuration de la mise en cache (revalidation toutes les 5 heures)
-export const revalidate = 18000;
-
-// Configuration des constantes
-const QUERY_TIMEOUT = parseInt(process.env.QUERY_TIMEOUT || 5000); // 5 secondes par défaut
-const SAFE_FIELDS =
-  'name description price images category stock sold isActive slug';
-
-// Création d'un middleware de rate limiting pour les détails de produit
-// const productDetailRateLimiter = applyRateLimit('PUBLIC_API', {
-//   prefix: 'product-detail',
-// });
 
 /**
- * Gestionnaire GET pour récupérer les détails d'un produit
- * @param {Request} req - Requête entrante
- * @param {Object} params - Paramètres de route, contient l'ID du produit
- * @returns {Promise<NextResponse>} - Réponse au format JSON
+ * GET /api/products/[id]
+ * Récupère un produit par son ID avec produits similaires
+ * Optimisé pour ~500 visiteurs/jour
  */
 export async function GET(req, { params }) {
-  const start = Date.now();
-  const headersList = headers();
-  const requestId = headersList.get('x-request-id') || `prod-${Date.now()}`;
-
   try {
-    // Appliquer le rate limiting et obtenir une réponse si la limite est dépassée
-    // const rateLimitResponse = await productDetailRateLimiter(req);
-
-    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    // if (rateLimitResponse) {
-    //   logger.warn('Rate limit exceeded for product detail', {
-    //     ip: headersList.get('x-forwarded-for') || 'unknown',
-    //     requestId,
-    //   });
-
-    //   return rateLimitResponse;
-    // }
-
-    // Validation de l'ID MongoDB
+    // Validation simple de l'ID MongoDB
     const { id } = params;
-    if (!id || !isValidObjectId(id)) {
+    if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
       return NextResponse.json(
         {
           success: false,
-          message: "Format d'identifiant de produit invalide",
-          code: 'INVALID_ID_FORMAT',
+          message: 'Invalid product ID format',
         },
-        {
-          status: 400,
-          headers: {
-            'Content-Security-Policy': "default-src 'self'",
-            'X-Content-Type-Options': 'nosniff',
-          },
-        },
+        { status: 400 },
       );
     }
 
-    // Vérifier d'abord le cache mémoire
-    const cacheKey = getCacheKey('single-product', { id });
-    const cachedProduct = appCache.singleProducts.get(cacheKey);
+    // Connexion DB
+    await dbConnect();
 
-    if (cachedProduct) {
-      logger.info('Product retrieved from cache', {
-        productId: id,
-        requestId,
-        fromCache: true,
-        duration: Date.now() - start,
-      });
-
-      // Récupérer seulement les produits similaires si nécessaire
-      let sameCategoryProducts = [];
-      if (cachedProduct.category) {
-        // Utiliser une clé de cache distincte pour les produits similaires
-        const similarCacheKey = getCacheKey('similar-products', {
-          categoryId: cachedProduct.category,
-        });
-        sameCategoryProducts =
-          appCache.singleProducts.get(similarCacheKey) ||
-          (await Product.findSimilarProductsLite(cachedProduct.category).catch(
-            () => [],
-          ));
-
-        // Mettre en cache les produits similaires si récupérés de la base de données
-        if (
-          sameCategoryProducts.length > 0 &&
-          !appCache.singleProducts.get(similarCacheKey)
-        ) {
-          appCache.singleProducts.set(similarCacheKey, sameCategoryProducts);
-        }
-      }
-
-      return NextResponse.json(
-        {
-          success: true,
-          data: {
-            product: cachedProduct,
-            sameCategoryProducts,
-          },
-        },
-        {
-          status: 200,
-          headers: {
-            ...getCacheHeaders('singleProduct'),
-            'X-Cache': 'HIT',
-            'Content-Security-Policy': "default-src 'self'",
-            'X-Content-Type-Options': 'nosniff',
-            'X-Frame-Options': 'DENY',
-            'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-            ETag: `"${cachedProduct._id}-${cachedProduct.updatedAt || Date.now()}"`,
-            Vary: 'Accept-Language, User-Agent',
-          },
-        },
-      );
-    }
-
-    // Connexion à la base de données avec timeout
-    const connectionPromise = dbConnect();
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(
-        () => reject(new Error('Database connection timeout')),
-        QUERY_TIMEOUT,
-      );
-    });
-
-    const connectionInstance = await Promise.race([
-      connectionPromise,
-      timeoutPromise,
-    ]);
-
-    if (!connectionInstance.connection) {
-      throw new Error('Database connection failed');
-    }
-
-    // Récupération du produit avec timeout
-    const product = await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Product query timeout exceeded'));
-      }, QUERY_TIMEOUT);
-
-      Product.findById(id)
-        .select(SAFE_FIELDS)
-        .populate('category', 'categoryName')
-        .lean() // Convertir en objet JavaScript pur pour performance
-        .then((result) => {
-          clearTimeout(timeout);
-          resolve(result);
-        })
-        .catch((err) => {
-          clearTimeout(timeout);
-          reject(err);
-        });
-    });
-
-    // Vérification de santé de la DB en parallèle - résultat ignoré car non utilisé
-    connectionInstance.connection.db
-      .admin()
-      .ping()
-      .catch(() => false);
+    // Récupérer le produit principal
+    const product = await Product.findById(id)
+      .select('name description price images category stock sold isActive slug')
+      .populate('category', 'categoryName')
+      .lean();
 
     // Si le produit n'existe pas
     if (!product) {
-      logger.info('Product not found', {
-        productId: id,
-        requestId,
-        duration: Date.now() - start,
-      });
-
       return NextResponse.json(
         {
           success: false,
-          message: 'Produit non trouvé',
-          code: 'PRODUCT_NOT_FOUND',
+          message: 'Product not found',
         },
-        {
-          status: 404,
-          headers: {
-            'Content-Security-Policy': "default-src 'self'",
-            'X-Content-Type-Options': 'nosniff',
-          },
-        },
+        { status: 404 },
       );
     }
 
-    // Récupération des produits similaires en parallèle avec le produit principal
-    const sameCategoryProducts = await Promise.race([
-      Product.findSimilarProductsLite(product.category),
-      new Promise((_, reject) => {
-        setTimeout(
-          () => reject(new Error('Similar products query timeout')),
-          QUERY_TIMEOUT,
-        );
-      }),
-    ]).catch(() => []); // En cas d'erreur, retourner un tableau vide
-
-    // Mettre en cache le produit
-    appCache.singleProducts.set(cacheKey, product);
-
-    // Mettre en cache les produits similaires séparément
-    if (sameCategoryProducts.length > 0) {
-      const similarCacheKey = getCacheKey('similar-products', {
-        categoryId: product.category,
-      });
-      appCache.singleProducts.set(similarCacheKey, sameCategoryProducts);
+    // Récupérer les produits similaires (même catégorie)
+    let sameCategoryProducts = [];
+    if (product.category) {
+      try {
+        sameCategoryProducts = await Product.find({
+          category: product.category._id,
+          _id: { $ne: id },
+          isActive: true,
+        })
+          .select('name price images slug')
+          .limit(4)
+          .lean();
+      } catch (error) {
+        // Si erreur, continuer sans produits similaires
+        console.warn('Failed to fetch similar products:', error.message);
+      }
     }
 
-    // Logging de performance
-    const duration = Date.now() - start;
-    logger.info('Product retrieved successfully', {
-      productId: id,
-      category: product.category?.categoryName || 'unknown',
-      requestId,
-      duration,
-      similarCount: sameCategoryProducts.length,
-    });
+    // Headers de cache pour un produit (change moins souvent)
+    const cacheHeaders = {
+      'Cache-Control': 'public, max-age=300, stale-while-revalidate=600', // 5min cache, 10min stale
+      'CDN-Cache-Control': 'max-age=600', // 10min pour CDN
+      ETag: `"${product._id}-${product.updatedAt || Date.now()}"`,
+      Vary: 'Accept-Language',
+    };
 
-    // Réponse avec cache et headers de sécurité
     return NextResponse.json(
       {
         success: true,
@@ -237,104 +78,33 @@ export async function GET(req, { params }) {
       },
       {
         status: 200,
-        headers: {
-          ...getCacheHeaders('singleProduct'), // Utiliser la nouvelle configuration spécifique
-          'X-Cache': 'MISS',
-          'Content-Security-Policy': "default-src 'self'",
-          'X-Content-Type-Options': 'nosniff',
-          'X-Frame-Options': 'DENY',
-          'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-          ETag: `"${product._id}-${product.updatedAt || Date.now()}"`,
-          Vary: 'Accept-Language, User-Agent', // Important pour la mise en cache conditionnelle
-        },
+        headers: cacheHeaders,
       },
     );
   } catch (error) {
-    // Monitorer l'erreur avec Sentry
-    captureException(error, {
-      tags: {
-        action: 'get_product_detail',
-        productId: params.id,
-      },
-      extra: {
-        requestId,
-        error: {
-          name: error.name,
-          message: error.message,
-          stack:
-            process.env.NODE_ENV === 'development' ? error.stack : undefined,
-        },
-      },
-      level: error.name === 'ValidationError' ? 'warning' : 'error',
-    });
+    console.error('Product fetch error:', error.message);
 
-    // Logging structuré
-    logger.error('Error retrieving product', {
-      productId: params.id,
-      error: error.message,
-      errorName: error.name,
-      requestId,
-      duration: Date.now() - start,
-    });
-
-    // Classification des erreurs pour des réponses appropriées
-    if (error.name === 'CastError' || error.message.includes('ObjectId')) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Format d'identifiant de produit invalide",
-          code: 'INVALID_ID_FORMAT',
+    // Capturer seulement les vraies erreurs système
+    if (error.name !== 'CastError') {
+      captureException(error, {
+        tags: {
+          component: 'api',
+          route: 'products/[id]/GET',
+          productId: params.id,
         },
-        { status: 400 },
-      );
-    } else if (error.name === 'ValidationError') {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Données de produit invalides',
-          code: 'VALIDATION_ERROR',
-        },
-        { status: 400 },
-      );
-    } else if (
-      error.message.includes('timeout') ||
-      error.name === 'TimeoutError'
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'La requête a pris trop de temps',
-          code: 'TIMEOUT_ERROR',
-        },
-        { status: 504 },
-      );
-    } else if (
-      error.message.includes('connection') ||
-      error.name === 'MongoNetworkError'
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Erreur de connexion à la base de données',
-          code: 'DB_CONNECTION_ERROR',
-        },
-        { status: 503 },
-      );
+      });
     }
 
-    // Réponse d'erreur générique (pour toute autre erreur)
+    // Gestion simple des erreurs
     return NextResponse.json(
       {
         success: false,
         message:
-          'Une erreur interne est survenue, veuillez réessayer ultérieurement',
-        code: 'INTERNAL_SERVER_ERROR',
-        ...(process.env.NODE_ENV === 'development' && {
-          details: error.message,
-          stack: error.stack,
-        }),
+          error.name === 'CastError'
+            ? 'Invalid product ID format'
+            : 'Failed to fetch product',
       },
-      { status: 500 },
+      { status: error.name === 'CastError' ? 400 : 500 },
     );
   }
 }
