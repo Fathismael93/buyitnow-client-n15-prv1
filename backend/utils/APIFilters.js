@@ -17,8 +17,6 @@ class APIFilters {
         }
       : {};
 
-    console.log('Search Keyword Filter:', keyword);
-
     this.query = this.query.find({ ...keyword });
     return this;
   }
@@ -85,8 +83,6 @@ class APIFilters {
       }
     }
     // { price: { $gte: 100, $lte: 1000 } }
-
-    console.log('Filter Output:', output);
 
     this.query = this.query.find(output);
     return this;

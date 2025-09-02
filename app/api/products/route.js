@@ -20,15 +20,8 @@ export async function GET(req) {
     // Connexion DB
     await dbConnect();
 
-    console.log(
-      'Fetching products with params IN API:',
-      req.nextUrl.searchParams,
-    );
-
     // Sanitisation des paramètres
     const sanitizedParams = parseProductSearchParams(req.nextUrl.searchParams);
-
-    console.log('Sanitized Params IN API:', sanitizedParams);
 
     // Validation des paramètres sanitisés
     const validation = await validateProductFilters(sanitizedParams);
@@ -51,9 +44,6 @@ export async function GET(req) {
         searchParams.set(key, value);
       }
     });
-
-    console.log('Validated Params IN API:', validatedParams);
-    console.log('Search Params IN API:', searchParams);
 
     // Configuration de la pagination
     const resPerPage = Math.min(MAX_PER_PAGE, Math.max(1, DEFAULT_PER_PAGE));
