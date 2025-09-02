@@ -32,9 +32,8 @@ export async function GET(req) {
       );
     }
 
-    console.log('searchParams:', req.nextUrl.searchParams);
-
     // Récupérer les paramètres de pagination
+    const searchParams = req.nextUrl.searchParams;
     const page = parseInt(req.nextUrl.searchParams.get('page') || '1', 10);
     const resPerPage = 10; // 10 commandes par page
 
@@ -44,9 +43,10 @@ export async function GET(req) {
     const ordersCount = await Order.countDocuments({ user: user._id });
 
     // Utiliser APIFilters pour la pagination
-    const apiFilters = new APIFilters(Order.find({ user: user._id }), {
-      page,
-    }).pagination(resPerPage);
+    const apiFilters = new APIFilters(
+      Order.find({ user: user._id }),
+      searchParams,
+    ).pagination(resPerPage);
 
     // Récupérer les commandes avec pagination
     const orders = await apiFilters.query
