@@ -4,6 +4,7 @@ import isAuthenticatedUser from '@/backend/middlewares/auth';
 import Order from '@/backend/models/order';
 import User from '@/backend/models/user';
 import Product from '@/backend/models/product';
+import Category from '@/backend/models/category';
 import Cart from '@/backend/models/cart';
 import { captureException } from '@/monitoring/sentry';
 
