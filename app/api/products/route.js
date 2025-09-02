@@ -3,10 +3,10 @@ import dbConnect from '@/backend/config/dbConnect';
 import Product from '@/backend/models/product';
 import APIFilters from '@/backend/utils/APIFilters';
 import { captureException } from '@/monitoring/sentry';
-import {
-  sanitizeProductSearchParams,
-  buildSanitizedSearchParams,
-} from '@/utils/inputSanitizer';
+// import {
+//   sanitizeProductSearchParams,
+//   buildSanitizedSearchParams,
+// } from '@/utils/inputSanitizer';
 
 // Configuration simple
 const DEFAULT_PER_PAGE = 10;
@@ -22,10 +22,12 @@ export async function GET(req) {
     await dbConnect();
 
     // Sanitisation des paramètres
-    const sanitizedParams = sanitizeProductSearchParams(
-      req.nextUrl.searchParams,
-    );
-    const sanitizedSearchParams = buildSanitizedSearchParams(sanitizedParams);
+    // const sanitizedParams = sanitizeProductSearchParams(
+    //   req.nextUrl.searchParams,
+    // );
+    // const sanitizedSearchParams = buildSanitizedSearchParams(sanitizedParams);
+
+    const searchParams = req.nextUrl.searchParams;
 
     // Configuration de la pagination
     const resPerPage = Math.min(MAX_PER_PAGE, Math.max(1, DEFAULT_PER_PAGE));
@@ -35,7 +37,7 @@ export async function GET(req) {
       Product.find({ isActive: true })
         .select('name description stock price images category')
         .slice('images', 1),
-      sanitizedSearchParams,
+      searchParams,
     )
       .search()
       .filter();
