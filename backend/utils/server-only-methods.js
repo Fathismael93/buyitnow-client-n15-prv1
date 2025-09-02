@@ -37,31 +37,31 @@ export const getAllProducts = async (searchParams) => {
     const urlParams = {};
 
     // Paramètres simples
-    if (await cleanParams.keyword) {
-      urlParams.keyword = await cleanParams.keyword;
+    if (await cleanParams?.keyword) {
+      urlParams.keyword = await cleanParams?.keyword;
     }
 
-    if (await cleanParams.category) {
-      urlParams.category = await cleanParams.category;
+    if (await cleanParams?.category) {
+      urlParams.category = await cleanParams?.category;
     }
 
-    if (await cleanParams.page) {
-      urlParams.page = await cleanParams.page;
+    if (await cleanParams?.page) {
+      urlParams.page = await cleanParams?.page;
     }
 
     // IMPORTANT: Transformer min/max en price[gte]/price[lte] pour l'API
     if (
-      (await cleanParams.min) !== undefined &&
-      (await cleanParams.min) !== null
+      (await cleanParams?.min) !== undefined &&
+      (await cleanParams?.min) !== null
     ) {
-      urlParams['price[gte]'] = await cleanParams.min;
+      urlParams['price[gte]'] = await cleanParams?.min;
     }
 
     if (
-      (await cleanParams.max) !== undefined &&
-      (await cleanParams.max) !== null
+      (await cleanParams?.max) !== undefined &&
+      (await cleanParams?.max) !== null
     ) {
-      urlParams['price[lte]'] = await cleanParams.max;
+      urlParams['price[lte]'] = await cleanParams?.max;
     }
 
     console.log('Cleaned search params:', cleanParams); // Log pour debug
