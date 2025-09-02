@@ -4,6 +4,7 @@ import isAuthenticatedUser from '@/backend/middlewares/auth';
 import Order from '@/backend/models/order';
 import User from '@/backend/models/user';
 import DeliveryPrice from '@/backend/models/deliveryPrice';
+import Address from '@/backend/models/address';
 import APIFilters from '@/backend/utils/APIFilters';
 import { captureException } from '@/monitoring/sentry';
 
