@@ -21,13 +21,13 @@ export async function GET(req) {
     await dbConnect();
 
     console.log(
-      'Fetching products with params:',
-      await req.nextUrl.searchParams,
+      'Fetching products with params with keyword:',
+      req.nextUrl.searchParams.get('keyword'),
     );
 
     // Sanitisation des paramètres
-    const sanitizedParams = await parseProductSearchParams(
-      req.nextUrl.searchParams,
+    const sanitizedParams = parseProductSearchParams(
+      await req.nextUrl.searchParams,
     );
 
     // Validation des paramètres sanitisés
