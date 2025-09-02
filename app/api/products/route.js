@@ -26,9 +26,7 @@ export async function GET(req) {
     );
 
     // Sanitisation des paramètres
-    const sanitizedParams = parseProductSearchParams(
-      await req.nextUrl.searchParams,
-    );
+    const sanitizedParams = parseProductSearchParams(req.nextUrl.searchParams);
 
     // Validation des paramètres sanitisés
     const validation = await validateProductFilters(sanitizedParams);
