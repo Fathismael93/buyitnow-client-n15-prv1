@@ -6,7 +6,7 @@ import { getCookieName } from '@/helpers/helpers';
 import { toast } from 'react-toastify';
 import {
   appCache,
-  // CACHE_CONFIGS,
+  CACHE_DURATIONS,
   getCacheHeaders,
   getCacheKey,
 } from '@/utils/cache';
@@ -211,13 +211,13 @@ export const getAllProducts = async (
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
-      // next: {
-      //   revalidate: CACHE_CONFIGS.products.staleWhileRevalidate,
-      //   tags: [
-      //     'products',
-      //     ...(urlParams.category ? [`category-${urlParams.category}`] : []),
-      //   ],
-      // },
+      next: {
+        revalidate: CACHE_DURATIONS.products || 300,
+        tags: [
+          'products',
+          ...(urlParams.category ? [`category-${urlParams.category}`] : []),
+        ],
+      },
       headers: {
         'Cache-Control': cacheControl,
       },
@@ -591,10 +591,10 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
-      // next: {
-      //   revalidate: CACHE_CONFIGS.categories?.staleWhileRevalidate || 3600,
-      //   tags: ['categories'],
-      // },
+      next: {
+        revalidate: CACHE_DURATIONS.categories || 3600,
+        tags: ['categories'],
+      },
       headers: {
         'Cache-Control': cacheControl,
       },
@@ -1049,11 +1049,11 @@ export const getProductDetails = async (
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
-      // next: {
-      //   // Utiliser la configuration de cache spécifique aux produits individuels
-      //   revalidate: CACHE_CONFIGS.singleProduct?.staleWhileRevalidate || 7200,
-      //   tags: ['product', `product-${id}`],
-      // },
+      next: {
+        // Utiliser la configuration de cache spécifique aux produits individuels
+        revalidate: CACHE_DURATIONS.singleProduct || 7200,
+        tags: ['product', `product-${id}`],
+      },
       headers: {
         'Cache-Control': cacheControl['Cache-Control'],
       },
