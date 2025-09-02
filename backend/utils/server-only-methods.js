@@ -58,8 +58,13 @@ export const getAllProducts = async (searchParams) => {
       urlParams['price[lte]'] = cleanParams.max;
     }
 
+    console.log('Cleaned search params:', cleanParams); // Log pour debug
+    console.log('URL params for API:', urlParams); // Log pour debug
+
     // 3. Construire la query string
     const searchQuery = new URLSearchParams(urlParams).toString();
+
+    console.log('Final search query string:', searchQuery); // Log pour debug
 
     // 4. Construire l'URL complète de l'API
     const apiUrl = `${process.env.API_URL || ''}/api/products${
