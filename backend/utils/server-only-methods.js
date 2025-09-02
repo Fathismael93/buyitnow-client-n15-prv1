@@ -35,7 +35,7 @@ export const getAllProducts = async (searchParams) => {
     const searchQuery = new URLSearchParams(urlParams).toString();
 
     // 2. Construire l'URL de l'API
-    const apiUrl = `${process.env.API_URL || ''}/api/products${
+    const apiUrl = `${process.env.API_URL || ''}/api/products/${
       searchQuery ? `?${searchQuery}` : ''
     }`;
 
