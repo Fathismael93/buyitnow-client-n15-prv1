@@ -61,8 +61,8 @@ export const categorySchema = yup.object().shape({
 export const productFiltersSchema = yup.object().shape({
   keyword: yup.string().nullable().transform(sanitizeString),
   category: categorySchema.fields.category,
-  min: priceFiltersSchema.fields.min,
-  max: priceFiltersSchema.fields.max,
+  'price[gte]': priceFiltersSchema.fields.min,
+  'price[lte]': priceFiltersSchema.fields.max,
   page: yup
     .number()
     .nullable()
