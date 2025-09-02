@@ -12,7 +12,7 @@ export {
   isValidDjiboutiPhone,
   validate,
   formatValidationErrors,
-} from './utils';
+} from './core/utils';
 
 // Export des schémas d'authentification
 export {

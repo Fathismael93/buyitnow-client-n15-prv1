@@ -3,7 +3,7 @@
  */
 
 import * as yup from 'yup';
-import { sanitizeString, validate } from '../utils';
+import { sanitizeString, validate } from '../core/utils';
 
 // Plateformes de paiement supportées
 export const SUPPORTED_PLATFORMS = ['waafi', 'cac-pay', 'bci-pay', 'd-money'];

@@ -8,7 +8,7 @@ import {
   isValidObjectId,
   validate,
   noNoSqlInjection,
-} from '../utils';
+} from '../core/utils';
 
 // Schéma d'adresse
 export const addressSchema = yup.object().shape({

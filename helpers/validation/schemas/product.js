@@ -8,7 +8,7 @@ import {
   isValidObjectId,
   validate,
   noNoSqlInjection,
-} from '../utils';
+} from '../core/utils';
 
 // Schéma de recherche
 export const searchSchema = yup.object().shape({

@@ -3,7 +3,7 @@
  */
 
 import * as yup from 'yup';
-import { createBaseFields, validate } from '../utils';
+import { createBaseFields, validate } from '../core/utils';
 
 const baseFields = createBaseFields();
 

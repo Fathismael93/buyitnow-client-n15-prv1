@@ -8,7 +8,7 @@ import {
   REGEX,
   passwordContainsPersonalInfo,
   validate,
-} from '../utils';
+} from '../core/utils';
 
 const baseFields = createBaseFields();
 

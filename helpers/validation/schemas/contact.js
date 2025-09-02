@@ -3,7 +3,7 @@
  */
 
 import * as yup from 'yup';
-import { sanitizeString, validate, noNoSqlInjection } from '../utils';
+import { sanitizeString, validate, noNoSqlInjection } from '../core/utils';
 
 // Schéma de contact
 export const contactSchema = yup.object().shape({
