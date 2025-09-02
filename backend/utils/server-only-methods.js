@@ -64,7 +64,7 @@ export const getAllProducts = async (searchParams) => {
       urlParams['price[lte]'] = await cleanParams?.max;
     }
 
-    console.log('Cleaned search params:', cleanParams); // Log pour debug
+    console.log('Cleaned search params:', await cleanParams); // Log pour debug
     console.log('URL params for API:', urlParams); // Log pour debug
 
     // 3. Construire la query string
