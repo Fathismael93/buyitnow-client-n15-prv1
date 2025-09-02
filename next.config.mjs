@@ -155,7 +155,7 @@ const nextConfig = {
     removeConsole:
       process.env.NODE_ENV === 'production'
         ? {
-            exclude: ['error', 'warn'], // Garde error et warn en production
+            exclude: ['error', 'warn', 'log'], // Garde error et warn en production
           }
         : false,
   },

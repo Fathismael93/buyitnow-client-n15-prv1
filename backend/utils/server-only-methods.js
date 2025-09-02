@@ -53,6 +53,8 @@ export const getAllProducts = async (searchParams) => {
 
     clearTimeout(timeoutId);
 
+    console.log('response from API:', res);
+
     // 4. Vérifier le statut HTTP
     if (!res.ok) {
       // Gestion simple des erreurs principales
