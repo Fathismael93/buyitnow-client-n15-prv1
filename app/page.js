@@ -8,6 +8,8 @@ import ListProductsSkeleton from '@/components/skeletons/ListProductsSkeleton';
 // Utilisation de lazy au lieu de dynamic pour éviter le conflit de nom
 const ListProducts = lazy(() => import('@/components/products/ListProducts'));
 
+export const dynamic = 'force-dynamic'; // Force le rendu dynamique
+
 export const metadata = {
   title: 'Buy It Now - Votre boutique en ligne',
   description:
