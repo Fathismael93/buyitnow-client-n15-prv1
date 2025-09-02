@@ -50,6 +50,10 @@ export const isValidObjectId = (value) => {
 export const parseProductSearchParams = (searchParams) => {
   const params = {};
 
+  if (searchParams !== null && typeof searchParams !== 'object') {
+    return params;
+  }
+
   // Keyword - juste un trim
   const keyword = searchParams.get('keyword');
   if (keyword) {
