@@ -34,37 +34,32 @@ export const getAllProducts = async (searchParams) => {
     const cleanParams = parseProductSearchParams(searchParams || {});
 
     // 2. Construire les paramètres d'URL avec le bon format pour les prix
+    const params = await cleanParams;
     const urlParams = {};
 
     // Paramètres simples
-    if (await cleanParams?.keyword) {
-      urlParams.keyword = await cleanParams?.keyword;
+    if (params?.keyword) {
+      urlParams.keyword = params?.keyword;
     }
 
-    if (await cleanParams?.category) {
-      urlParams.category = await cleanParams?.category;
+    if (params?.category) {
+      urlParams.category = params?.category;
     }
 
-    if (await cleanParams?.page) {
-      urlParams.page = await cleanParams?.page;
+    if (params?.page) {
+      urlParams.page = params?.page;
     }
 
     // IMPORTANT: Transformer min/max en price[gte]/price[lte] pour l'API
-    if (
-      (await cleanParams?.min) !== undefined &&
-      (await cleanParams?.min) !== null
-    ) {
-      urlParams['price[gte]'] = await cleanParams?.min;
+    if (params?.min !== undefined && params?.min !== null) {
+      urlParams['price[gte]'] = params?.min;
     }
 
-    if (
-      (await cleanParams?.max) !== undefined &&
-      (await cleanParams?.max) !== null
-    ) {
-      urlParams['price[lte]'] = await cleanParams?.max;
+    if (params?.max !== undefined && params?.max !== null) {
+      urlParams['price[lte]'] = params?.max;
     }
 
-    console.log('Cleaned search params:', await cleanParams); // Log pour debug
+    console.log('Cleaned search params:', params); // Log pour debug
     console.log('URL params for API:', urlParams); // Log pour debug
 
     // 3. Construire la query string
