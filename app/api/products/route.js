@@ -52,6 +52,9 @@ export async function GET(req) {
       }
     });
 
+    console.log('Validated Params IN API:', validatedParams);
+    console.log('Search Params IN API:', searchParams);
+
     // Configuration de la pagination
     const resPerPage = Math.min(MAX_PER_PAGE, Math.max(1, DEFAULT_PER_PAGE));
 

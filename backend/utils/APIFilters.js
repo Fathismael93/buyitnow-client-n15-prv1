@@ -17,6 +17,8 @@ class APIFilters {
         }
       : {};
 
+    console.log('Search Keyword Filter:', keyword);
+
     this.query = this.query.find({ ...keyword });
     return this;
   }
