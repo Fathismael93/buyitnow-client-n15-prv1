@@ -31,6 +31,8 @@ export async function GET(req) {
       );
     }
 
+    console.log('searchParams:', req.nextUrl.searchParams);
+
     // Récupérer les paramètres de pagination
     const page = parseInt(req.nextUrl.searchParams.get('page') || '1', 10);
     const resPerPage = 10; // 10 commandes par page
