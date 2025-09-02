@@ -127,7 +127,7 @@ export const getAllProducts = async (
           //   { abortEarly: false },
           // );
           // if (minResult.minPrice) urlParams['price[gte]'] = minResult.minPrice;
-          urlParams['price[gte]'] = parseInt(searchParams.min);
+          urlParams['price[gt]'] = parseInt(searchParams.min);
         } catch (err) {
           validationErrors.push({
             field: 'minPrice',
@@ -146,7 +146,7 @@ export const getAllProducts = async (
           //   { abortEarly: false },
           // );
           // if (maxResult.maxPrice) urlParams['price[lte]'] = maxResult.maxPrice;
-          urlParams['price[lte]'] = parseInt(searchParams.max);
+          urlParams['price[lt]'] = parseInt(searchParams.max);
         } catch (err) {
           validationErrors.push({
             field: 'maxPrice',
