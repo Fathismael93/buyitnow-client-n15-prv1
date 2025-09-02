@@ -43,16 +43,16 @@ class APIFilters {
       };
     }
 
-    if (this.queryStr.get('price[gte]')) {
+    if (this.queryStr.get('price[gt]')) {
       queryCopy = {
-        'price[gte]': this.queryStr.get('price[gte]'),
+        'price[gt]': this.queryStr.get('price[gt]'),
         ...queryCopy,
       };
     }
 
-    if (this.queryStr.get('price[lte]')) {
+    if (this.queryStr.get('price[lt]')) {
       queryCopy = {
-        'price[lte]': this.queryStr.get('price[lte]'),
+        'price[lt]': this.queryStr.get('price[lt]'),
         ...queryCopy,
       };
     }
