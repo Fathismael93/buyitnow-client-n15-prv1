@@ -5,10 +5,10 @@ import mongoose from 'mongoose';
 import { getCookieName } from '@/helpers/helpers';
 import { toast } from 'react-toastify';
 import {
-  appCache,
+  // appCache,
   CACHE_DURATIONS,
-  getCacheHeaders,
-  getCacheKey,
+  // getCacheHeaders,
+  // getCacheKey,
 } from '@/utils/cache';
 // import {
 //   categorySchema,
@@ -180,26 +180,26 @@ export const getAllProducts = async (
 
     // Construire la chaîne de requête
     const searchQuery = new URLSearchParams(urlParams).toString();
-    const cacheControl = getCacheHeaders('products');
+    // const cacheControl = getCacheHeaders('products');
 
     // S'assurer que l'URL est correctement formatée
     const apiUrl = `${process.env.API_URL || ''}/api/products${searchQuery ? `?${searchQuery}` : ''}`;
 
     // On vérifie le cache avant de faire l'appel API
     // La clé de cache doit correspondre au format utilisé dans l'API
-    const cacheKey = getCacheKey(
-      'products',
-      Object.fromEntries(new URLSearchParams(searchQuery)),
-    );
+    // const cacheKey = getCacheKey(
+    //   'products',
+    //   Object.fromEntries(new URLSearchParams(searchQuery)),
+    // );
 
-    const cachedData = appCache.products.get(cacheKey);
-    if (cachedData && !retryAttempt) {
-      logger.debug('Products cache hit', {
-        requestId,
-        action: 'cache_hit',
-      });
-      return cachedData;
-    }
+    // const cachedData = appCache.products.get(cacheKey);
+    // if (cachedData && !retryAttempt) {
+    //   logger.debug('Products cache hit', {
+    //     requestId,
+    //     action: 'cache_hit',
+    //   });
+    //   return cachedData;
+    // }
 
     // Avant l'appel API
     logger.debug('Fetching products from API', {
@@ -218,9 +218,9 @@ export const getAllProducts = async (
           ...(urlParams.category ? [`category-${urlParams.category}`] : []),
         ],
       },
-      headers: {
-        'Cache-Control': cacheControl,
-      },
+      // headers: {
+      //   'Cache-Control': cacheControl,
+      // },
     });
 
     // Après l'appel API
@@ -549,18 +549,18 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
   const requestId = `categories-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
   // Vérifier si les données sont en cache
-  const cacheKey = getCacheKey('categories', {});
-  const cachedCategories = appCache.categories.get(cacheKey);
+  // const cacheKey = getCacheKey('categories', {});
+  // const cachedCategories = appCache.categories.get(cacheKey);
 
-  if (cachedCategories) {
-    logger.info('Categories served from client-side cache', {
-      component: 'getCategories',
-      cached: true,
-      count: cachedCategories.categories?.length || 0,
-    });
+  // if (cachedCategories) {
+  //   logger.info('Categories served from client-side cache', {
+  //     component: 'getCategories',
+  //     cached: true,
+  //     count: cachedCategories.categories?.length || 0,
+  //   });
 
-    return cachedCategories;
-  }
+  //   return cachedCategories;
+  // }
 
   // Timeout de 5 secondes pour les catégories
   const timeoutId = setTimeout(() => {
@@ -586,7 +586,7 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
       action: 'api_request_start',
     });
 
-    const cacheControl = getCacheHeaders('categories');
+    // const cacheControl = getCacheHeaders('categories');
     const apiUrl = `${process.env.API_URL || ''}/api/category`;
 
     const res = await fetch(apiUrl, {
@@ -595,9 +595,9 @@ export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
         revalidate: CACHE_DURATIONS.categories || 3600,
         tags: ['categories'],
       },
-      headers: {
-        'Cache-Control': cacheControl,
-      },
+      // headers: {
+      //   'Cache-Control': cacheControl,
+      // },
     });
 
     // Après l'appel API
@@ -1006,34 +1006,34 @@ export const getProductDetails = async (
     }
 
     // Vérifier le cache d'abord - utiliser la même clé que dans l'API
-    const cacheKey = getCacheKey('single-product', { id });
-    const cachedProduct = appCache.singleProducts.get(cacheKey);
+    // const cacheKey = getCacheKey('single-product', { id });
+    // const cachedProduct = appCache.singleProducts.get(cacheKey);
 
-    if (cachedProduct && !retryAttempt) {
-      logger.debug('Product details cache hit', {
-        requestId,
-        productId: id,
-        action: 'cache_hit',
-      });
+    // if (cachedProduct && !retryAttempt) {
+    //   logger.debug('Product details cache hit', {
+    //     requestId,
+    //     productId: id,
+    //     action: 'cache_hit',
+    //   });
 
-      // Récupérer également les produits similaires s'ils existent
-      let sameCategoryProducts = [];
-      if (cachedProduct.category) {
-        const similarCacheKey = getCacheKey('similar-products', {
-          categoryId: cachedProduct.category,
-        });
-        sameCategoryProducts =
-          appCache.singleProducts.get(similarCacheKey) || [];
-      }
+    //   // Récupérer également les produits similaires s'ils existent
+    //   let sameCategoryProducts = [];
+    //   if (cachedProduct.category) {
+    //     const similarCacheKey = getCacheKey('similar-products', {
+    //       categoryId: cachedProduct.category,
+    //     });
+    //     sameCategoryProducts =
+    //       appCache.singleProducts.get(similarCacheKey) || [];
+    //   }
 
-      return {
-        success: true,
-        product: cachedProduct,
-        sameCategoryProducts,
-        message: 'Produit récupéré depuis le cache',
-        fromCache: true,
-      };
-    }
+    //   return {
+    //     success: true,
+    //     product: cachedProduct,
+    //     sameCategoryProducts,
+    //     message: 'Produit récupéré depuis le cache',
+    //     fromCache: true,
+    //   };
+    // }
 
     // Avant l'appel API
     logger.debug('Fetching product details from API', {
@@ -1044,7 +1044,7 @@ export const getProductDetails = async (
     });
 
     // Utiliser les headers de cache optimisés pour un seul produit
-    const cacheControl = getCacheHeaders('singleProduct');
+    // const cacheControl = getCacheHeaders('singleProduct');
     const apiUrl = `${process.env.API_URL || ''}/api/products/${id}`;
 
     const res = await fetch(apiUrl, {
@@ -1054,9 +1054,9 @@ export const getProductDetails = async (
         revalidate: CACHE_DURATIONS.singleProduct || 7200,
         tags: ['product', `product-${id}`],
       },
-      headers: {
-        'Cache-Control': cacheControl['Cache-Control'],
-      },
+      // headers: {
+      //   'Cache-Control': cacheControl['Cache-Control'],
+      // },
     });
 
     // Après l'appel API
@@ -1425,21 +1425,21 @@ export const getAllAddresses = async (
 
   // Vérifier le cache d'abord
   // La clé de cache doit inclure l'ID utilisateur et le contexte de page
-  const userIdentifier = nextAuthSessionToken.value.substring(0, 10);
-  const cacheKey = getCacheKey('addresses', {
-    userId: userIdentifier,
-    context: page,
-  });
+  // const userIdentifier = nextAuthSessionToken.value.substring(0, 10);
+  // const cacheKey = getCacheKey('addresses', {
+  //   userId: userIdentifier,
+  //   context: page,
+  // });
 
-  const cachedAddresses = appCache.addresses.get(cacheKey);
-  if (cachedAddresses && !retryAttempt) {
-    logger.debug('Addresses cache hit', {
-      requestId,
-      page,
-      action: 'cache_hit',
-    });
-    return cachedAddresses;
-  }
+  // const cachedAddresses = appCache.addresses.get(cacheKey);
+  // if (cachedAddresses && !retryAttempt) {
+  //   logger.debug('Addresses cache hit', {
+  //     requestId,
+  //     page,
+  //     action: 'cache_hit',
+  //   });
+  //   return cachedAddresses;
+  // }
 
   // Timeout de 5 secondes pour éviter les requêtes bloquées
   const timeoutId = setTimeout(() => {
@@ -1469,16 +1469,16 @@ export const getAllAddresses = async (
     });
 
     // Utiliser les headers de cache optimisés pour les données utilisateur
-    const cacheControl = getCacheHeaders('userData');
+    // const cacheControl = getCacheHeaders('userData');
     const apiUrl = `${process.env.API_URL}/api/address?context=${page}`;
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
-      headers: {
-        Cookie: `${nextAuthSessionToken?.name}=${nextAuthSessionToken?.value}`,
-        'Cache-Control': cacheControl['Cache-Control'],
-        'X-Request-ID': requestId,
-      },
+      // headers: {
+      //   Cookie: `${nextAuthSessionToken?.name}=${nextAuthSessionToken?.value}`,
+      //   'Cache-Control': cacheControl['Cache-Control'],
+      //   'X-Request-ID': requestId,
+      // },
       next: {
         // Les données d'adresse sont des données utilisateur, donc pas de mise en cache côté serveur
         revalidate: 0,
@@ -1970,26 +1970,26 @@ export const getSingleAddress = async (
   }
 
   // Vérifier le cache d'abord
-  const userIdentifier = nextAuthSessionToken.value.substring(0, 10);
-  const cacheKey = getCacheKey('address_detail', {
-    userId: userIdentifier,
-    addressId: id,
-  });
+  // const userIdentifier = nextAuthSessionToken.value.substring(0, 10);
+  // const cacheKey = getCacheKey('address_detail', {
+  //   userId: userIdentifier,
+  //   addressId: id,
+  // });
 
-  const cachedAddress = appCache.addresses.get(cacheKey);
-  if (cachedAddress && !retryAttempt) {
-    logger.debug('Address cache hit', {
-      requestId,
-      addressId: id,
-      action: 'cache_hit',
-    });
-    return {
-      success: true,
-      address: cachedAddress,
-      message: 'Adresse récupérée depuis le cache',
-      fromCache: true,
-    };
-  }
+  // const cachedAddress = appCache.addresses.get(cacheKey);
+  // if (cachedAddress && !retryAttempt) {
+  //   logger.debug('Address cache hit', {
+  //     requestId,
+  //     addressId: id,
+  //     action: 'cache_hit',
+  //   });
+  //   return {
+  //     success: true,
+  //     address: cachedAddress,
+  //     message: 'Adresse récupérée depuis le cache',
+  //     fromCache: true,
+  //   };
+  // }
 
   // Timeout de 5 secondes pour éviter les requêtes bloquées
   const timeoutId = setTimeout(() => {
@@ -2019,14 +2019,14 @@ export const getSingleAddress = async (
     });
 
     // Utiliser les headers de cache optimisés
-    const cacheControl = getCacheHeaders('addressDetail');
+    // const cacheControl = getCacheHeaders('addressDetail');
     const apiUrl = `${process.env.API_URL}/api/address/${id}`;
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
       headers: {
         Cookie: `${nextAuthSessionToken?.name}=${nextAuthSessionToken?.value}`,
-        'Cache-Control': cacheControl['Cache-Control'],
+        // 'Cache-Control': cacheControl['Cache-Control'],
         'X-Request-ID': requestId,
       },
       next: {
@@ -2470,20 +2470,20 @@ export const getAllOrders = async (
     }
 
     // Clé de cache basée sur l'utilisateur et les paramètres
-    const userIdentifier = nextAuthSessionToken.value.substring(0, 10);
-    const queryString = new URLSearchParams(urlParams).toString();
-    const cacheKey = `orders_${userIdentifier}_${queryString || 'default'}`;
+    // const userIdentifier = nextAuthSessionToken.value.substring(0, 10);
+    // const queryString = new URLSearchParams(urlParams).toString();
+    // const cacheKey = `orders_${userIdentifier}_${queryString || 'default'}`;
 
     // Vérifier le cache
-    const cachedData = appCache.products.get(cacheKey);
-    if (cachedData && !retryAttempt) {
-      logger.debug('Orders cache hit', {
-        requestId,
-        page: urlParams.page || 1,
-        action: 'cache_hit',
-      });
-      return cachedData;
-    }
+    // const cachedData = appCache.products.get(cacheKey);
+    // if (cachedData && !retryAttempt) {
+    //   logger.debug('Orders cache hit', {
+    //     requestId,
+    //     page: urlParams.page || 1,
+    //     action: 'cache_hit',
+    //   });
+    //   return cachedData;
+    // }
 
     // Construire la chaîne de requête
     const searchQuery = new URLSearchParams(urlParams).toString();
