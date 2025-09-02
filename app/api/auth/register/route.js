@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import bcryptjs from 'bcryptjs';
 import dbConnect from '@/backend/config/dbConnect';
 import User from '@/backend/models/user';
 import { validateRegister } from '@/helpers/validation/schemas/auth';

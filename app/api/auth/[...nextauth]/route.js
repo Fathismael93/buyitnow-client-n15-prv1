@@ -3,11 +3,12 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcryptjs from 'bcryptjs';
 import dbConnect from '@/backend/config/dbConnect';
 import User from '@/backend/models/user';
+import { validateLogin } from '@/helpers/validation/schemas/auth';
 import { captureException } from '@/monitoring/sentry';
 
 /**
  * Configuration NextAuth simplifiée pour 500 visiteurs/jour
- * Authentification par email/mot de passe uniquement
+ * Authentification par email/mot de passe avec validation Yup
  */
 const authOptions = {
   providers: [
@@ -20,17 +21,28 @@ const authOptions = {
 
       async authorize(credentials) {
         try {
-          // Vérification basique des champs
-          if (!credentials?.email || !credentials?.password) {
-            throw new Error('Email and password required');
+          // 1. Validation Yup des données d'entrée
+          const validation = await validateLogin({
+            email: credentials?.email || '',
+            password: credentials?.password || '',
+          });
+
+          if (!validation.isValid) {
+            // Récupérer le premier message d'erreur pour l'afficher
+            const firstError = Object.values(validation.errors)[0];
+            console.log('Login validation failed:', validation.errors);
+            throw new Error(firstError || 'Invalid credentials');
           }
 
-          // Connexion DB
+          // Utiliser les données validées et nettoyées
+          const { email, password } = validation.data;
+
+          // 2. Connexion DB
           await dbConnect();
 
-          // Recherche utilisateur avec mot de passe
+          // 3. Recherche utilisateur avec mot de passe
           const user = await User.findOne({
-            email: credentials.email.toLowerCase(),
+            email: email, // Déjà en lowercase grâce à Yup
           }).select('+password');
 
           if (!user) {
@@ -38,9 +50,9 @@ const authOptions = {
             throw new Error('Invalid email or password');
           }
 
-          // Vérification du mot de passe
+          // 4. Vérification du mot de passe
           const isPasswordValid = await bcryptjs.compare(
-            credentials.password,
+            password,
             user.password,
           );
 
@@ -49,7 +61,7 @@ const authOptions = {
             throw new Error('Invalid email or password');
           }
 
-          // Retourner l'utilisateur sans le mot de passe
+          // 5. Retourner l'utilisateur sans le mot de passe
           return {
             _id: user._id.toString(),
             name: user.name,
@@ -62,13 +74,19 @@ const authOptions = {
         } catch (error) {
           console.error('Authentication error:', error.message);
 
-          // Capturer seulement les vraies erreurs système
-          if (!error.message.includes('Invalid email or password')) {
+          // Capturer seulement les vraies erreurs système (pas les erreurs de validation ou auth)
+          if (
+            !error.message.includes('Invalid email or password') &&
+            !error.message.includes('requis') &&
+            !error.message.includes('caractères') &&
+            !error.message.includes('Format')
+          ) {
             captureException(error, {
               tags: { component: 'auth', action: 'login' },
             });
           }
 
+          // Renvoyer l'erreur pour NextAuth
           throw error;
         }
       },

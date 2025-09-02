@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import DOMPurify from 'dompurify';
 
 import AuthContext from '@/context/AuthContext';
-import { validateProfileWithLogging } from '@/helpers/schemas';
+// import { validateProfileWithLogging } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
 
 /**
@@ -158,24 +158,25 @@ const UpdateProfile = ({ userId, initialEmail, referer }) => {
       const { name, phone, avatar } = formState;
 
       // Validation avancée avec la nouvelle fonction
-      const validation = await validateProfileWithLogging({
-        name,
-        phone,
-        avatar,
-      });
+      // const validation = await validateProfileWithLogging({
+      //   name,
+      //   phone,
+      //   avatar,
+      // });
 
-      if (!validation.isValid) {
-        setValidationErrors(validation.errors);
-        toast.error(
-          validation.errors.general ||
-            'Veuillez corriger les erreurs dans le formulaire',
-        );
-        setIsSubmitting(false);
-        return;
-      }
+      // if (!validation.isValid) {
+      //   setValidationErrors(validation.errors);
+      //   toast.error(
+      //     validation.errors.general ||
+      //       'Veuillez corriger les erreurs dans le formulaire',
+      //   );
+      //   setIsSubmitting(false);
+      //   return;
+      // }
 
       // Appeler la fonction de mise à jour avec données validées
-      await updateProfile(validation.data);
+      // await updateProfile(validation.data);
+      await updateProfile({ name, phone, avatar });
 
       // Réinitialiser l'état du formulaire
       setFormTouched(false);

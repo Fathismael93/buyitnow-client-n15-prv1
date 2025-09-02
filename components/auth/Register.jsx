@@ -4,7 +4,7 @@ import { useState, useContext, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { toast } from 'react-toastify';
 import AuthContext from '@/context/AuthContext';
-import { registerSchema } from '@/helpers/schemas';
+// import { registerSchema } from '@/helpers/schemas';
 
 const Register = () => {
   // Contexte d'authentification
@@ -69,7 +69,7 @@ const Register = () => {
     }));
 
     // Validation en temps réel
-    await validateField(name, value);
+    // await validateField(name, value);
 
     // Calcul de la force du mot de passe
     if (name === 'password') {
@@ -78,16 +78,16 @@ const Register = () => {
   };
 
   // Validation d'un champ individuel
-  const validateField = async (name, value) => {
-    try {
-      await registerSchema.validateAt(name, { [name]: value });
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
-      return true;
-    } catch (error) {
-      setErrors((prev) => ({ ...prev, [name]: error.message }));
-      return false;
-    }
-  };
+  // const validateField = async (name, value) => {
+  //   try {
+  //     await registerSchema.validateAt(name, { [name]: value });
+  //     setErrors((prev) => ({ ...prev, [name]: undefined }));
+  //     return true;
+  //   } catch (error) {
+  //     setErrors((prev) => ({ ...prev, [name]: error.message }));
+  //     return false;
+  //   }
+  // };
 
   // Calcul de la force du mot de passe (0-100)
   const calculatePasswordStrength = (password) => {
@@ -199,7 +199,7 @@ const Register = () => {
             placeholder="Votre nom complet"
             value={formData.name}
             onChange={handleChange}
-            onBlur={(e) => validateField('name', e.target.value)}
+            // onBlur={(e) => validateField('name', e.target.value)}
             disabled={isSubmitting || contextLoading}
             aria-invalid={errors.name ? 'true' : 'false'}
             aria-describedby={errors.name ? 'name-error' : undefined}
@@ -233,7 +233,7 @@ const Register = () => {
             placeholder="Votre numéro de téléphone"
             value={formData.phone}
             onChange={handleChange}
-            onBlur={(e) => validateField('phone', e.target.value)}
+            // onBlur={(e) => validateField('phone', e.target.value)}
             disabled={isSubmitting || contextLoading}
             aria-invalid={errors.phone ? 'true' : 'false'}
             aria-describedby={errors.phone ? 'phone-error' : undefined}
@@ -270,7 +270,7 @@ const Register = () => {
             placeholder="Votre adresse email"
             value={formData.email}
             onChange={handleChange}
-            onBlur={(e) => validateField('email', e.target.value)}
+            // onBlur={(e) => validateField('email', e.target.value)}
             disabled={isSubmitting || contextLoading}
             aria-invalid={errors.email ? 'true' : 'false'}
             aria-describedby={errors.email ? 'email-error' : undefined}
@@ -304,7 +304,7 @@ const Register = () => {
             placeholder="Créez un mot de passe sécurisé"
             value={formData.password}
             onChange={handleChange}
-            onBlur={(e) => validateField('password', e.target.value)}
+            // onBlur={(e) => validateField('password', e.target.value)}
             disabled={isSubmitting || contextLoading}
             minLength={8}
             aria-invalid={errors.password ? 'true' : 'false'}

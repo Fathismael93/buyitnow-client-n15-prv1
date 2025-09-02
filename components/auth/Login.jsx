@@ -6,8 +6,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-toastify';
 
-import { loginSchema } from '@/helpers/schemas';
+// import { loginSchema } from '@/helpers/schemas';
 import { parseCallbackUrl } from '@/helpers/helpers';
+import { validateLogin } from '@/helpers/validation/schemas/auth';
 
 const Login = ({ csrfToken }) => {
   // États du formulaire
@@ -38,16 +39,16 @@ const Login = ({ csrfToken }) => {
   }, [navigator]);
 
   // Validation à la volée des champs individuels
-  const validateField = async (name, value) => {
-    try {
-      await loginSchema.validateAt(name, { [name]: value });
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
-      return true;
-    } catch (error) {
-      setErrors((prev) => ({ ...prev, [name]: error.message }));
-      return false;
-    }
-  };
+  // const validateField = async (name, value) => {
+  //   try {
+  //     await loginSchema.validateAt(name, { [name]: value });
+  //     setErrors((prev) => ({ ...prev, [name]: undefined }));
+  //     return true;
+  //   } catch (error) {
+  //     setErrors((prev) => ({ ...prev, [name]: error.message }));
+  //     return false;
+  //   }
+  // };
 
   // Gestionnaire de soumission du formulaire
   const submitHandler = async (e) => {
@@ -65,7 +66,10 @@ const Login = ({ csrfToken }) => {
 
     try {
       // Validation complète avant soumission
-      await loginSchema.validate({ email, password }, { abortEarly: false });
+      await validateLogin({
+        email: email || '',
+        password: password || '',
+      });
 
       // Tentative de connexion
       const data = await signIn('credentials', {
@@ -158,9 +162,9 @@ const Login = ({ csrfToken }) => {
             value={email}
             onChange={(e) => {
               setEmail(e.target.value);
-              validateField('email', e.target.value);
+              // validateField('email', e.target.value);
             }}
-            onBlur={() => validateField('email', email)}
+            // onBlur={() => validateField('email', email)}
             autoComplete="email"
             aria-invalid={errors.email ? 'true' : 'false'}
             aria-describedby={errors.email ? 'email-error' : undefined}
@@ -194,9 +198,9 @@ const Login = ({ csrfToken }) => {
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
-              validateField('password', e.target.value);
+              // validateField('password', e.target.value);
             }}
-            onBlur={() => validateField('password', password)}
+            // onBlur={() => validateField('password', password)}
             autoComplete="current-password"
             aria-invalid={errors.password ? 'true' : 'false'}
             aria-describedby={errors.password ? 'password-error' : undefined}

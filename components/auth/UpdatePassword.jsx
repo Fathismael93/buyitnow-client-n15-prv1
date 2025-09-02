@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import DOMPurify from 'dompurify';
 
 import AuthContext from '@/context/AuthContext';
-import { validatePasswordUpdate } from '@/helpers/schemas';
+// import { validatePasswordUpdate } from '@/helpers/schemas';
 
 /**
  * Composant de mise à jour de mot de passe
@@ -191,38 +191,38 @@ const UpdatePassword = ({ userId, referer }) => {
   }, [passwordStrength]);
 
   // Validation complète du formulaire en utilisant le schéma importé
-  const validateForm = useCallback(async () => {
-    try {
-      const validation = await validatePasswordUpdate({
-        currentPassword: formState.currentPassword,
-        newPassword: formState.newPassword,
-        confirmPassword: formState.confirmPassword,
-      });
+  // const validateForm = useCallback(async () => {
+  //   try {
+  //     const validation = await validatePasswordUpdate({
+  //       currentPassword: formState.currentPassword,
+  //       newPassword: formState.newPassword,
+  //       confirmPassword: formState.confirmPassword,
+  //     });
 
-      if (!validation.isValid) {
-        // Mettre à jour l'état des erreurs de validation avec les erreurs reçues
-        setValidationErrors(validation.errors);
-        return false;
-      }
+  //     if (!validation.isValid) {
+  //       // Mettre à jour l'état des erreurs de validation avec les erreurs reçues
+  //       setValidationErrors(validation.errors);
+  //       return false;
+  //     }
 
-      // Si la validation réussit, mettre à jour l'état de force du mot de passe
-      if (validation.security) {
-        setPasswordStrength(validation.security.score);
-      }
+  //     // Si la validation réussit, mettre à jour l'état de force du mot de passe
+  //     if (validation.security) {
+  //       setPasswordStrength(validation.security.score);
+  //     }
 
-      // Effacer les erreurs précédentes
-      setValidationErrors({});
-      return true;
-    } catch (error) {
-      console.error('Password validation error:', error);
+  //     // Effacer les erreurs précédentes
+  //     setValidationErrors({});
+  //     return true;
+  //   } catch (error) {
+  //     console.error('Password validation error:', error);
 
-      // En cas d'erreur inattendue, ajouter une erreur générale
-      setValidationErrors({
-        general: 'Une erreur est survenue pendant la validation du formulaire',
-      });
-      return false;
-    }
-  }, [formState]);
+  //     // En cas d'erreur inattendue, ajouter une erreur générale
+  //     setValidationErrors({
+  //       general: 'Une erreur est survenue pendant la validation du formulaire',
+  //     });
+  //     return false;
+  //   }
+  // }, [formState]);
 
   // Fonction de soumission du formulaire
   const submitHandler = async (e) => {
@@ -232,13 +232,13 @@ const UpdatePassword = ({ userId, referer }) => {
 
     try {
       // Valider le formulaire avec la nouvelle méthode
-      const isValid = await validateForm();
+      // const isValid = await validateForm();
 
-      if (!isValid) {
-        toast.error('Veuillez corriger les erreurs dans le formulaire');
-        setIsSubmitting(false);
-        return;
-      }
+      // if (!isValid) {
+      //   toast.error('Veuillez corriger les erreurs dans le formulaire');
+      //   setIsSubmitting(false);
+      //   return;
+      // }
 
       // Soumettre la mise à jour du mot de passe
       await updatePassword({

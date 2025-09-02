@@ -20,7 +20,7 @@ import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
 import { isArrayEmpty, formatPrice, safeValue } from '@/helpers/helpers';
 import { useOnlineStatus } from '@/hooks/useCustomHooks';
-import { validatePaymentDetails } from '@/helpers/schemas';
+// import { validatePaymentDetails } from '@/helpers/schemas';
 import PaymentPageSkeleton from '../skeletons/PaymentPageSkeleton';
 
 // Chargement dynamique des composants
@@ -166,64 +166,64 @@ const Payment = () => {
   }, [shippingInfo, paymentTypes, dataInitialized, isOnline]);
 
   // Validation du formulaire à chaque changement
-  useEffect(() => {
-    const validateForm = async () => {
-      try {
-        // Ne pas valider si des champs requis sont vides
-        if (!paymentType || !accountName || !accountNumber) {
-          setIsFormValid(false);
-          return;
-        }
+  // useEffect(() => {
+  //   const validateForm = async () => {
+  //     try {
+  //       // Ne pas valider si des champs requis sont vides
+  //       if (!paymentType || !accountName || !accountNumber) {
+  //         setIsFormValid(false);
+  //         return;
+  //       }
 
-        const validationResult = await validatePaymentDetails(
-          {
-            paymentType,
-            accountName,
-            accountNumber,
-          },
-          paymentTypes, // Passer les types de paiement disponibles pour une validation contextuelle
-        );
+  //       const validationResult = await validatePaymentDetails(
+  //         {
+  //           paymentType,
+  //           accountName,
+  //           accountNumber,
+  //         },
+  //         paymentTypes, // Passer les types de paiement disponibles pour une validation contextuelle
+  //       );
 
-        if (validationResult.isValid) {
-          setErrors({});
-          setIsFormValid(true);
+  //       if (validationResult.isValid) {
+  //         setErrors({});
+  //         setIsFormValid(true);
 
-          // Afficher un avertissement si détecté
-          if (
-            validationResult.warnings &&
-            validationResult.warnings.includes('pattern_warning')
-          ) {
-            console.warn(
-              'Avertissement de validation:',
-              validationResult.message,
-            );
-          }
-        } else {
-          setErrors(validationResult.errors || {});
-          setIsFormValid(false);
-        }
-      } catch (validationError) {
-        // Fallback en cas d'erreur lors de l'import dynamique
-        console.error(
-          'Erreur lors de la validation du formulaire:',
-          validationError,
-        );
+  //         // Afficher un avertissement si détecté
+  //         if (
+  //           validationResult.warnings &&
+  //           validationResult.warnings.includes('pattern_warning')
+  //         ) {
+  //           console.warn(
+  //             'Avertissement de validation:',
+  //             validationResult.message,
+  //           );
+  //         }
+  //       } else {
+  //         setErrors(validationResult.errors || {});
+  //         setIsFormValid(false);
+  //       }
+  //     } catch (validationError) {
+  //       // Fallback en cas d'erreur lors de l'import dynamique
+  //       console.error(
+  //         'Erreur lors de la validation du formulaire:',
+  //         validationError,
+  //       );
 
-        // Capture l'exception pour le monitoring
-        captureException(validationError, {
-          tags: { component: 'Payment', action: 'validateForm' },
-        });
+  //       // Capture l'exception pour le monitoring
+  //       captureException(validationError, {
+  //         tags: { component: 'Payment', action: 'validateForm' },
+  //       });
 
-        setErrors({
-          general:
-            'Une erreur est survenue lors de la validation du formulaire',
-        });
-        setIsFormValid(false);
-      }
-    };
+  //       setErrors({
+  //         general:
+  //           'Une erreur est survenue lors de la validation du formulaire',
+  //       });
+  //       setIsFormValid(false);
+  //     }
+  //   };
 
-    validateForm();
-  }, [paymentType, accountName, accountNumber, paymentTypes]);
+  //   validateForm();
+  // }, [paymentType, accountName, accountNumber, paymentTypes]);
 
   // Handle auth context updates
   useEffect(() => {
@@ -287,26 +287,26 @@ const Payment = () => {
         return;
       }
 
-      const validationResult = await validatePaymentDetails(
-        {
-          paymentType,
-          accountName,
-          accountNumber,
-        },
-        paymentTypes,
-      );
+      // const validationResult = await validatePaymentDetails(
+      //   {
+      //     paymentType,
+      //     accountName,
+      //     accountNumber,
+      //   },
+      //   paymentTypes,
+      // );
 
-      if (!validationResult.isValid) {
-        // Afficher les erreurs de validation
-        const errorMessages = Object.values(validationResult.errors);
-        errorMessages.forEach((msg) => {
-          toast.error(msg, { position: 'bottom-right' });
-        });
+      // if (!validationResult.isValid) {
+      //   // Afficher les erreurs de validation
+      //   const errorMessages = Object.values(validationResult.errors);
+      //   errorMessages.forEach((msg) => {
+      //     toast.error(msg, { position: 'bottom-right' });
+      //   });
 
-        setIsSubmitting(false);
-        submitAttempts.current = 0;
-        return;
-      }
+      //   setIsSubmitting(false);
+      //   submitAttempts.current = 0;
+      //   return;
+      // }
 
       // Création des informations de paiement
       const paymentInfo = {
