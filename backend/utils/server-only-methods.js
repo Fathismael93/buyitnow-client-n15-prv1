@@ -1474,11 +1474,11 @@ export const getAllAddresses = async (
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
-      // headers: {
-      //   Cookie: `${nextAuthSessionToken?.name}=${nextAuthSessionToken?.value}`,
-      //   'Cache-Control': cacheControl['Cache-Control'],
-      //   'X-Request-ID': requestId,
-      // },
+      headers: {
+        Cookie: `${nextAuthSessionToken?.name}=${nextAuthSessionToken?.value}`,
+        // 'Cache-Control': cacheControl['Cache-Control'],
+        'X-Request-ID': requestId,
+      },
       next: {
         // Les données d'adresse sont des données utilisateur, donc pas de mise en cache côté serveur
         revalidate: 0,
