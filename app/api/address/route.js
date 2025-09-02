@@ -1,704 +1,209 @@
 import { NextResponse } from 'next/server';
-
+import dbConnect from '@/backend/config/dbConnect';
 import Address from '@/backend/models/address';
 import User from '@/backend/models/user';
 import PaymentType from '@/backend/models/paymentType';
 import DeliveryPrice from '@/backend/models/deliveryPrice';
 import isAuthenticatedUser from '@/backend/middlewares/auth';
-import dbConnect from '@/backend/config/dbConnect';
-import { addressSchema } from '@/helpers/schemas';
-import { sanitizeAddress, isAddressValid } from '@/utils/addressSanitizer';
+import { validateAddress } from '@/helpers/validation/schemas/address';
+import { sanitizeAddress, hasRequiredFields } from '@/utils/addressSanitizer';
 import { captureException } from '@/monitoring/sentry';
-import logger from '@/utils/logger';
-import { validateWithLogging } from '@/helpers/schemas';
-import { appCache, getCacheKey } from '@/utils/cache';
-// import { applyRateLimit } from '@/utils/integratedRateLimit';
 
+/**
+ * GET /api/address
+ * Récupère toutes les adresses d'un utilisateur
+ */
 export async function GET(req) {
-  // Récupérer le contexte depuis l'URL
-  const { searchParams } = new URL(req.url);
-  const context = searchParams.get('context') || 'shipping';
-  const validContexts = ['profile', 'shipping'];
-
-  if (!validContexts.includes(context)) {
-    logger.warn('Invalid context parameter in address request', {
-      providedContext: context,
-      validContexts,
-    });
-    // On utilise quand même la valeur par défaut plutôt que de rejeter la requête
-  }
-
-  // Journalisation structurée de la requête
-  logger.info('Address API GET request received', {
-    route: 'api/address/GET',
-    user: req.user?.email || 'unauthenticated',
-    context,
-  });
-
   try {
     // Vérifier l'authentification
     await isAuthenticatedUser(req, NextResponse);
 
-    // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
-    // const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-    //   prefix: 'address_api',
-    // });
+    // Connexion DB
+    await dbConnect();
 
-    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    // const rateLimitResponse = await addressRateLimiter(req);
+    // Récupérer le contexte (optionnel)
+    const { searchParams } = new URL(req.url);
+    const context = searchParams.get('context') || 'shipping';
 
-    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    // if (rateLimitResponse) {
-    //   logger.warn('Rate limit exceeded for address API', {
-    //     user: req.user?.email,
-    //   });
-
-    //   return rateLimitResponse;
-    // }
-
-    // Connecter à la base de données avec timeout
-    const connectionPromise = dbConnect();
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Database connection timeout')), 5000);
-    });
-
-    const connectionInstance = await Promise.race([
-      connectionPromise,
-      timeoutPromise,
-    ]);
-
-    if (!connectionInstance.connection) {
-      logger.error('Database connection failed for address request', {
-        user: req.user?.email,
-      });
-
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Database connection failed',
-        },
-        { status: 503 },
-      );
-    }
-
-    // Trouver l'utilisateur
-    const findUserPromise = new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error('User query timeout'));
-      }, 3000);
-
-      try {
-        const result = User.findOne({ email: req.user.email }).select('_id');
-        clearTimeout(timeoutId);
-        resolve(result);
-      } catch (error) {
-        clearTimeout(timeoutId);
-        reject(error);
-      }
-    });
-
-    const user = await findUserPromise;
-
+    // Récupérer l'utilisateur
+    const user = await User.findOne({ email: req.user.email }).select('_id');
     if (!user) {
-      logger.warn('User not found for address request', {
-        email: req.user.email,
-      });
-
       return NextResponse.json(
-        {
-          success: false,
-          message: 'User not found',
-        },
+        { success: false, message: 'User not found' },
         { status: 404 },
       );
     }
 
-    // Vérification côté serveur des droits d'accès
-    if (req.user && req.user._id && req.user._id !== user.id) {
-      logger.warn('Unauthorized access attempt to address API', {
-        requestUser: req.user._id,
-        authenticatedUser: user._id.toString(),
-      });
+    // Récupérer les adresses de l'utilisateur
+    const addresses = await Address.find({ user: user._id }).select(
+      'street city state zipCode country isDefault additionalInfo',
+    );
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Unauthorized access',
-        },
-        { status: 403 },
-      );
-    }
-
-    // Clé de cache incluant le contexte
-    const cacheKey = getCacheKey('addresses', {
-      userId: user._id.toString(),
-      context, // Ajouter le contexte à la clé de cache
-    });
-
-    // Essayer de récupérer les données du cache
-    let addresses = appCache.addresses.get(cacheKey);
-
-    if (!addresses) {
-      logger.debug('Address cache miss, fetching from database', {
-        userId: user._id,
-        cacheKey,
-      });
-
-      // Récupérer les adresses avec timeout
-      const addressPromise = new Promise((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          reject(new Error('Address query timeout'));
-        }, 3000);
-
-        try {
-          // Utiliser la méthode statique du modèle Address
-          const result = Address.findByUser(user._id).select(
-            'street city state zipCode country phoneNo isDefault additionalInfo addressId',
-          );
-          clearTimeout(timeoutId);
-          resolve(result);
-        } catch (error) {
-          clearTimeout(timeoutId);
-          reject(error);
-        }
-      });
-
-      addresses = await addressPromise;
-
-      // Mettre en cache les résultats pour 5 minutes
-      appCache.addresses.set(cacheKey, addresses); // Le TTL par défaut est déjà 5 minutes
-    } else {
-      logger.debug('Address cache hit', {
-        userId: user._id,
-        cacheKey,
-      });
-    }
-
-    // Récupérer les types de paiement et prix de livraison si disponibles
-    let paymentTypes = [];
-    let deliveryPrice = [];
+    // Données additionnelles pour le contexte shipping
+    let responseData = { addresses };
 
     if (context === 'shipping') {
       try {
-        const paymentPromise = new Promise((resolve, reject) => {
-          const timeoutId = setTimeout(() => {
-            reject(new Error('Payment types query timeout'));
-          }, 3000);
-
-          try {
-            const result = PaymentType.find();
-            clearTimeout(timeoutId);
-            resolve(result);
-          } catch (error) {
-            clearTimeout(timeoutId);
-            reject(error);
-          }
-        });
-
-        const deliveryPromise = new Promise((resolve, reject) => {
-          const timeoutId = setTimeout(() => {
-            reject(new Error('Delivery price query timeout'));
-          }, 3000);
-
-          try {
-            const result = DeliveryPrice.find();
-            clearTimeout(timeoutId);
-            resolve(result);
-          } catch (error) {
-            clearTimeout(timeoutId);
-            reject(error);
-          }
-        });
-
-        // Exécuter les requêtes en parallèle
-        [paymentTypes, deliveryPrice] = await Promise.allSettled([
-          paymentPromise,
-          deliveryPromise,
+        // Récupérer les types de paiement et prix de livraison en parallèle
+        const [paymentTypes, deliveryPrice] = await Promise.all([
+          PaymentType.find().catch(() => []),
+          DeliveryPrice.find().catch(() => []),
         ]);
 
-        // Transformer les résultats pour gérer les rejets
-        paymentTypes =
-          paymentTypes.status === 'fulfilled' ? paymentTypes.value : [];
-        deliveryPrice =
-          deliveryPrice.status === 'fulfilled' ? deliveryPrice.value : [];
+        responseData = {
+          addresses,
+          paymentTypes,
+          deliveryPrice,
+        };
       } catch (error) {
-        // En cas d'erreur, continuer avec des tableaux vides
-        logger.warn('Error fetching payment or delivery data', {
-          error: error.message,
-        });
+        // Si erreur, continuer avec juste les adresses
+        console.warn('Error fetching payment/delivery data:', error.message);
       }
     }
-
-    // Limitation de taille des résultats
-    const MAX_ADDRESSES = 20; // Limiter à 20 adresses maximum
-    if (addresses.length > MAX_ADDRESSES) {
-      logger.warn('Address count exceeds maximum limit', {
-        userId: user._id,
-        addressCount: addresses.length,
-        limit: MAX_ADDRESSES,
-      });
-      addresses = addresses.slice(0, MAX_ADDRESSES);
-    }
-
-    // Ajouter des headers de sécurité additionnels et de cache
-    const securityHeaders = {
-      'Cache-Control': 'private, max-age=300', // 5 minutes de cache privé
-      'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'DENY',
-      'X-XSS-Protection': '1; mode=block',
-      'Referrer-Policy': 'same-origin',
-      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-    };
-
-    logger.info('Addresses retrieved successfully', {
-      userId: user._id,
-      addressCount: addresses.length,
-    });
 
     return NextResponse.json(
       {
         success: true,
-        data: {
-          addresses,
-          ...(context === 'shipping' ? { paymentTypes, deliveryPrice } : {}),
-        },
+        data: responseData,
       },
-      {
-        status: 200,
-        headers: securityHeaders,
-      },
+      { status: 200 },
     );
   } catch (error) {
-    // Gestion d'erreur plus granulaire
-    let statusCode = 500;
-    let errorMessage = 'Something went wrong, please try again later';
-    let errorCode = 'SERVER_ERROR';
+    console.error('GET addresses error:', error.message);
 
-    // Journalisation et classification des erreurs
-    if (error.name === 'ValidationError') {
-      statusCode = 400;
-      errorMessage = 'Invalid data provided';
-      errorCode = 'VALIDATION_ERROR';
-      logger.warn('Address validation error', { error: error.message });
-    } else if (
-      error.name === 'MongoError' ||
-      error.name === 'MongoServerError'
+    // Capturer seulement les vraies erreurs système
+    if (
+      error.name !== 'ValidationError' &&
+      !error.message?.includes('authentication')
     ) {
-      errorCode = 'DATABASE_ERROR';
-      logger.error('MongoDB error in address GET API', {
-        error: error.message,
-        code: error.code,
-      });
-    } else if (error.message && error.message.includes('timeout')) {
-      statusCode = 503;
-      errorMessage = 'Service temporarily unavailable';
-      errorCode = 'TIMEOUT_ERROR';
-      logger.error('Database timeout in address GET API', {
-        error: error.message,
-      });
-    } else if (error.message && error.message.includes('authentication')) {
-      statusCode = 401;
-      errorMessage = 'Authentication failed';
-      errorCode = 'AUTH_ERROR';
-      logger.warn('Authentication error in address GET API', {
-        error: error.message,
-      });
-    } else {
-      // Erreur non identifiée
-      logger.error('Unhandled error in address GET API', {
-        error: error.message,
-        stack: error.stack,
-      });
-
-      // Envoyer à Sentry pour monitoring
       captureException(error, {
-        tags: {
-          component: 'api',
-          route: 'address/GET',
-        },
+        tags: { component: 'api', route: 'address/GET' },
       });
     }
 
     return NextResponse.json(
       {
         success: false,
-        message: errorMessage,
-        code: errorCode,
-        requestId: Date.now().toString(36),
+        message: error.message?.includes('authentication')
+          ? 'Authentication failed'
+          : 'Something went wrong',
       },
-      { status: statusCode },
+      { status: error.message?.includes('authentication') ? 401 : 500 },
     );
   }
 }
 
+/**
+ * POST /api/address
+ * Ajoute une nouvelle adresse
+ */
 export async function POST(req) {
-  // Journalisation structurée de la requête
-  logger.info('Address API POST request received', {
-    route: 'api/address/POST',
-    user: req.user?.email || 'unauthenticated',
-  });
-
   try {
     // Vérifier l'authentification
     await isAuthenticatedUser(req, NextResponse);
 
-    // Appliquer le rate limiting pour les requêtes authentifiées avec la nouvelle implémentation
-    // const addressRateLimiter = applyRateLimit('AUTHENTICATED_API', {
-    //   prefix: 'address_api',
-    // });
+    // Connexion DB
+    await dbConnect();
 
-    // Vérifier le rate limiting et obtenir une réponse si la limite est dépassée
-    // const rateLimitResponse = await addressRateLimiter(req);
-
-    // Si une réponse de rate limit est retournée, la renvoyer immédiatement
-    // if (rateLimitResponse) {
-    //   logger.warn('Rate limit exceeded for address API', {
-    //     user: req.user?.email,
-    //   });
-
-    //   return rateLimitResponse;
-    // }
-
-    // Connecter à la base de données avec timeout
-    const connectionPromise = dbConnect();
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Database connection timeout')), 5000);
-    });
-
-    const connectionInstance = await Promise.race([
-      connectionPromise,
-      timeoutPromise,
-    ]);
-
-    if (!connectionInstance.connection) {
-      logger.error('Database connection failed for address request', {
-        user: req.user?.email,
-      });
-
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Database connection failed',
-        },
-        { status: 503 },
-      );
-    }
-
-    // Trouver l'utilisateur
+    // Récupérer l'utilisateur
     const user = await User.findOne({ email: req.user.email }).select('_id');
-
     if (!user) {
-      logger.warn('User not found for address request', {
-        email: req.user.email,
-      });
-
       return NextResponse.json(
-        {
-          success: false,
-          message: 'User not found',
-        },
+        { success: false, message: 'User not found' },
         { status: 404 },
       );
     }
 
-    // Vérification côté serveur des droits d'accès
-    if (req.user && req.user._id && req.user._id !== user.id) {
-      logger.warn('Unauthorized access attempt to address API', {
-        requestUser: req.user._id,
-        authenticatedUser: user._id.toString(),
-      });
-
+    // Vérifier le nombre d'adresses existantes
+    const addressCount = await Address.countDocuments({ user: user._id });
+    if (addressCount >= 10) {
       return NextResponse.json(
-        {
-          success: false,
-          message: 'Unauthorized access',
-        },
-        { status: 403 },
+        { success: false, message: 'Maximum 10 addresses allowed' },
+        { status: 400 },
       );
     }
 
-    // Parser le corps de la requête avec gestion d'erreur
+    // Parser et sanitiser les données
     let addressData;
     try {
-      addressData = await req.json();
-    } catch (parseError) {
-      logger.warn('Invalid JSON in address request', {
-        error: parseError.message,
-        user: user._id,
-      });
+      const rawData = await req.json();
+      addressData = sanitizeAddress(rawData);
+    } catch (error) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid request body' },
+        { status: 400 },
+      );
+    }
 
+    // Vérification rapide des champs requis
+    if (!hasRequiredFields(addressData)) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Invalid request body',
+          message: 'Missing required fields',
+          errors: { general: 'Street, city, state and country are required' },
         },
         { status: 400 },
       );
     }
 
-    // Limiter la taille des données entrantes
-    if (JSON.stringify(addressData).length > 10000) {
-      logger.warn('Address data too large', {
-        user: user._id,
-        dataSize: JSON.stringify(addressData).length,
-      });
-
+    // Valider avec Yup
+    const validation = await validateAddress(addressData);
+    if (!validation.isValid) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Request body too large',
-        },
-        { status: 413 },
-      );
-    }
-
-    // Sanitiser les données d'adresse
-    const sanitizedAddress = sanitizeAddress(addressData);
-
-    // Vérifier si l'adresse est valide après sanitisation
-    if (!isAddressValid(sanitizedAddress)) {
-      logger.warn('Invalid address data after sanitization', {
-        user: user._id,
-        sanitizedFields: Object.keys(sanitizedAddress),
-      });
-
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Invalid address data',
-          errors: [
-            { field: 'address', message: 'Address information is incomplete' },
-          ],
+          message: 'Validation failed',
+          errors: validation.errors,
         },
         { status: 400 },
       );
     }
 
-    // Valider les données avec le schéma Yup
-    try {
-      await validateWithLogging(addressSchema, sanitizedAddress);
-    } catch (validationError) {
-      logger.warn('Address validation failed', {
-        user: user._id,
-        errors: validationError.errors,
-      });
-
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Address validation failed',
-          errors: validationError.errors
-            ? validationError.errors.map((error) => ({
-                field: error.path || 'unknown',
-                message: error.message,
-              }))
-            : [
-                {
-                  field: 'address',
-                  message: 'Invalid address data',
-                },
-              ],
-        },
-        { status: 400 },
+    // Si c'est la nouvelle adresse par défaut, désactiver les autres
+    if (validation.data.isDefault === true) {
+      await Address.updateMany(
+        { user: user._id, isDefault: true },
+        { isDefault: false },
       );
     }
 
-    // Ajouter l'ID utilisateur et préparer l'objet adresse
-    sanitizedAddress.user = user._id;
-
-    // Vérifier si c'est l'adresse par défaut
-    if (sanitizedAddress.isDefault) {
-      // Mettre à jour toutes les autres adresses pour qu'elles ne soient plus par défaut
-      const updatePromise = new Promise((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          reject(new Error('Address update timeout'));
-        }, 5000);
-
-        try {
-          const result = Address.updateMany(
-            { user: user._id, isDefault: true },
-            { isDefault: false },
-          );
-          clearTimeout(timeoutId);
-          resolve(result);
-        } catch (error) {
-          clearTimeout(timeoutId);
-          reject(error);
-        }
-      });
-
-      try {
-        await updatePromise;
-      } catch (updateError) {
-        logger.error('Failed to update existing default addresses', {
-          user: user._id,
-          error: updateError.message,
-        });
-        // Continuer l'exécution même si cette étape échoue
-      }
-    }
-
-    // Compter les adresses existantes pour l'utilisateur
-    const addressCount = await Address.countDocuments({ user: user._id });
-
-    // Limiter le nombre d'adresses par utilisateur (max 10)
-    if (addressCount >= 10) {
-      logger.warn('Maximum address limit reached', {
-        user: user._id,
-        addressCount,
-      });
-
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Maximum number of addresses reached (10)',
-        },
-        { status: 400 },
-      );
-    }
-
-    // Créer l'adresse avec timeout
-    const createAddressPromise = new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error('Address creation timeout'));
-      }, 5000);
-
-      try {
-        const result = Address.create(sanitizedAddress);
-        clearTimeout(timeoutId);
-        resolve(result);
-      } catch (error) {
-        clearTimeout(timeoutId);
-        reject(error);
-      }
+    // Créer l'adresse
+    const address = await Address.create({
+      ...validation.data,
+      user: user._id,
     });
-
-    const address = await createAddressPromise;
-
-    // Log du succès
-    logger.info('Address created successfully', {
-      userId: user._id,
-      addressId: address._id,
-      isDefault: address.isDefault,
-    });
-
-    // Après avoir créé une nouvelle adresse avec succès
-    // Invalider le cache des adresses pour cet utilisateur
-    try {
-      const userAddressCachePattern = `addresses:userId=${user._id.toString()}`;
-
-      // Supprimer toutes les entrées de cache liées aux adresses de cet utilisateur
-      const invalidatedCount = appCache.addresses.invalidatePattern(
-        userAddressCachePattern,
-      );
-
-      logger.debug('Address cache invalidated after creation', {
-        userId: user._id,
-        pattern: userAddressCachePattern,
-        invalidatedEntries: invalidatedCount,
-      });
-    } catch (cacheError) {
-      // Ne pas bloquer la réponse en cas d'erreur de cache
-      logger.warn('Failed to invalidate address cache', {
-        userId: user._id,
-        error: cacheError.message,
-      });
-    }
-
-    // Headers de sécurité additionnels
-    const securityHeaders = {
-      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-      Pragma: 'no-cache',
-      Expires: '0',
-      'Surrogate-Control': 'no-store',
-      'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'DENY',
-      'X-XSS-Protection': '1; mode=block',
-      'Referrer-Policy': 'same-origin',
-    };
 
     return NextResponse.json(
       {
         success: true,
-        data: {
-          address,
-        },
+        data: { address },
         message: 'Address added successfully',
       },
-      {
-        status: 201,
-        headers: securityHeaders,
-      },
+      { status: 201 },
     );
   } catch (error) {
-    // Gestion d'erreur plus granulaire
-    let statusCode = 500;
-    let errorMessage = 'Something went wrong, please try again later';
-    let errorCode = 'SERVER_ERROR';
+    console.error('POST address error:', error.message);
 
-    // Journalisation et classification des erreurs
-    if (error.name === 'ValidationError') {
-      statusCode = 400;
-      errorMessage = 'Invalid address data provided';
-      errorCode = 'VALIDATION_ERROR';
-      logger.warn('Address validation error', { error: error.message });
-    } else if (error.code === 11000) {
-      // Gestion des erreurs de duplication (index unique)
-      statusCode = 409;
-      errorMessage = 'This address already exists';
-      errorCode = 'DUPLICATE_ERROR';
-      logger.warn('Duplicate address entry', {
-        error: error.message,
-        keyPattern: error.keyPattern,
-        keyValue: error.keyValue,
-      });
-    } else if (
-      error.name === 'MongoError' ||
-      error.name === 'MongoServerError'
-    ) {
-      errorCode = 'DATABASE_ERROR';
-      logger.error('MongoDB error in address POST API', {
-        error: error.message,
-        code: error.code,
-      });
-    } else if (error.message && error.message.includes('timeout')) {
-      statusCode = 503;
-      errorMessage = 'Service temporarily unavailable';
-      errorCode = 'TIMEOUT_ERROR';
-      logger.error('Database timeout in address POST API', {
-        error: error.message,
-      });
-    } else if (error.message && error.message.includes('authentication')) {
-      statusCode = 401;
-      errorMessage = 'Authentication failed';
-      errorCode = 'AUTH_ERROR';
-      logger.warn('Authentication error in address POST API', {
-        error: error.message,
-      });
-    } else {
-      // Erreur non identifiée
-      logger.error('Unhandled error in address POST API', {
-        error: error.message,
-        stack: error.stack,
-      });
-
-      // Envoyer à Sentry pour monitoring
+    // Capturer seulement les vraies erreurs système
+    if (error.name !== 'ValidationError' && error.code !== 11000) {
       captureException(error, {
-        tags: {
-          component: 'api',
-          route: 'address/POST',
-        },
+        tags: { component: 'api', route: 'address/POST' },
       });
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        message: errorMessage,
-        code: errorCode,
-        requestId: Date.now().toString(36),
-      },
-      { status: statusCode },
-    );
+    // Gestion simple des erreurs
+    let status = 500;
+    let message = 'Something went wrong';
+
+    if (error.name === 'ValidationError') {
+      status = 400;
+      message = 'Invalid address data';
+    } else if (error.code === 11000) {
+      status = 409;
+      message = 'This address already exists';
+    }
+
+    return NextResponse.json({ success: false, message }, { status });
   }
 }
