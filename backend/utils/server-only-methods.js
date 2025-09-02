@@ -19,528 +19,139 @@ import {
 // } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
+import { parseProductSearchParams } from '@/utils/inputSanitizer';
 
-export const getAllProducts = async (
-  searchParams,
-  retryAttempt = 0,
-  maxRetries = 3,
-) => {
-  const controller = new AbortController();
-  const requestId = `products-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-
-  // Timeout de 10 secondes
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-    logger.warn('Request timeout in getAllProducts', {
-      requestId,
-      timeoutMs: 10000,
-      action: 'request_timeout',
-    });
-  }, 10000);
-
-  logger.info('Starting getAllProducts request', {
-    requestId,
-    searchParams,
-    retryAttempt,
-    action: 'get_all_products',
-  });
-
+/**
+ * Récupère tous les produits depuis l'API
+ * Version simplifiée et optimisée pour ~500 visiteurs/jour
+ *
+ * @param {Object} searchParams - Paramètres de recherche
+ * @returns {Promise<Object>} Données des produits ou erreur
+ */
+export const getAllProducts = async (searchParams) => {
   try {
-    // Créer un objet pour stocker les paramètres validés
+    // 1. Parser et nettoyer les paramètres de recherche
+    const cleanParams = parseProductSearchParams(searchParams || {});
+
+    // 2. Construire les paramètres d'URL avec le bon format pour les prix
     const urlParams = {};
-    const validationErrors = [];
 
-    // Vérifier si searchParams est défini avant d'y accéder
-    if (searchParams) {
-      // Validation et stockage du paramètre keyword
-      if (searchParams.keyword && searchParams.keyword.trim() !== '') {
-        try {
-          // const result = await searchSchema.validate(
-          //   { keyword: searchParams.keyword },
-          //   { abortEarly: false },
-          // );
-          // if (result.keyword) urlParams.keyword = result.keyword;
-          urlParams.keyword = searchParams.keyword.trim();
-        } catch (err) {
-          validationErrors.push({
-            field: 'keyword',
-            message: err.errors[0],
-          });
-        }
-      }
-
-      // Validation et stockage du paramètre page
-      if (searchParams.page) {
-        try {
-          // const result = await pageSchema.validate(
-          //   { page: searchParams.page },
-          //   { abortEarly: false },
-          // );
-
-          // if (result.page) urlParams.page = result.page;
-          urlParams.page = parseInt(searchParams.page);
-        } catch (err) {
-          validationErrors.push({
-            field: 'page',
-            message: err.errors[0],
-          });
-        }
-      }
-
-      // Validation et stockage du paramètre category
-      if (searchParams.category) {
-        try {
-          // const result = await categorySchema.validate(
-          //   { value: searchParams.category },
-          //   { abortEarly: false },
-          // );
-
-          // if (result.value) urlParams.category = result.value;
-          urlParams.category = searchParams.category;
-        } catch (err) {
-          validationErrors.push({
-            field: 'category',
-            message: err.errors[0],
-          });
-        }
-      }
-
-      if (
-        searchParams.min &&
-        searchParams.max &&
-        parseInt(searchParams.min) > parseInt(searchParams.max)
-      ) {
-        validationErrors.push({
-          field: 'price',
-          message: 'Le prix minimum doit être inférieur au prix maximum',
-        });
-      }
-
-      // Validation et stockage du prix minimum
-      if (searchParams.min) {
-        try {
-          // const minResult = await minPriceSchema.validate(
-          //   {
-          //     minPrice: searchParams.min,
-          //   },
-          //   { abortEarly: false },
-          // );
-          // if (minResult.minPrice) urlParams['price[gte]'] = minResult.minPrice;
-          urlParams['price[gte]'] = parseInt(searchParams.min);
-        } catch (err) {
-          validationErrors.push({
-            field: 'minPrice',
-            message: err.errors[0],
-          });
-        }
-      }
-
-      // Validation et stockage du prix maximum
-      if (searchParams.max) {
-        try {
-          // const maxResult = await maxPriceSchema.validate(
-          //   {
-          //     maxPrice: searchParams.max,
-          //   },
-          //   { abortEarly: false },
-          // );
-          // if (maxResult.maxPrice) urlParams['price[lte]'] = maxResult.maxPrice;
-          urlParams['price[lte]'] = parseInt(searchParams.max);
-        } catch (err) {
-          validationErrors.push({
-            field: 'maxPrice',
-            message: err.errors[0],
-          });
-        }
-      }
+    // Paramètres simples
+    if (cleanParams.keyword) {
+      urlParams.keyword = cleanParams.keyword;
     }
 
-    // Si des erreurs de validation sont trouvées, retourner immédiatement avec un format cohérent
-    if (validationErrors?.length > 0) {
-      logger.warn('Validation errors in getAllProducts', {
-        requestId,
-        validationErrors,
-        action: 'validation_failed',
-      });
-
-      captureException(new Error('Validation failed'), {
-        tags: { action: 'validation_failed' },
-        extra: { validationErrors, searchParams },
-      });
-
-      // Format de réponse standardisé avec statut d'erreur
-      return {
-        success: false,
-        code: 'VALIDATION_ERROR',
-        message: 'Paramètres de requête invalides',
-        errors: validationErrors,
-        data: { products: [], totalPages: 0 },
-      };
+    if (cleanParams.category) {
+      urlParams.category = cleanParams.category;
     }
 
-    // Construire la chaîne de requête
+    if (cleanParams.page) {
+      urlParams.page = cleanParams.page;
+    }
+
+    // IMPORTANT: Transformer min/max en price[gte]/price[lte] pour l'API
+    if (cleanParams.min !== undefined && cleanParams.min !== null) {
+      urlParams['price[gte]'] = cleanParams.min;
+    }
+
+    if (cleanParams.max !== undefined && cleanParams.max !== null) {
+      urlParams['price[lte]'] = cleanParams.max;
+    }
+
+    // 3. Construire la query string
     const searchQuery = new URLSearchParams(urlParams).toString();
-    // const cacheControl = getCacheHeaders('products');
 
-    // S'assurer que l'URL est correctement formatée
-    const apiUrl = `${process.env.API_URL || ''}/api/products${searchQuery ? `?${searchQuery}` : ''}`;
+    // 4. Construire l'URL complète de l'API
+    const apiUrl = `${process.env.API_URL || ''}/api/products${
+      searchQuery ? `?${searchQuery}` : ''
+    }`;
 
-    // On vérifie le cache avant de faire l'appel API
-    // La clé de cache doit correspondre au format utilisé dans l'API
-    // const cacheKey = getCacheKey(
-    //   'products',
-    //   Object.fromEntries(new URLSearchParams(searchQuery)),
-    // );
+    console.log('Fetching products from:', apiUrl); // Log pour debug
 
-    // const cachedData = appCache.products.get(cacheKey);
-    // if (cachedData && !retryAttempt) {
-    //   logger.debug('Products cache hit', {
-    //     requestId,
-    //     action: 'cache_hit',
-    //   });
-    //   return cachedData;
-    // }
-
-    // Avant l'appel API
-    logger.debug('Fetching products from API', {
-      requestId,
-      apiUrl,
-      retryAttempt,
-      action: 'api_request_start',
-    });
+    // 5. Faire l'appel API avec timeout raisonnable (5 secondes)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
       next: {
-        revalidate: CACHE_DURATIONS.products || 300,
-        tags: [
-          'products',
-          ...(urlParams.category ? [`category-${urlParams.category}`] : []),
-        ],
+        revalidate: 300, // Cache Next.js de 5 minutes
+        tags: ['products'],
       },
-      // headers: {
-      //   'Cache-Control': cacheControl,
-      // },
     });
 
-    // Après l'appel API
-    logger.debug('API response received', {
-      requestId,
-      status: res.status,
-      retryAttempt,
-      action: 'api_request_complete',
-    });
+    clearTimeout(timeoutId);
 
-    // Tenter de récupérer le corps de la réponse, que ce soit JSON ou texte
-    let responseBody;
-    let isJsonResponse = true;
-    let parseErrorMessage = null;
-
-    try {
-      responseBody = await res.json();
-    } catch (parseError) {
-      isJsonResponse = false;
-      parseErrorMessage = parseError.message;
-      logger.error('JSON parsing error in getAllProducts', {
-        requestId,
-        error: parseErrorMessage,
-        retryAttempt,
-        action: 'parse_error',
-      });
-
-      try {
-        // Si ce n'est pas du JSON, essayer de récupérer comme texte
-        responseBody = await res.clone().text();
-      } catch (textError) {
-        logger.error('Failed to get response text after JSON parse failure', {
-          requestId,
-          error: textError.message,
-          action: 'text_extraction_failed',
-        });
-        responseBody = 'Impossible de lire la réponse';
-      }
-    }
-
-    // Gestion différenciée des cas de réponse
+    // 6. Vérifier le statut HTTP
     if (!res.ok) {
-      // Gestion des cas d'erreur HTTP
-      const statusCode = res.status;
-
-      // Déterminer si l'erreur est récupérable pour les retries
-      const isRetryable = statusCode >= 500 || [408, 429].includes(statusCode);
-
-      if (isRetryable && retryAttempt < maxRetries) {
-        // Calculer le délai de retry avec backoff exponentiel
-        const retryDelay = Math.min(
-          1000 * Math.pow(2, retryAttempt), // 1s, 2s, 4s, ...
-          15000, // Maximum 15 secondes
-        );
-
-        logger.warn(`Retrying request after ${retryDelay}ms`, {
-          requestId,
-          retryAttempt: retryAttempt + 1,
-          maxRetries,
-          action: 'retry_scheduled',
-        });
-
-        // Nettoyer le timeout actuel
-        clearTimeout(timeoutId);
-
-        // Attendre avant de réessayer
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
-
-        // Réessayer avec le compteur incrémenté
-        return getAllProducts(searchParams, retryAttempt + 1, maxRetries);
-      }
-
-      // Erreurs spécifiques après épuisement des retries ou erreurs non-récupérables
-      switch (statusCode) {
-        case 400: // Bad Request
-          return {
-            success: false,
-            code:
-              isJsonResponse && responseBody.code
-                ? responseBody.code
-                : 'BAD_REQUEST',
-            message:
-              isJsonResponse && responseBody.message
-                ? responseBody.message
-                : 'Requête invalide',
-            errors:
-              isJsonResponse && responseBody.errors ? responseBody.errors : [],
-            data: { products: [], totalPages: 0 },
-          };
-
-        case 401: // Unauthorized
-          return {
-            success: false,
-            code: 'UNAUTHORIZED',
-            message: 'Authentification requise',
-            data: { products: [], totalPages: 0 },
-          };
-
-        case 403: // Forbidden
-          return {
-            success: false,
-            code: 'FORBIDDEN',
-            message: 'Accès interdit',
-            data: { products: [], totalPages: 0 },
-          };
-
-        case 404: // Not Found
-          return {
-            success: false,
-            code: 'NOT_FOUND',
-            message: 'Ressource non trouvée',
-            data: { products: [], totalPages: 0 },
-          };
-
-        case 429: // Too Many Requests
-          return {
-            success: false,
-            code: 'RATE_LIMIT_EXCEEDED',
-            message: 'Trop de requêtes, veuillez réessayer plus tard',
-            retryAfter: res.headers.get('Retry-After')
-              ? parseInt(res.headers.get('Retry-After'))
-              : 60,
-            data: { products: [], totalPages: 0 },
-          };
-
-        case 500: // Internal Server Error
-          return {
-            success: false,
-            code: 'INTERNAL_SERVER_ERROR',
-            message:
-              'Une erreur interne est survenue, veuillez réessayer ultérieurement',
-            data: { products: [], totalPages: 0 },
-          };
-
-        case 503: // Service Unavailable
-          return {
-            success: false,
-            code: 'SERVICE_UNAVAILABLE',
-            message: 'Service temporairement indisponible',
-            data: { products: [], totalPages: 0 },
-          };
-
-        case 504: // Gateway Timeout
-          return {
-            success: false,
-            code: 'TIMEOUT',
-            message: 'La requête a pris trop de temps',
-            data: { products: [], totalPages: 0 },
-          };
-
-        default: // Autres erreurs
-          return {
-            success: false,
-            code: 'API_ERROR',
-            message:
-              isJsonResponse && responseBody.message
-                ? responseBody.message
-                : `Erreur ${statusCode}`,
-            status: statusCode,
-            data: { products: [], totalPages: 0 },
-          };
-      }
-    }
-
-    // Traitement de la réponse en cas de succès HTTP (200)
-    if (isJsonResponse) {
-      // Si JSON valide
-      if (responseBody.success === true) {
-        // Cas de succès API explicite
-        logger.info('Successfully fetched products', {
-          requestId,
-          productCount: responseBody.data?.products?.length || 0,
-          action: 'api_success',
-        });
-
-        // Vérifier si des produits sont présents dans la réponse
-        if (responseBody.data?.products?.length > 0) {
-          // Cas standard avec des produits trouvés
-          // Nous retournons directement la réponse sans la mettre en cache,
-          // car l'API a déjà mis en cache ces données
-          return {
-            success: true,
-            message: responseBody.message || 'Produits récupérés avec succès',
-            data: responseBody.data,
-          };
-        } else {
-          // Cas spécifique où aucun produit n'est trouvé mais la requête est réussie
-          return {
-            success: true,
-            message:
-              responseBody.message ||
-              'Aucun produit ne correspond aux critères',
-            data: {
-              products: [],
-              totalPages: 0,
-            },
-          };
-        }
-      } else if (responseBody.success === false) {
-        // Cas d'erreur API explicite mais avec statut HTTP 200
-        logger.warn('API returned success: false', {
-          requestId,
-          message: responseBody.message,
-          code: responseBody.code,
-          action: 'api_business_error',
-        });
-
+      // Gestion simple des erreurs principales
+      if (res.status === 400) {
+        console.error('Bad request - Invalid parameters');
         return {
           success: false,
-          code: responseBody.code || 'API_BUSINESS_ERROR',
-          message: responseBody.message || 'Erreur côté serveur',
-          errors: responseBody.errors || [],
+          message: 'Paramètres de requête invalides',
           data: { products: [], totalPages: 0 },
         };
-      } else {
-        // Structure de réponse inattendue
-        logger.error('Unexpected API response structure', {
-          requestId,
-          responseBody: JSON.stringify(responseBody).substring(0, 200),
-          action: 'unexpected_response_structure',
-        });
+      }
 
+      if (res.status === 404) {
         return {
           success: false,
-          code: 'UNEXPECTED_RESPONSE',
-          message: 'Format de réponse inattendu',
-          data: {
-            products: Array.isArray(responseBody.data?.products)
-              ? responseBody.data.products
-              : [],
-            totalPages: responseBody.data?.totalPages || 0,
-          },
+          message: 'Aucun produit trouvé',
+          data: { products: [], totalPages: 0 },
         };
       }
-    } else {
-      // Réponse non-JSON mais statut HTTP 200
-      logger.error('Non-JSON response with HTTP 200', {
-        requestId,
-        parseError: parseErrorMessage,
-        responseBodyPreview:
-          typeof responseBody === 'string'
-            ? responseBody.substring(0, 200)
-            : 'Unknown response type',
-        action: 'non_json_response',
-      });
 
+      // Erreur serveur générique pour tous les autres cas
+      console.error(`API Error: ${res.status} - ${res.statusText}`);
       return {
         success: false,
-        code: 'INVALID_RESPONSE_FORMAT',
-        message: 'Le serveur a répondu avec un format invalide',
-        errorDetails: parseErrorMessage,
+        message: 'Erreur lors de la récupération des produits',
         data: { products: [], totalPages: 0 },
       };
     }
+
+    // 7. Parser la réponse JSON
+    const responseBody = await res.json();
+
+    // 8. Vérifier la structure de la réponse
+    if (!responseBody.success || !responseBody.data) {
+      console.error('Invalid API response structure:', responseBody);
+      return {
+        success: false,
+        message: responseBody.message || 'Réponse API invalide',
+        data: { products: [], totalPages: 0 },
+      };
+    }
+
+    // 9. Retourner les données avec succès
+    return {
+      success: true,
+      message: 'Produits récupérés avec succès',
+      data: {
+        products: responseBody.data.products || [],
+        totalPages: responseBody.data.totalPages || 0,
+        totalProducts: responseBody.data.totalProducts || 0,
+      },
+    };
   } catch (error) {
-    logger.error('Exception in getAllProducts', {
-      requestId,
-      error: error.message,
-      stack: error.stack,
-      retryAttempt,
-      action: 'get_all_products_error',
-    });
-
-    // Déterminer si l'erreur est récupérable
-    const isRetryable =
-      error.name === 'AbortError' ||
-      error.name === 'TimeoutError' ||
-      error.message.includes('network') ||
-      error.message.includes('connection');
-
-    if (isRetryable && retryAttempt < maxRetries) {
-      const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
-      logger.warn(`Retrying after exception (${retryDelay}ms)`, {
-        requestId,
-        retryAttempt: retryAttempt + 1,
-        maxRetries,
-        action: 'retry_scheduled',
-      });
-
-      clearTimeout(timeoutId);
-      await new Promise((resolve) => setTimeout(resolve, retryDelay));
-      return getAllProducts(searchParams, retryAttempt + 1, maxRetries);
-    }
-
-    captureException(error, {
-      tags: { action: 'get_all_products' },
-      extra: { searchParams, requestId, retryAttempt },
-    });
-
-    // Retourner une erreur typée en fonction de la nature de l'exception
-    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+    // 10. Gestion des erreurs réseau/timeout
+    if (error.name === 'AbortError') {
+      console.error('Request timeout after 5 seconds');
       return {
         success: false,
-        code: 'CLIENT_TIMEOUT',
-        message:
-          "La requête a été interrompue en raison d'un délai d'attente excessif",
-        data: { products: [], totalPages: 0 },
-      };
-    } else if (
-      error.message.includes('network') ||
-      error.message.includes('connection')
-    ) {
-      return {
-        success: false,
-        code: 'NETWORK_ERROR',
-        message: 'Problème de connexion réseau',
-        data: { products: [], totalPages: 0 },
-      };
-    } else {
-      return {
-        success: false,
-        code: 'CLIENT_ERROR',
-        message:
-          "Une erreur s'est produite lors de la récupération des produits",
-        errorDetails: error.message,
+        message: 'La requête a pris trop de temps',
         data: { products: [], totalPages: 0 },
       };
     }
-  } finally {
-    clearTimeout(timeoutId);
+
+    // Erreur réseau générique
+    console.error('Network error:', error.message);
+    return {
+      success: false,
+      message: 'Problème de connexion réseau',
+      data: { products: [], totalPages: 0 },
+    };
   }
 };
 
