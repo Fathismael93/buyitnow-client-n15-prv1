@@ -63,19 +63,19 @@ export const parseProductSearchParams = (searchParams) => {
   }
 
   // Prix min/max - parser en nombre
-  const minPrice = searchParams.get('min') || searchParams.get('price[gte]');
+  const minPrice = searchParams.get('min') || searchParams.get('price[gt]');
   if (minPrice) {
     const min = parseNumber(minPrice);
     if (min !== null && min >= 0) {
-      params['price[gte]'] = min;
+      params['price[gt]'] = min;
     }
   }
 
-  const maxPrice = searchParams.get('max') || searchParams.get('price[lte]');
+  const maxPrice = searchParams.get('max') || searchParams.get('price[lt]');
   if (maxPrice) {
     const max = parseNumber(maxPrice);
     if (max !== null && max >= 0) {
-      params['price[lte]'] = max;
+      params['price[lt]'] = max;
     }
   }
 
