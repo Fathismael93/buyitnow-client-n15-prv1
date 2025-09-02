@@ -50,6 +50,8 @@ export const isValidObjectId = (value) => {
 export const parseProductSearchParams = (searchParams) => {
   const params = {};
 
+  console.log('Raw search params:', searchParams); // Log pour debug
+
   if (searchParams !== null && typeof searchParams !== 'object') {
     return params;
   }
