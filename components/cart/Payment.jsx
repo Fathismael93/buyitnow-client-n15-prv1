@@ -55,7 +55,7 @@ const Payment = () => {
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [errors, setErrors] = useState({});
-  const [isFormValid, setIsFormValid] = useState(false);
+  // const [isFormValid, setIsFormValid] = useState(false);
   const [dataInitialized, setDataInitialized] = useState(false);
 
   // Référence pour limiter les soumissions multiples
@@ -270,22 +270,22 @@ const Payment = () => {
       setIsSubmitting(true);
 
       // Vérification finale du formulaire avec la nouvelle fonction de validation
-      if (!isFormValid) {
-        const missingFields = [];
-        if (!paymentType) missingFields.push('type de paiement');
-        if (!accountName) missingFields.push('nom du compte');
-        if (!accountNumber) missingFields.push('numéro de compte');
+      // if (!isFormValid) {
+      //   const missingFields = [];
+      //   if (!paymentType) missingFields.push('type de paiement');
+      //   if (!accountName) missingFields.push('nom du compte');
+      //   if (!accountNumber) missingFields.push('numéro de compte');
 
-        toast.error(
-          `Veuillez compléter tous les champs requis : ${missingFields.join(', ')}`,
-          {
-            position: 'bottom-right',
-          },
-        );
-        setIsSubmitting(false);
-        submitAttempts.current = 0;
-        return;
-      }
+      //   toast.error(
+      //     `Veuillez compléter tous les champs requis : ${missingFields.join(', ')}`,
+      //     {
+      //       position: 'bottom-right',
+      //     },
+      //   );
+      //   setIsSubmitting(false);
+      //   submitAttempts.current = 0;
+      //   return;
+      // }
 
       // const validationResult = await validatePaymentDetails(
       //   {
@@ -364,7 +364,7 @@ const Payment = () => {
       submitAttempts.current = 0;
     }
   }, [
-    isFormValid,
+    // isFormValid,
     paymentType,
     accountName,
     accountNumber,
@@ -565,13 +565,12 @@ const Payment = () => {
                   <button
                     type="button"
                     onClick={handlePayment}
-                    disabled={isSubmitting || !isFormValid}
+                    disabled={isSubmitting /*|| !isFormValid*/}
                     className={`flex-1 px-5 py-2 text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                      isSubmitting
-                        ? 'bg-gray-400 cursor-wait'
-                        : isFormValid
-                          ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                          : 'bg-gray-400 cursor-not-allowed'
+                      isSubmitting && 'bg-gray-400 cursor-wait'
+                      // : isFormValid
+                      //   ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                      //   : 'bg-gray-400 cursor-not-allowed'
                     }`}
                     aria-live="polite"
                   >

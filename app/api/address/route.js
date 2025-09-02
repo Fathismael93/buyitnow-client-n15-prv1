@@ -25,8 +25,6 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const context = searchParams.get('context') || 'shipping';
 
-    console.log('User email from auth:', req.user);
-
     // Récupérer l'utilisateur
     const user = await User.findOne({ email: req.user.email }).select('_id');
     if (!user) {
