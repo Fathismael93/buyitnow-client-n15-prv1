@@ -4,10 +4,8 @@ import Product from '@/backend/models/product';
 import Category from '@/backend/models/category';
 import APIFilters from '@/backend/utils/APIFilters';
 import { captureException } from '@/monitoring/sentry';
-// import {
-//   sanitizeProductSearchParams,
-//   buildSanitizedSearchParams,
-// } from '@/utils/inputSanitizer';
+import { parseProductSearchParams } from '@/utils/inputSanitizer';
+import { validateProductFilters } from '@/helpers/validation/schemas/product';
 
 // Configuration simple
 const DEFAULT_PER_PAGE = 10;
@@ -23,17 +21,34 @@ export async function GET(req) {
     await dbConnect();
 
     // Sanitisation des paramètres
-    // const sanitizedParams = sanitizeProductSearchParams(
-    //   req.nextUrl.searchParams,
-    // );
-    // const sanitizedSearchParams = buildSanitizedSearchParams(sanitizedParams);
+    const sanitizedParams = parseProductSearchParams(req.nextUrl.searchParams);
 
-    const searchParams = req.nextUrl.searchParams;
+    // Validation des paramètres sanitisés
+    const validation = await validateProductFilters(sanitizedParams);
+    if (!validation.isValid) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Invalid parameters',
+          errors: validation.errors,
+        },
+        { status: 400 },
+      );
+    }
+
+    // Utiliser les données validées
+    const validatedParams = validation.data;
+    const searchParams = new URLSearchParams();
+    Object.entries(validatedParams).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        searchParams.set(key, value);
+      }
+    });
 
     // Configuration de la pagination
     const resPerPage = Math.min(MAX_PER_PAGE, Math.max(1, DEFAULT_PER_PAGE));
 
-    // Créer les filtres avec les paramètres sanitisés
+    // Créer les filtres avec les paramètres validés
     const apiFilters = new APIFilters(
       Product.find({ isActive: true })
         .select('name description stock price images category')
