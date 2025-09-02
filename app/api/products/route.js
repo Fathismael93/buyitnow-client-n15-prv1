@@ -20,10 +20,15 @@ export async function GET(req) {
     // Connexion DB
     await dbConnect();
 
-    console.log('Fetching products with params:', req.nextUrl.searchParams);
+    console.log(
+      'Fetching products with params:',
+      await req.nextUrl.searchParams,
+    );
 
     // Sanitisation des paramètres
-    const sanitizedParams = parseProductSearchParams(req.nextUrl.searchParams);
+    const sanitizedParams = await parseProductSearchParams(
+      req.nextUrl.searchParams,
+    );
 
     // Validation des paramètres sanitisés
     const validation = await validateProductFilters(sanitizedParams);
