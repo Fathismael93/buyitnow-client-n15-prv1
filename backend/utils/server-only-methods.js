@@ -10,13 +10,13 @@ import {
   getCacheHeaders,
   getCacheKey,
 } from '@/utils/cache';
-import {
-  categorySchema,
-  maxPriceSchema,
-  minPriceSchema,
-  pageSchema,
-  searchSchema,
-} from '@/helpers/schemas';
+// import {
+//   categorySchema,
+//   maxPriceSchema,
+//   minPriceSchema,
+//   pageSchema,
+//   searchSchema,
+// } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
 
@@ -55,11 +55,12 @@ export const getAllProducts = async (
       // Validation et stockage du paramètre keyword
       if (searchParams.keyword && searchParams.keyword.trim() !== '') {
         try {
-          const result = await searchSchema.validate(
-            { keyword: searchParams.keyword },
-            { abortEarly: false },
-          );
-          if (result.keyword) urlParams.keyword = result.keyword;
+          // const result = await searchSchema.validate(
+          //   { keyword: searchParams.keyword },
+          //   { abortEarly: false },
+          // );
+          // if (result.keyword) urlParams.keyword = result.keyword;
+          urlParams.keyword = searchParams.keyword.trim();
         } catch (err) {
           validationErrors.push({
             field: 'keyword',
@@ -71,12 +72,13 @@ export const getAllProducts = async (
       // Validation et stockage du paramètre page
       if (searchParams.page) {
         try {
-          const result = await pageSchema.validate(
-            { page: searchParams.page },
-            { abortEarly: false },
-          );
+          // const result = await pageSchema.validate(
+          //   { page: searchParams.page },
+          //   { abortEarly: false },
+          // );
 
-          if (result.page) urlParams.page = result.page;
+          // if (result.page) urlParams.page = result.page;
+          urlParams.page = parseInt(searchParams.page);
         } catch (err) {
           validationErrors.push({
             field: 'page',
@@ -88,12 +90,13 @@ export const getAllProducts = async (
       // Validation et stockage du paramètre category
       if (searchParams.category) {
         try {
-          const result = await categorySchema.validate(
-            { value: searchParams.category },
-            { abortEarly: false },
-          );
+          // const result = await categorySchema.validate(
+          //   { value: searchParams.category },
+          //   { abortEarly: false },
+          // );
 
-          if (result.value) urlParams.category = result.value;
+          // if (result.value) urlParams.category = result.value;
+          urlParams.category = searchParams.category;
         } catch (err) {
           validationErrors.push({
             field: 'category',
@@ -116,13 +119,14 @@ export const getAllProducts = async (
       // Validation et stockage du prix minimum
       if (searchParams.min) {
         try {
-          const minResult = await minPriceSchema.validate(
-            {
-              minPrice: searchParams.min,
-            },
-            { abortEarly: false },
-          );
-          if (minResult.minPrice) urlParams['price[gte]'] = minResult.minPrice;
+          // const minResult = await minPriceSchema.validate(
+          //   {
+          //     minPrice: searchParams.min,
+          //   },
+          //   { abortEarly: false },
+          // );
+          // if (minResult.minPrice) urlParams['price[gte]'] = minResult.minPrice;
+          urlParams['price[gte]'] = parseInt(searchParams.min);
         } catch (err) {
           validationErrors.push({
             field: 'minPrice',
@@ -134,13 +138,14 @@ export const getAllProducts = async (
       // Validation et stockage du prix maximum
       if (searchParams.max) {
         try {
-          const maxResult = await maxPriceSchema.validate(
-            {
-              maxPrice: searchParams.max,
-            },
-            { abortEarly: false },
-          );
-          if (maxResult.maxPrice) urlParams['price[lte]'] = maxResult.maxPrice;
+          // const maxResult = await maxPriceSchema.validate(
+          //   {
+          //     maxPrice: searchParams.max,
+          //   },
+          //   { abortEarly: false },
+          // );
+          // if (maxResult.maxPrice) urlParams['price[lte]'] = maxResult.maxPrice;
+          urlParams['price[lte]'] = parseInt(searchParams.max);
         } catch (err) {
           validationErrors.push({
             field: 'maxPrice',
