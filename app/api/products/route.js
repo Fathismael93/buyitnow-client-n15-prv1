@@ -20,6 +20,8 @@ export async function GET(req) {
     // Connexion DB
     await dbConnect();
 
+    console.log('Fetching products with params:', req.nextUrl.searchParams);
+
     // Sanitisation des paramètres
     const sanitizedParams = parseProductSearchParams(req.nextUrl.searchParams);
 
