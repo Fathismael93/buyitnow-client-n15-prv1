@@ -37,25 +37,31 @@ export const getAllProducts = async (searchParams) => {
     const urlParams = {};
 
     // Paramètres simples
-    if (cleanParams.keyword) {
-      urlParams.keyword = cleanParams.keyword;
+    if (await cleanParams.keyword) {
+      urlParams.keyword = await cleanParams.keyword;
     }
 
-    if (cleanParams.category) {
-      urlParams.category = cleanParams.category;
+    if (await cleanParams.category) {
+      urlParams.category = await cleanParams.category;
     }
 
-    if (cleanParams.page) {
-      urlParams.page = cleanParams.page;
+    if (await cleanParams.page) {
+      urlParams.page = await cleanParams.page;
     }
 
     // IMPORTANT: Transformer min/max en price[gte]/price[lte] pour l'API
-    if (cleanParams.min !== undefined && cleanParams.min !== null) {
-      urlParams['price[gte]'] = cleanParams.min;
+    if (
+      (await cleanParams.min) !== undefined &&
+      (await cleanParams.min) !== null
+    ) {
+      urlParams['price[gte]'] = await cleanParams.min;
     }
 
-    if (cleanParams.max !== undefined && cleanParams.max !== null) {
-      urlParams['price[lte]'] = cleanParams.max;
+    if (
+      (await cleanParams.max) !== undefined &&
+      (await cleanParams.max) !== null
+    ) {
+      urlParams['price[lte]'] = await cleanParams.max;
     }
 
     console.log('Cleaned search params:', cleanParams); // Log pour debug
