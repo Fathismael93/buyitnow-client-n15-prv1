@@ -47,7 +47,7 @@ export const isValidObjectId = (value) => {
  * Parse les paramètres de recherche produits
  * Simple extraction sans sur-sanitisation
  */
-export const parseProductSearchParams = (searchParams) => {
+export const parseProductSearchParams = async (searchParams) => {
   const params = {};
 
   console.log('Raw search params:', searchParams); // Log pour debug
@@ -57,19 +57,20 @@ export const parseProductSearchParams = (searchParams) => {
   }
 
   // Keyword - juste un trim
-  const keyword = searchParams.get('keyword');
+  const keyword = await searchParams.get('keyword');
   if (keyword) {
     params.keyword = cleanString(keyword);
   }
 
   // Category - vérifier si c'est un ObjectId valide
-  const category = searchParams.get('category');
+  const category = await searchParams.get('category');
   if (category && isValidObjectId(category)) {
     params.category = category.trim();
   }
 
   // Prix min/max - parser en nombre
-  const minPrice = searchParams.get('min') || searchParams.get('price[gte]');
+  const minPrice =
+    (await searchParams.get('min')) || (await searchParams.get('price[gte]'));
   if (minPrice) {
     const min = parseNumber(minPrice);
     if (min !== null && min >= 0) {
@@ -77,7 +78,8 @@ export const parseProductSearchParams = (searchParams) => {
     }
   }
 
-  const maxPrice = searchParams.get('max') || searchParams.get('price[lte]');
+  const maxPrice =
+    (await searchParams.get('max')) || (await searchParams.get('price[lte]'));
   if (maxPrice) {
     const max = parseNumber(maxPrice);
     if (max !== null && max >= 0) {
@@ -86,7 +88,7 @@ export const parseProductSearchParams = (searchParams) => {
   }
 
   // Page - avec défaut à 1
-  const page = parseNumber(searchParams.get('page'), 1);
+  const page = parseNumber(await searchParams.get('page'), 1);
   params.page = Math.max(1, Math.min(page, 1000));
 
   return params;
