@@ -21,12 +21,14 @@ export async function GET(req) {
     await dbConnect();
 
     console.log(
-      'Fetching products with params with keyword:',
-      req.nextUrl.searchParams.get('keyword'),
+      'Fetching products with params IN API:',
+      req.nextUrl.searchParams,
     );
 
     // Sanitisation des paramètres
     const sanitizedParams = parseProductSearchParams(req.nextUrl.searchParams);
+
+    console.log('Sanitized Params IN API:', sanitizedParams);
 
     // Validation des paramètres sanitisés
     const validation = await validateProductFilters(sanitizedParams);
