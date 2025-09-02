@@ -50,12 +50,6 @@ export const isValidObjectId = (value) => {
 export const parseProductSearchParams = async (searchParams) => {
   const params = {};
 
-  console.log('Raw search params:', searchParams); // Log pour debug
-
-  if (searchParams !== null && typeof searchParams !== 'object') {
-    return params;
-  }
-
   // Keyword - juste un trim
   const keyword = await searchParams.get('keyword');
   if (keyword) {
@@ -90,6 +84,8 @@ export const parseProductSearchParams = async (searchParams) => {
   // Page - avec défaut à 1
   const page = parseNumber(await searchParams.get('page'), 1);
   params.page = Math.max(1, Math.min(page, 1000));
+
+  console.log('Parsed search params:', params); // Log pour debug
 
   return params;
 };
