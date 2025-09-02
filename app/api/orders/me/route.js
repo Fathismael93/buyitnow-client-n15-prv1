@@ -35,6 +35,8 @@ export async function GET(req) {
     const page = parseInt(req.nextUrl.searchParams.get('page') || '1', 10);
     const resPerPage = 10; // 10 commandes par page
 
+    console.log('Pagination params:', { page, resPerPage });
+
     // Compter le total de commandes
     const ordersCount = await Order.countDocuments({ user: user._id });
 
