@@ -67,7 +67,7 @@ export const parseProductSearchParams = (searchParams) => {
   if (minPrice) {
     const min = parseNumber(minPrice);
     if (min !== null && min >= 0) {
-      params.min = min;
+      params['price[gte]'] = min;
     }
   }
 
@@ -75,7 +75,7 @@ export const parseProductSearchParams = (searchParams) => {
   if (maxPrice) {
     const max = parseNumber(maxPrice);
     if (max !== null && max >= 0) {
-      params.max = max;
+      params['price[lte]'] = max;
     }
   }
 
