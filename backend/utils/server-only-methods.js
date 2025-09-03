@@ -241,442 +241,110 @@ export const getCategories = async () => {
   }
 };
 
-export const getProductDetails = async (
-  id,
-  retryAttempt = 0,
-  maxRetries = 3,
-) => {
-  const controller = new AbortController();
-  const requestId = `product-${id}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-
-  // Timeout de 5 secondes pour éviter les requêtes bloquées
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-    logger.warn('Request timeout in getProductDetails', {
-      requestId,
-      productId: id,
-      timeoutMs: 5000,
-      action: 'request_timeout',
-    });
-  }, 5000);
-
-  logger.info('Starting getProductDetails request', {
-    requestId,
-    productId: id,
-    retryAttempt,
-    action: 'get_product_details',
-  });
-
+/**
+ * Récupère les détails d'un produit par son ID
+ * Version simplifiée et optimisée pour ~500 visiteurs/jour
+ *
+ * @param {string} id - L'ID MongoDB du produit
+ * @returns {Promise<Object>} Détails du produit ou erreur
+ */
+export const getProductDetails = async (id) => {
   try {
-    // Validation améliorée de l'ID
-    if (!id || typeof id !== 'string') {
-      logger.warn('Invalid product ID format (undefined or not string)', {
-        requestId,
-        productId: id,
-        action: 'invalid_id_format',
-      });
+    // 1. Validation simple de l'ID MongoDB (24 caractères hexadécimaux)
+    if (!id || typeof id !== 'string' || !/^[0-9a-fA-F]{24}$/.test(id)) {
+      console.error('Invalid product ID format:', id);
       return {
         success: false,
-        code: 'INVALID_ID_FORMAT',
         message: "Format d'identifiant de produit invalide",
         notFound: true,
       };
     }
 
-    const isValidId = mongoose.isValidObjectId(id);
-    if (!isValidId) {
-      logger.warn('Invalid MongoDB ObjectId format', {
-        requestId,
-        productId: id,
-        action: 'invalid_mongodb_id',
-      });
-      return {
-        success: false,
-        code: 'INVALID_ID_FORMAT',
-        message: "Format d'identifiant de produit invalide",
-        notFound: true,
-      };
-    }
-
-    // Vérifier le cache d'abord - utiliser la même clé que dans l'API
-    // const cacheKey = getCacheKey('single-product', { id });
-    // const cachedProduct = appCache.singleProducts.get(cacheKey);
-
-    // if (cachedProduct && !retryAttempt) {
-    //   logger.debug('Product details cache hit', {
-    //     requestId,
-    //     productId: id,
-    //     action: 'cache_hit',
-    //   });
-
-    //   // Récupérer également les produits similaires s'ils existent
-    //   let sameCategoryProducts = [];
-    //   if (cachedProduct.category) {
-    //     const similarCacheKey = getCacheKey('similar-products', {
-    //       categoryId: cachedProduct.category,
-    //     });
-    //     sameCategoryProducts =
-    //       appCache.singleProducts.get(similarCacheKey) || [];
-    //   }
-
-    //   return {
-    //     success: true,
-    //     product: cachedProduct,
-    //     sameCategoryProducts,
-    //     message: 'Produit récupéré depuis le cache',
-    //     fromCache: true,
-    //   };
-    // }
-
-    // Avant l'appel API
-    logger.debug('Fetching product details from API', {
-      requestId,
-      productId: id,
-      retryAttempt,
-      action: 'api_request_start',
-    });
-
-    // Utiliser les headers de cache optimisés pour un seul produit
-    // const cacheControl = getCacheHeaders('singleProduct');
+    // 2. Construire l'URL de l'API
     const apiUrl = `${process.env.API_URL || ''}/api/products/${id}`;
+
+    console.log('Fetching product details from:', apiUrl); // Log pour debug
+
+    // 3. Faire l'appel API avec timeout raisonnable (5 secondes)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
       next: {
-        // Utiliser la configuration de cache spécifique aux produits individuels
-        revalidate: CACHE_DURATIONS.singleProduct || 7200,
+        revalidate: 600, // Cache Next.js de 10 minutes pour un produit spécifique
         tags: ['product', `product-${id}`],
       },
-      // headers: {
-      //   'Cache-Control': cacheControl['Cache-Control'],
-      // },
     });
 
-    // Après l'appel API
-    logger.debug('API response received', {
-      requestId,
-      productId: id,
-      status: res.status,
-      retryAttempt,
-      action: 'api_request_complete',
-    });
+    clearTimeout(timeoutId);
 
-    // Tenter de récupérer le corps de la réponse, que ce soit JSON ou texte
-    let responseBody;
-    let isJsonResponse = true;
-    let parseErrorMessage = null;
-
-    try {
-      responseBody = await res.json();
-    } catch (parseError) {
-      isJsonResponse = false;
-      parseErrorMessage = parseError.message;
-      logger.error('JSON parsing error in getProductDetails', {
-        requestId,
-        productId: id,
-        error: parseError.message,
-        retryAttempt,
-        action: 'parse_error',
-      });
-
-      try {
-        // Si ce n'est pas du JSON, essayer de récupérer comme texte
-        responseBody = await res.clone().text();
-      } catch (textError) {
-        logger.error('Failed to get response text after JSON parse failure', {
-          requestId,
-          productId: id,
-          error: textError.message,
-          action: 'text_extraction_failed',
-        });
-        responseBody = 'Impossible de lire la réponse';
-      }
-    }
-
-    // Gestion différenciée des cas de réponse
+    // 4. Vérifier le statut HTTP
     if (!res.ok) {
-      // Gestion des cas d'erreur HTTP
-      const statusCode = res.status;
-
-      // Déterminer si l'erreur est récupérable pour les retries
-      const isRetryable = statusCode >= 500 || [408, 429].includes(statusCode);
-
-      if (isRetryable && retryAttempt < maxRetries) {
-        // Calculer le délai de retry avec backoff exponentiel
-        const retryDelay = Math.min(
-          1000 * Math.pow(2, retryAttempt), // 1s, 2s, 4s, ...
-          15000, // Maximum 15 secondes
-        );
-
-        logger.warn(`Retrying product details request after ${retryDelay}ms`, {
-          requestId,
-          productId: id,
-          retryAttempt: retryAttempt + 1,
-          maxRetries,
-          action: 'retry_scheduled',
-        });
-
-        // Nettoyer le timeout actuel
-        clearTimeout(timeoutId);
-
-        // Attendre avant de réessayer
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
-
-        // Réessayer avec le compteur incrémenté
-        return getProductDetails(id, retryAttempt + 1, maxRetries);
-      }
-
-      // Erreurs spécifiques après épuisement des retries ou erreurs non-récupérables
-      switch (statusCode) {
-        case 400: // Bad Request
-          return {
-            success: false,
-            code:
-              isJsonResponse && responseBody.code
-                ? responseBody.code
-                : 'BAD_REQUEST',
-            message:
-              isJsonResponse && responseBody.message
-                ? responseBody.message
-                : "Format d'identifiant de produit invalide",
-            notFound: false,
-          };
-
-        case 401: // Unauthorized
-          return {
-            success: false,
-            code: 'UNAUTHORIZED',
-            message: 'Authentification requise',
-            notFound: false,
-          };
-
-        case 403: // Forbidden
-          return {
-            success: false,
-            code: 'FORBIDDEN',
-            message: 'Accès interdit',
-            notFound: false,
-          };
-
-        case 404: // Not Found
-          logger.info('Product not found', {
-            requestId,
-            productId: id,
-            action: 'product_not_found',
-          });
-          return {
-            success: false,
-            code: 'PRODUCT_NOT_FOUND',
-            message: 'Produit non trouvé',
-            notFound: true,
-          };
-
-        case 429: // Too Many Requests
-          return {
-            success: false,
-            code: 'RATE_LIMIT_EXCEEDED',
-            message: 'Trop de requêtes, veuillez réessayer plus tard',
-            retryAfter: res.headers.get('Retry-After')
-              ? parseInt(res.headers.get('Retry-After'))
-              : 60,
-            notFound: false,
-          };
-
-        case 500: // Internal Server Error
-          return {
-            success: false,
-            code: 'INTERNAL_SERVER_ERROR',
-            message:
-              'Une erreur interne est survenue, veuillez réessayer ultérieurement',
-            notFound: false,
-          };
-
-        case 503: // Service Unavailable
-          return {
-            success: false,
-            code: 'SERVICE_UNAVAILABLE',
-            message: 'Service temporairement indisponible',
-            notFound: false,
-          };
-
-        case 504: // Gateway Timeout
-          return {
-            success: false,
-            code: 'TIMEOUT',
-            message: 'La requête a pris trop de temps',
-            notFound: false,
-          };
-
-        default: // Autres erreurs
-          return {
-            success: false,
-            code: 'API_ERROR',
-            message:
-              isJsonResponse && responseBody.message
-                ? responseBody.message
-                : `Erreur ${statusCode}`,
-            status: statusCode,
-            notFound: false,
-          };
-      }
-    }
-
-    // Traitement de la réponse en cas de succès HTTP (200)
-    if (isJsonResponse) {
-      // Vérifier les erreurs business
-      if (responseBody.success === false) {
-        logger.warn('API returned success: false', {
-          requestId,
-          productId: id,
-          message: responseBody.message,
-          code: responseBody.code,
-          action: 'api_business_error',
-        });
-
-        // Déterminer si l'erreur business nécessite un notFound() ou non
-        if (
-          responseBody.code === 'PRODUCT_NOT_FOUND' ||
-          (responseBody.message &&
-            responseBody.message.toLowerCase().includes('not found'))
-        ) {
-          return {
-            success: false,
-            code: responseBody.code || 'PRODUCT_NOT_FOUND',
-            message: responseBody.message || 'Produit non trouvé',
-            notFound: true,
-          };
-        }
-
+      // Gestion simple des erreurs principales
+      if (res.status === 400) {
         return {
           success: false,
-          code: responseBody.code || 'API_BUSINESS_ERROR',
-          message:
-            responseBody.message || 'Erreur lors de la récupération du produit',
-          notFound: false,
-        };
-      }
-
-      // Vérifier que le produit existe dans la réponse
-      if (!responseBody.data?.product) {
-        logger.error('Product data missing in response', {
-          requestId,
-          productId: id,
-          action: 'product_data_missing',
-        });
-        return {
-          success: false,
-          code: 'PRODUCT_DATA_MISSING',
-          message: 'Données du produit manquantes dans la réponse',
+          message: "Format d'identifiant invalide",
           notFound: true,
         };
       }
 
-      // Cas de succès - le produit et ses informations associées ont été trouvés
-      logger.info('Successfully fetched product details', {
-        requestId,
-        productId: id,
-        productName: responseBody.data.product.name || 'Unknown',
-        similarProductsCount:
-          responseBody.data.sameCategoryProducts?.length || 0,
-        action: 'api_success',
-        duration: Date.now() - parseInt(requestId.split('-')[2]), // Calcul approximatif de la durée
-      });
+      if (res.status === 404) {
+        return {
+          success: false,
+          message: 'Produit non trouvé',
+          notFound: true,
+        };
+      }
 
-      return {
-        success: true,
-        product: responseBody.data.product,
-        sameCategoryProducts: responseBody.data.sameCategoryProducts || [],
-        message: 'Produit récupéré avec succès',
-        fromCache: responseBody.data.fromCache || false,
-      };
-    } else {
-      // Réponse non-JSON mais statut HTTP 200
-      logger.error('Non-JSON response with HTTP 200', {
-        requestId,
-        productId: id,
-        parseError: parseErrorMessage,
-        responseBodyPreview:
-          typeof responseBody === 'string'
-            ? responseBody.substring(0, 200)
-            : 'Unknown response type',
-        action: 'non_json_response',
-      });
-
+      // Erreur serveur générique
+      console.error(`API Error: ${res.status} - ${res.statusText}`);
       return {
         success: false,
-        code: 'INVALID_RESPONSE_FORMAT',
-        message: 'Le serveur a répondu avec un format invalide',
-        errorDetails: parseErrorMessage,
+        message: 'Erreur lors de la récupération du produit',
         notFound: false,
       };
     }
+
+    // 5. Parser la réponse JSON
+    const responseBody = await res.json();
+
+    // 6. Vérifier la structure de la réponse
+    if (!responseBody.success || !responseBody.data?.product) {
+      console.error('Invalid API response structure:', responseBody);
+      return {
+        success: false,
+        message: responseBody.message || 'Données du produit manquantes',
+        notFound: true,
+      };
+    }
+
+    // 7. Retourner les données avec succès
+    return {
+      success: true,
+      product: responseBody.data.product,
+      sameCategoryProducts: responseBody.data.sameCategoryProducts || [],
+      message: 'Produit récupéré avec succès',
+    };
   } catch (error) {
-    logger.error('Exception in getProductDetails', {
-      requestId,
-      productId: id,
-      error: error.message,
-      stack: error.stack,
-      retryAttempt,
-      action: 'get_product_details_error',
-    });
-
-    // Déterminer si l'erreur est récupérable
-    const isRetryable =
-      error.name === 'AbortError' ||
-      error.name === 'TimeoutError' ||
-      error.message.includes('network') ||
-      error.message.includes('connection');
-
-    if (isRetryable && retryAttempt < maxRetries) {
-      const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
-      logger.warn(`Retrying after exception (${retryDelay}ms)`, {
-        requestId,
-        productId: id,
-        retryAttempt: retryAttempt + 1,
-        maxRetries,
-        action: 'retry_scheduled',
-      });
-
-      clearTimeout(timeoutId);
-      await new Promise((resolve) => setTimeout(resolve, retryDelay));
-      return getProductDetails(id, retryAttempt + 1, maxRetries);
-    }
-
-    captureException(error, {
-      tags: { action: 'get_product_details' },
-      extra: { productId: id, requestId, retryAttempt },
-    });
-
-    // Retourner une erreur typée en fonction de la nature de l'exception
-    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+    // 8. Gestion des erreurs réseau/timeout
+    if (error.name === 'AbortError') {
+      console.error('Request timeout after 5 seconds');
       return {
         success: false,
-        code: 'CLIENT_TIMEOUT',
-        message:
-          "La requête a été interrompue en raison d'un délai d'attente excessif",
-        notFound: false,
-      };
-    } else if (
-      error.message.includes('network') ||
-      error.message.includes('connection')
-    ) {
-      return {
-        success: false,
-        code: 'NETWORK_ERROR',
-        message: 'Problème de connexion réseau',
-        notFound: false,
-      };
-    } else {
-      return {
-        success: false,
-        code: 'CLIENT_ERROR',
-        message: "Une erreur s'est produite lors de la récupération du produit",
-        errorDetails: error.message,
+        message: 'La requête a pris trop de temps',
         notFound: false,
       };
     }
-  } finally {
-    clearTimeout(timeoutId);
+
+    // Erreur réseau générique
+    console.error('Network error:', error.message);
+    return {
+      success: false,
+      message: 'Problème de connexion réseau',
+      notFound: false,
+    };
   }
 };
 
