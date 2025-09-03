@@ -348,528 +348,161 @@ export const getProductDetails = async (id) => {
   }
 };
 
-export const getAllAddresses = async (
-  page,
-  retryAttempt = 0,
-  maxRetries = 3,
-) => {
-  if (page && !['profile', 'shipping'].includes(page)) {
-    logger.warn('Invalid page parameter', { page });
-    page = 'shipping'; // Valeur par défaut si page invalide
-  }
-
-  const controller = new AbortController();
-  const requestId = `addresses-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-
-  // Obtenir les cookies pour l'authentification
-  const nextCookies = await cookies();
-  const cookieName = getCookieName();
-  const nextAuthSessionToken = nextCookies.get(cookieName);
-
-  if (!nextAuthSessionToken) {
-    logger.warn('No authentication token found', {
-      requestId,
-      page,
-      action: 'missing_auth_token',
-    });
-
-    return {
-      success: false,
-      code: 'UNAUTHORIZED',
-      message: 'Authentification requise',
-      data:
-        page === 'profile'
-          ? { addresses: [] }
-          : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-    };
-  }
-
-  // Vérifier le cache d'abord
-  // La clé de cache doit inclure l'ID utilisateur et le contexte de page
-  // const userIdentifier = nextAuthSessionToken.value.substring(0, 10);
-  // const cacheKey = getCacheKey('addresses', {
-  //   userId: userIdentifier,
-  //   context: page,
-  // });
-
-  // const cachedAddresses = appCache.addresses.get(cacheKey);
-  // if (cachedAddresses && !retryAttempt) {
-  //   logger.debug('Addresses cache hit', {
-  //     requestId,
-  //     page,
-  //     action: 'cache_hit',
-  //   });
-  //   return cachedAddresses;
-  // }
-
-  // Timeout de 5 secondes pour éviter les requêtes bloquées
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-    logger.warn('Request timeout in getAllAddresses', {
-      requestId,
-      page,
-      timeoutMs: 5000,
-      action: 'request_timeout',
-    });
-  }, 5000);
-
-  logger.info('Starting getAllAddresses request', {
-    requestId,
-    page,
-    retryAttempt,
-    action: 'get_all_addresses',
-  });
-
+/**
+ * Récupère toutes les adresses d'un utilisateur
+ * Version simplifiée et optimisée pour ~500 visiteurs/jour
+ *
+ * @param {string} page - Contexte de la page ('profile' ou 'shipping')
+ * @returns {Promise<Object>} Données des adresses ou erreur
+ */
+export const getAllAddresses = async (page = 'shipping') => {
   try {
-    // Avant l'appel API
-    logger.debug('Fetching addresses from API', {
-      requestId,
-      page,
-      retryAttempt,
-      action: 'api_request_start',
-    });
+    // 1. Valider le paramètre page
+    if (page && !['profile', 'shipping'].includes(page)) {
+      console.warn('Invalid page parameter, using default:', page);
+      page = 'shipping';
+    }
 
-    // Utiliser les headers de cache optimisés pour les données utilisateur
-    // const cacheControl = getCacheHeaders('userData');
-    const apiUrl = `${process.env.API_URL}/api/address?context=${page}`;
+    // 2. Obtenir le cookie d'authentification
+    const nextCookies = await cookies();
+    const cookieName = getCookieName();
+    const authToken = nextCookies.get(cookieName);
+
+    // 3. Vérifier l'authentification
+    if (!authToken) {
+      console.warn('No authentication token found');
+      return {
+        success: false,
+        message: 'Authentification requise',
+        data:
+          page === 'profile'
+            ? { addresses: [] }
+            : { addresses: [], paymentTypes: [], deliveryPrice: [] },
+      };
+    }
+
+    // 4. Construire l'URL de l'API avec le contexte
+    const apiUrl = `${process.env.API_URL || ''}/api/address?context=${page}`;
+
+    console.log('Fetching addresses from:', apiUrl); // Log pour debug
+
+    // 5. Faire l'appel API avec timeout (5 secondes)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
       headers: {
-        Cookie: `${nextAuthSessionToken?.name}=${nextAuthSessionToken?.value}`,
-        // 'Cache-Control': cacheControl['Cache-Control'],
-        'X-Request-ID': requestId,
+        Cookie: `${authToken.name}=${authToken.value}`,
       },
       next: {
-        // Les données d'adresse sont des données utilisateur, donc pas de mise en cache côté serveur
-        revalidate: 0,
+        revalidate: 0, // Pas de cache pour les données utilisateur
         tags: ['user-addresses'],
       },
     });
 
-    // Après l'appel API
-    logger.debug('API response received', {
-      requestId,
-      page,
-      status: res.status,
-      retryAttempt,
-      action: 'api_request_complete',
-    });
+    clearTimeout(timeoutId);
 
-    // Tenter de récupérer le corps de la réponse, que ce soit JSON ou texte
-    let responseBody;
-    let isJsonResponse = true;
-    let parseErrorMessage = null;
-
-    try {
-      responseBody = await res.json();
-    } catch (parseError) {
-      isJsonResponse = false;
-      parseErrorMessage = parseError.message;
-      logger.error('JSON parsing error in getAllAddresses', {
-        requestId,
-        page,
-        error: parseError.message,
-        retryAttempt,
-        action: 'parse_error',
-      });
-
-      try {
-        // Si ce n'est pas du JSON, essayer de récupérer comme texte
-        responseBody = await res.clone().text();
-      } catch (textError) {
-        logger.error('Failed to get response text after JSON parse failure', {
-          requestId,
-          page,
-          error: textError.message,
-          action: 'text_extraction_failed',
-        });
-        responseBody = 'Impossible de lire la réponse';
-      }
-    }
-
-    // Gestion différenciée des cas de réponse
+    // 6. Vérifier le statut HTTP
     if (!res.ok) {
-      // Gestion des cas d'erreur HTTP
-      const statusCode = res.status;
-
-      // Déterminer si l'erreur est récupérable pour les retries
-      const isRetryable = statusCode >= 500 || [408, 429].includes(statusCode);
-
-      if (isRetryable && retryAttempt < maxRetries) {
-        // Calculer le délai de retry avec backoff exponentiel
-        const retryDelay = Math.min(
-          1000 * Math.pow(2, retryAttempt), // 1s, 2s, 4s, ...
-          15000, // Maximum 15 secondes
-        );
-
-        logger.warn(`Retrying addresses request after ${retryDelay}ms`, {
-          requestId,
-          page,
-          retryAttempt: retryAttempt + 1,
-          maxRetries,
-          action: 'retry_scheduled',
-        });
-
-        // Nettoyer le timeout actuel
-        clearTimeout(timeoutId);
-
-        // Attendre avant de réessayer
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
-
-        // Réessayer avec le compteur incrémenté
-        return getAllAddresses(page, retryAttempt + 1, maxRetries);
-      }
-
-      // Erreurs spécifiques après épuisement des retries ou erreurs non-récupérables
-      switch (statusCode) {
-        case 400: // Bad Request
-          return {
-            success: false,
-            code:
-              isJsonResponse && responseBody.code
-                ? responseBody.code
-                : 'BAD_REQUEST',
-            message:
-              isJsonResponse && responseBody.message
-                ? responseBody.message
-                : 'Requête invalide',
-            errors:
-              isJsonResponse && responseBody.errors ? responseBody.errors : [],
-            data:
-              page === 'profile'
-                ? { addresses: [] }
-                : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-          };
-
-        case 401: // Unauthorized
-          return {
-            success: false,
-            code: 'UNAUTHORIZED',
-            message: 'Authentification requise',
-            data:
-              page === 'profile'
-                ? { addresses: [] }
-                : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-          };
-
-        case 403: // Forbidden
-          return {
-            success: false,
-            code: 'FORBIDDEN',
-            message: 'Accès interdit',
-            data:
-              page === 'profile'
-                ? { addresses: [] }
-                : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-          };
-
-        case 404: // Not Found
-          return {
-            success: false,
-            code: 'NOT_FOUND',
-            message: 'Aucune adresse trouvée',
-            data:
-              page === 'profile'
-                ? { addresses: [] }
-                : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-          };
-
-        case 429: // Too Many Requests
-          return {
-            success: false,
-            code: 'RATE_LIMIT_EXCEEDED',
-            message: 'Trop de requêtes, veuillez réessayer plus tard',
-            retryAfter: res.headers.get('Retry-After')
-              ? parseInt(res.headers.get('Retry-After'))
-              : 60,
-            data:
-              page === 'profile'
-                ? { addresses: [] }
-                : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-          };
-
-        case 500: // Internal Server Error
-          return {
-            success: false,
-            code: 'INTERNAL_SERVER_ERROR',
-            message:
-              'Une erreur interne est survenue, veuillez réessayer ultérieurement',
-            data:
-              page === 'profile'
-                ? { addresses: [] }
-                : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-          };
-
-        case 503: // Service Unavailable
-          return {
-            success: false,
-            code: 'SERVICE_UNAVAILABLE',
-            message: 'Service temporairement indisponible',
-            data:
-              page === 'profile'
-                ? { addresses: [] }
-                : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-          };
-
-        case 504: // Gateway Timeout
-          return {
-            success: false,
-            code: 'TIMEOUT',
-            message: 'La requête a pris trop de temps',
-            data:
-              page === 'profile'
-                ? { addresses: [] }
-                : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-          };
-
-        default: // Autres erreurs
-          return {
-            success: false,
-            code: 'API_ERROR',
-            message:
-              isJsonResponse && responseBody.message
-                ? responseBody.message
-                : `Erreur ${statusCode}`,
-            status: statusCode,
-            data:
-              page === 'profile'
-                ? { addresses: [] }
-                : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-          };
-      }
-    }
-
-    // Traitement de la réponse en cas de succès HTTP (200)
-    if (isJsonResponse) {
-      // Si JSON valide
-      if (responseBody.success === true) {
-        // Cas de succès API explicite
-        if (responseBody.data) {
-          // Vérifier si on est sur la page de profil pour filtrer les données
-          let responseData = { ...responseBody.data };
-
-          if (page === 'profile') {
-            // Si on est sur la page de profil, supprimer les types de paiement et prix de livraison
-            delete responseData.paymentTypes;
-            delete responseData.deliveryPrice;
-          }
-
-          logger.info('Successfully fetched addresses', {
-            requestId,
-            page,
-            addressCount: responseData?.addresses?.length || 0,
-            hasPaymentTypes: !!responseData?.paymentTypes,
-            hasDeliveryPrice: !!responseData?.deliveryPrice,
-            action: 'api_success',
-            duration: Date.now() - parseInt(requestId.split('-')[1]), // Calcul approximatif de la durée
-          });
-
-          // Cas de succès avec des adresses trouvées
-          return {
-            success: true,
-            message: responseBody.message || 'Adresses récupérées avec succès',
-            data: responseData,
-            addressCount: responseData?.addresses?.length || 0,
-          };
-        } else {
-          // Cas de succès API mais données manquantes
-          logger.warn('Success response but data missing', {
-            requestId,
-            page,
-            action: 'data_missing_in_success',
-          });
-
-          return {
-            success: true,
-            message: 'Aucune adresse trouvée',
-            data:
-              page === 'profile'
-                ? { addresses: [] }
-                : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-          };
-        }
-      } else if (responseBody.success === false) {
-        // Cas d'erreur API explicite mais avec statut HTTP 200
-        logger.warn('API returned success: false', {
-          requestId,
-          page,
-          message: responseBody.message,
-          code: responseBody.code,
-          action: 'api_business_error',
-        });
-
+      // Gestion simple des erreurs principales
+      if (res.status === 401) {
         return {
           success: false,
-          code: responseBody.code || 'API_BUSINESS_ERROR',
-          message:
-            responseBody.message ||
-            'Erreur lors de la récupération des adresses',
+          message: 'Authentification requise',
           data:
             page === 'profile'
               ? { addresses: [] }
               : { addresses: [], paymentTypes: [], deliveryPrice: [] },
         };
-      } else {
-        // Structure de réponse inattendue
-        logger.error('Unexpected API response structure', {
-          requestId,
-          page,
-          responseBody: JSON.stringify(responseBody).substring(0, 200),
-          action: 'unexpected_response_structure',
-        });
-
-        // Tenter d'extraire les adresses même si la structure est inattendue
-        const addresses = Array.isArray(responseBody.data?.addresses)
-          ? responseBody.data.addresses
-          : Array.isArray(responseBody.addresses)
-            ? responseBody.addresses
-            : [];
-
-        // Pour les autres données importantes
-        const paymentTypes = Array.isArray(responseBody.data?.paymentTypes)
-          ? responseBody.data.paymentTypes
-          : Array.isArray(responseBody.paymentTypes)
-            ? responseBody.paymentTypes
-            : [];
-
-        const deliveryPrice = Array.isArray(responseBody.data?.deliveryPrice)
-          ? responseBody.data.deliveryPrice
-          : Array.isArray(responseBody.deliveryPrice)
-            ? responseBody.deliveryPrice
-            : [];
-
-        // Organiser les données selon le contexte
-        let extractedData;
-        if (page === 'profile') {
-          extractedData = { addresses };
-        } else {
-          extractedData = { addresses, paymentTypes, deliveryPrice };
-        }
-
-        if (addresses.length > 0) {
-          // Des adresses ont été trouvées malgré la structure inattendue
-          return {
-            success: true,
-            code: 'UNEXPECTED_STRUCTURE',
-            message:
-              'Structure de réponse inattendue, mais des adresses ont été trouvées',
-            data: extractedData,
-          };
-        } else {
-          // Aucune adresse trouvée dans la structure inattendue
-          return {
-            success: false,
-            code: 'UNEXPECTED_RESPONSE',
-            message: 'Format de réponse inattendu et aucune adresse trouvée',
-            data:
-              page === 'profile'
-                ? { addresses: [] }
-                : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-          };
-        }
       }
-    } else {
-      // Réponse non-JSON mais statut HTTP 200
-      logger.error('Non-JSON response with HTTP 200', {
-        requestId,
-        page,
-        parseError: parseErrorMessage,
-        responseBodyPreview:
-          typeof responseBody === 'string'
-            ? responseBody.substring(0, 200)
-            : 'Unknown response type',
-        action: 'non_json_response',
-      });
 
+      if (res.status === 404) {
+        return {
+          success: true, // Succès mais liste vide
+          message: 'Aucune adresse trouvée',
+          data:
+            page === 'profile'
+              ? { addresses: [] }
+              : { addresses: [], paymentTypes: [], deliveryPrice: [] },
+        };
+      }
+
+      // Erreur serveur générique
+      console.error(`API Error: ${res.status} - ${res.statusText}`);
       return {
         success: false,
-        code: 'INVALID_RESPONSE_FORMAT',
-        message: 'Le serveur a répondu avec un format invalide',
-        errorDetails: parseErrorMessage,
+        message: 'Erreur lors de la récupération des adresses',
         data:
           page === 'profile'
             ? { addresses: [] }
             : { addresses: [], paymentTypes: [], deliveryPrice: [] },
       };
     }
+
+    // 7. Parser la réponse JSON
+    const responseBody = await res.json();
+
+    // 8. Vérifier la structure de la réponse
+    if (!responseBody.success || !responseBody.data) {
+      console.error('Invalid API response structure:', responseBody);
+      return {
+        success: false,
+        message: responseBody.message || 'Réponse API invalide',
+        data:
+          page === 'profile'
+            ? { addresses: [] }
+            : { addresses: [], paymentTypes: [], deliveryPrice: [] },
+      };
+    }
+
+    // 9. Formater les données selon le contexte
+    let responseData = { ...responseBody.data };
+
+    // Si on est sur la page profil, on n'a pas besoin des données de paiement
+    if (page === 'profile') {
+      responseData = {
+        addresses: responseData.addresses || [],
+      };
+    } else {
+      // Page shipping : on garde tout
+      responseData = {
+        addresses: responseData.addresses || [],
+        paymentTypes: responseData.paymentTypes || [],
+        deliveryPrice: responseData.deliveryPrice || [],
+      };
+    }
+
+    // 10. Retourner les données avec succès
+    return {
+      success: true,
+      message: 'Adresses récupérées avec succès',
+      data: responseData,
+    };
   } catch (error) {
-    logger.error('Exception in getAllAddresses', {
-      requestId,
-      page,
-      error: error.message,
-      stack: error.stack,
-      retryAttempt,
-      action: 'get_all_addresses_error',
-    });
-
-    // Déterminer si l'erreur est récupérable
-    const isRetryable =
-      error.name === 'AbortError' ||
-      error.name === 'TimeoutError' ||
-      error.message.includes('network') ||
-      error.message.includes('connection');
-
-    if (isRetryable && retryAttempt < maxRetries) {
-      const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
-      logger.warn(`Retrying after exception (${retryDelay}ms)`, {
-        requestId,
-        page,
-        retryAttempt: retryAttempt + 1,
-        maxRetries,
-        action: 'retry_scheduled',
-      });
-
-      clearTimeout(timeoutId);
-      await new Promise((resolve) => setTimeout(resolve, retryDelay));
-      return getAllAddresses(page, retryAttempt + 1, maxRetries);
-    }
-
-    captureException(error, {
-      tags: { action: 'get_all_addresses' },
-      extra: { page, requestId, retryAttempt },
-    });
-
-    // Retourner une erreur typée en fonction de la nature de l'exception
-    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+    // 11. Gestion des erreurs réseau/timeout
+    if (error.name === 'AbortError') {
+      console.error('Request timeout after 5 seconds');
       return {
         success: false,
-        code: 'CLIENT_TIMEOUT',
-        message:
-          "La requête a été interrompue en raison d'un délai d'attente excessif",
-        data:
-          page === 'profile'
-            ? { addresses: [] }
-            : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-      };
-    } else if (
-      error.message.includes('network') ||
-      error.message.includes('connection')
-    ) {
-      return {
-        success: false,
-        code: 'NETWORK_ERROR',
-        message: 'Problème de connexion réseau',
-        data:
-          page === 'profile'
-            ? { addresses: [] }
-            : { addresses: [], paymentTypes: [], deliveryPrice: [] },
-      };
-    } else {
-      return {
-        success: false,
-        code: 'CLIENT_ERROR',
-        message:
-          "Une erreur s'est produite lors de la récupération des adresses",
-        errorDetails: error.message,
+        message: 'La requête a pris trop de temps',
         data:
           page === 'profile'
             ? { addresses: [] }
             : { addresses: [], paymentTypes: [], deliveryPrice: [] },
       };
     }
-  } finally {
-    clearTimeout(timeoutId);
+
+    // Erreur réseau générique
+    console.error('Network error:', error.message);
+    return {
+      success: false,
+      message: 'Problème de connexion réseau',
+      data:
+        page === 'profile'
+          ? { addresses: [] }
+          : { addresses: [], paymentTypes: [], deliveryPrice: [] },
+    };
   }
 };
 
