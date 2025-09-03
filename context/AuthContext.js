@@ -87,343 +87,78 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async ({ name, phone, avatar }) => {
     try {
-      // Mettre à jour l'état de chargement
       setLoading(true);
       setError(null);
 
-      // Vérifier le rate limiting côté client
-      const clientRateLimitKey = `profile:update:${user?.email || 'anonymous'}`;
-      const maxClientAttempts = 5; // 5 tentatives maximum par heure
-
-      // Utiliser le cache pour suivre les tentatives de mise à jour de profil
-      let profileUpdateAttempts = 0;
-
-      try {
-        // Utilisation du PersistentCache pour stocker les tentatives
-        if (appCache.ui) {
-          profileUpdateAttempts = appCache.ui.get(clientRateLimitKey) || 0;
-
-          // Si trop de tentatives, bloquer temporairement
-          if (profileUpdateAttempts >= maxClientAttempts) {
-            const retryAfter = 60 * 60; // 1 heure en secondes
-            setError(
-              `Trop de tentatives de mise à jour de profil. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
-            );
-            setLoading(false);
-            return;
-          }
-
-          // Incrémenter le compteur de tentatives
-          appCache.ui.set(clientRateLimitKey, profileUpdateAttempts + 1, {
-            ttl: 60 * 60 * 1000, // 1 heure
-          });
-        }
-      } catch (cacheError) {
-        // Si erreur de cache, continuer quand même (fail open)
-        console.warn(
-          'Cache error during profile update attempt tracking:',
-          cacheError,
-        );
-      }
-
-      // Valider les entrées côté client
+      // Validation basique côté client
       if (!name || name.trim() === '') {
         setError('Le nom est obligatoire');
         setLoading(false);
         return;
       }
 
-      // Utiliser un AbortController pour pouvoir annuler la requête
+      // Simple fetch avec timeout court
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s comme vos APIs
 
-      // Configuration des headers avec protection contre les attaques
-      const headers = {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'X-Requested-With': 'XMLHttpRequest', // Protection CSRF supplémentaire
-        'Cache-Control':
-          'no-store, no-cache, must-revalidate, proxy-revalidate',
-        Pragma: 'no-cache',
-        Expires: '0',
-      };
-
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me/update`,
-          {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify({
-              name: name.trim(),
-              phone: phone ? phone.trim() : '',
-              avatar,
-            }),
-            signal: controller.signal,
-            credentials: 'include', // Inclure les cookies pour les sessions
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me/update`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
           },
-        );
-
-        clearTimeout(timeoutId);
-
-        // Traitement de la réponse
-        let data;
-        try {
-          data = await res.json();
-        } catch (jsonError) {
-          setError('Erreur lors du traitement de la réponse du serveur');
-          setLoading(false);
-          return;
-        }
-
-        // Vérifier le rate limiting côté serveur
-        if (res.status === 429) {
-          // Extraire la durée d'attente depuis les headers
-          const retryAfter = parseInt(
-            res.headers.get('Retry-After') || '60',
-            10,
-          );
-          setError(
-            `Trop de tentatives de mise à jour. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minute(s).`,
-          );
-
-          // Mettre à jour le cache des tentatives locales
-          if (appCache.ui) {
-            appCache.ui.set(clientRateLimitKey, maxClientAttempts, {
-              ttl: retryAfter * 1000,
-            });
-          }
-
-          setLoading(false);
-          return;
-        }
-
-        // Gestion des erreurs HTTP
-        if (!res.ok) {
-          const statusCode = res.status;
-
-          // Traitement unifié des erreurs HTTP
-          switch (statusCode) {
-            case 400:
-              // Erreur de validation
-              if (
-                data.errors &&
-                Array.isArray(data.errors) &&
-                data.errors.length > 0
-              ) {
-                setError(`Validation échouée: ${data.errors.join(', ')}`);
-              } else {
-                setError(data.message || 'Données de profil invalides');
-              }
-              break;
-            case 401:
-            case 403:
-              // Erreur d'authentification
-              setError('Session expirée ou accès non autorisé');
-              // Rediriger vers la page de connexion après un court délai
-              setTimeout(() => router.push('/login'), 2000);
-              break;
-            case 404:
-              // Utilisateur non trouvé
-              setError('Utilisateur non trouvé');
-              break;
-            case 413:
-              // Taille de requête excessive
-              setError('Image de profil trop volumineuse');
-              break;
-            case 422:
-              // Erreur de validation détaillée
-              if (
-                data.errors &&
-                Array.isArray(data.errors) &&
-                data.errors.length > 0
-              ) {
-                setError(`Erreur de validation: ${data.errors.join(', ')}`);
-              } else {
-                setError(data.message || 'Validation échouée');
-              }
-              break;
-            case 500:
-            case 502:
-            case 503:
-            case 504:
-              // Erreurs serveur
-              setError(
-                'Le service est temporairement indisponible. Veuillez réessayer plus tard.',
-              );
-
-              // Capturer pour monitoring en production seulement
-              if (process.env.NODE_ENV === 'production') {
-                const serverError = new Error(
-                  data.message || `Erreur serveur (${statusCode})`,
-                );
-                serverError.statusCode = statusCode;
-                serverError.componentName = 'ProfileUpdate';
-                serverError.additionalInfo = {
-                  context: 'profile',
-                  operation: 'update',
-                  statusCode,
-                  responseMessage: data.message,
-                };
-                captureException(serverError);
-              }
-              break;
-            default:
-              // Autres erreurs
-              setError(
-                data.message ||
-                  `Erreur lors de la mise à jour du profil (${statusCode})`,
-              );
-          }
-
-          setLoading(false);
-          return;
-        }
-
-        // Traitement des réponses avec JSON valide
-        if (data) {
-          if (data.success === true && data.data) {
-            // Réinitialiser le compteur de tentatives en cas de succès
-            if (appCache.ui) {
-              appCache.ui.delete(clientRateLimitKey);
-            }
-
-            // Invalidation des caches pertinents
-            try {
-              // Utiliser getCacheKey pour générer des clés de cache cohérentes
-              const userProfileCacheKey = getCacheKey('user_profile', {
-                userId: user?._id?.toString() || '',
-              });
-
-              // Invalider le cache du profil utilisateur
-              if (appCache.products) {
-                appCache.products.delete(userProfileCacheKey);
-                appCache.products.invalidatePattern(/^user:/);
-              }
-            } catch (cacheError) {
-              // Erreur non critique, juste logger en dev
-              if (process.env.NODE_ENV === 'development') {
-                console.warn('Cache invalidation error:', cacheError);
-              }
-            }
-
-            // Journaliser de façon anonyme en production
-            if (process.env.NODE_ENV === 'production') {
-              console.info('Profile updated successfully', {
-                userId: user?._id
-                  ? `${user._id.toString().substring(0, 2)}...${user._id.toString().slice(-2)}`
-                  : 'unknown',
-              });
-            }
-
-            // Mise à jour de l'état utilisateur
-            setUser(data.data.updatedUser);
-
-            // Afficher un message de réussite (seul toast autorisé)
-            toast.success(data.message || 'Profil mis à jour avec succès!');
-
-            // Rediriger vers la page de profil
-            router.push('/me');
-          } else if (data.success === false) {
-            // Cas où success est explicitement false
-            setError(data.message || 'Échec de la mise à jour du profil');
-
-            // Si des erreurs détaillées sont disponibles, les agréger
-            if (
-              data.errors &&
-              Array.isArray(data.errors) &&
-              data.errors.length > 0
-            ) {
-              setError(
-                `${data.message || 'Échec de la mise à jour du profil'}: ${data.errors.join(', ')}`,
-              );
-            }
-          } else {
-            // Réponse JSON valide mais structure inattendue
-            setError(
-              'Réponse inattendue du serveur lors de la mise à jour du profil',
-            );
-          }
-        } else {
-          // Réponse vide ou mal formatée
-          setError('Réponse vide ou invalide du serveur');
-        }
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-
-        // Erreurs réseau - Toutes gérées via setError sans toast
-        const isAborted = fetchError.name === 'AbortError';
-        const isNetworkError =
-          fetchError.message.includes('network') ||
-          fetchError.message.includes('fetch') ||
-          !navigator.onLine;
-        const isTimeout = isAborted || fetchError.message.includes('timeout');
-
-        if (isTimeout) {
-          // Timeout
-          setError('La requête a pris trop de temps. Veuillez réessayer.');
-        } else if (isNetworkError) {
-          // Erreur réseau simple
-          setError(
-            'Problème de connexion internet. Vérifiez votre connexion et réessayez.',
-          );
-        } else {
-          // Autres erreurs fetch
-          setError(
-            `Erreur lors de la mise à jour du profil: ${fetchError.message}`,
-          );
-
-          // Enrichir l'erreur pour le boundary sans la lancer
-          if (!fetchError.componentName) {
-            fetchError.componentName = 'ProfileUpdate';
-            fetchError.additionalInfo = {
-              context: 'profile',
-              operation: 'update',
-            };
-          }
-
-          // Capture pour Sentry en production
-          if (process.env.NODE_ENV === 'production') {
-            captureException(fetchError, {
-              tags: {
-                component: 'ProfileUpdate',
-                action: 'updateProfile',
-                errorType: isTimeout
-                  ? 'timeout'
-                  : isNetworkError
-                    ? 'network'
-                    : 'unknown',
-              },
-              extra: {
-                userAnonymized: user?.email
-                  ? `${user.email.charAt(0)}***${user.email.slice(user.email.indexOf('@'))}`
-                  : 'unknown',
-              },
-            });
-          }
-        }
-      }
-    } catch (error) {
-      // Pour toute erreur non gérée spécifiquement
-      setError(
-        'Une erreur inattendue est survenue lors de la mise à jour du profil',
+          body: JSON.stringify({
+            name: name.trim(),
+            phone: phone ? phone.trim() : '',
+            avatar,
+          }),
+          signal: controller.signal,
+          credentials: 'include',
+        },
       );
 
-      // Journaliser localement en dev
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Profile update error:', error);
+      clearTimeout(timeoutId);
+
+      const data = await res.json();
+
+      // Gestion simple des erreurs (comme registerUser)
+      if (!res.ok) {
+        switch (res.status) {
+          case 400:
+            setError(data.message || 'Données de profil invalides');
+            break;
+          case 401:
+            setError('Session expirée. Veuillez vous reconnecter');
+            setTimeout(() => router.push('/login'), 2000);
+            break;
+          case 429:
+            setError('Trop de tentatives. Réessayez plus tard.');
+            break;
+          default:
+            setError(data.message || 'Erreur lors de la mise à jour');
+        }
+        setLoading(false);
+        return;
       }
 
-      // Capture pour Sentry en production
-      if (process.env.NODE_ENV === 'production') {
-        if (!error.componentName) {
-          error.componentName = 'ProfileUpdate';
-          error.additionalInfo = {
-            context: 'profile',
-          };
-        }
-        captureException(error);
+      // Succès
+      if (data.success) {
+        setUser(data.data.updatedUser);
+        toast.success('Profil mis à jour avec succès!');
+        router.push('/me');
       }
+    } catch (error) {
+      // Erreurs réseau uniquement - PAS de Sentry ici
+      if (error.name === 'AbortError') {
+        setError('La requête a pris trop de temps');
+      } else {
+        setError('Problème de connexion. Vérifiez votre connexion.');
+      }
+
+      // L'API capturera les vraies erreurs serveur
+      console.error('Profile update error:', error.message);
     } finally {
       setLoading(false);
     }
