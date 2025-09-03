@@ -145,407 +145,99 @@ export const getAllProducts = async (searchParams) => {
   }
 };
 
-export const getCategories = async (retryAttempt = 0, maxRetries = 3) => {
-  const controller = new AbortController();
-  const requestId = `categories-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-
-  // Vérifier si les données sont en cache
-  // const cacheKey = getCacheKey('categories', {});
-  // const cachedCategories = appCache.categories.get(cacheKey);
-
-  // if (cachedCategories) {
-  //   logger.info('Categories served from client-side cache', {
-  //     component: 'getCategories',
-  //     cached: true,
-  //     count: cachedCategories.categories?.length || 0,
-  //   });
-
-  //   return cachedCategories;
-  // }
-
-  // Timeout de 5 secondes pour les catégories
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-    logger.warn('Request timeout in getCategories', {
-      requestId,
-      timeoutMs: 5000,
-      action: 'request_timeout',
-    });
-  }, 5000);
-
-  logger.info('Starting getCategories request', {
-    requestId,
-    retryAttempt,
-    action: 'get_categories',
-  });
-
+/**
+ * Récupère toutes les catégories depuis l'API
+ * Version simplifiée et optimisée pour ~500 visiteurs/jour
+ *
+ * @returns {Promise<Object>} Données des catégories ou erreur
+ */
+export const getCategories = async () => {
   try {
-    // Avant l'appel API
-    logger.debug('Fetching categories from API', {
-      requestId,
-      retryAttempt,
-      action: 'api_request_start',
-    });
-
-    // const cacheControl = getCacheHeaders('categories');
+    // 1. Construire l'URL de l'API (très simple pour les catégories)
     const apiUrl = `${process.env.API_URL || ''}/api/category`;
+
+    console.log('Fetching categories from:', apiUrl); // Log pour debug
+
+    // 2. Faire l'appel API avec timeout raisonnable (5 secondes)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
       next: {
-        revalidate: CACHE_DURATIONS.categories || 3600,
+        revalidate: 1800, // Cache Next.js de 30 minutes (les catégories changent rarement)
         tags: ['categories'],
       },
-      // headers: {
-      //   'Cache-Control': cacheControl,
-      // },
     });
 
-    // Après l'appel API
-    logger.debug('API response received', {
-      requestId,
-      status: res.status,
-      retryAttempt,
-      action: 'api_request_complete',
-    });
-
-    // Tenter de récupérer le corps de la réponse, que ce soit JSON ou texte
-    let responseBody;
-    let isJsonResponse = true;
-    let parseErrorMessage = null;
-
-    try {
-      responseBody = await res.json();
-    } catch (parseError) {
-      isJsonResponse = false;
-      parseErrorMessage = parseError.message;
-      logger.error('JSON parsing error in getCategories', {
-        requestId,
-        error: parseError.message,
-        retryAttempt,
-        action: 'parse_error',
-      });
-
-      try {
-        // Si ce n'est pas du JSON, essayer de récupérer comme texte
-        responseBody = await res.clone().text();
-      } catch (textError) {
-        logger.error('Failed to get response text after JSON parse failure', {
-          requestId,
-          error: textError.message,
-          action: 'text_extraction_failed',
-        });
-        responseBody = 'Impossible de lire la réponse';
-      }
-    }
-
-    // Gestion différenciée des cas de réponse
-    if (!res.ok) {
-      // Gestion des cas d'erreur HTTP
-      const statusCode = res.status;
-
-      // Déterminer si l'erreur est récupérable pour les retries
-      const isRetryable = statusCode >= 500 || [408, 429].includes(statusCode);
-
-      if (isRetryable && retryAttempt < maxRetries) {
-        // Calculer le délai de retry avec backoff exponentiel
-        const retryDelay = Math.min(
-          1000 * Math.pow(2, retryAttempt), // 1s, 2s, 4s, ...
-          15000, // Maximum 15 secondes
-        );
-
-        logger.warn(`Retrying categories request after ${retryDelay}ms`, {
-          requestId,
-          retryAttempt: retryAttempt + 1,
-          maxRetries,
-          action: 'retry_scheduled',
-        });
-
-        // Nettoyer le timeout actuel
-        clearTimeout(timeoutId);
-
-        // Attendre avant de réessayer
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
-
-        // Réessayer avec le compteur incrémenté
-        return getCategories(retryAttempt + 1, maxRetries);
-      }
-
-      // Erreurs spécifiques après épuisement des retries ou erreurs non-récupérables
-      switch (statusCode) {
-        case 400: // Bad Request
-          return {
-            success: false,
-            code:
-              isJsonResponse && responseBody.code
-                ? responseBody.code
-                : 'BAD_REQUEST',
-            message:
-              isJsonResponse && responseBody.message
-                ? responseBody.message
-                : 'Requête invalide',
-            categories: [],
-          };
-
-        case 401: // Unauthorized
-          return {
-            success: false,
-            code: 'UNAUTHORIZED',
-            message: 'Authentification requise',
-            categories: [],
-          };
-
-        case 403: // Forbidden
-          return {
-            success: false,
-            code: 'FORBIDDEN',
-            message: 'Accès interdit',
-            categories: [],
-          };
-
-        case 404: // Not Found
-          return {
-            success: false,
-            code: 'NOT_FOUND',
-            message: 'Ressource non trouvée',
-            categories: [],
-          };
-
-        case 429: // Too Many Requests
-          toast.info('Trop de requêtes, veuillez réessayer plus tard');
-          return {
-            success: false,
-            code: 'RATE_LIMIT_EXCEEDED',
-            message: 'Trop de requêtes, veuillez réessayer plus tard',
-            retryAfter: res.headers.get('Retry-After')
-              ? parseInt(res.headers.get('Retry-After'))
-              : 60,
-            categories: [],
-          };
-
-        case 500: // Internal Server Error
-          toast.error(
-            'Une erreur est survenue lors du chargement des catégories',
-          );
-          return {
-            success: false,
-            code: 'INTERNAL_SERVER_ERROR',
-            message:
-              'Une erreur interne est survenue, veuillez réessayer ultérieurement',
-            categories: [],
-          };
-
-        case 503: // Service Unavailable
-          toast.error('Service temporairement indisponible');
-          return {
-            success: false,
-            code: 'SERVICE_UNAVAILABLE',
-            message: 'Service temporairement indisponible',
-            categories: [],
-          };
-
-        case 504: // Gateway Timeout
-          toast.error('La requête a pris trop de temps');
-          return {
-            success: false,
-            code: 'TIMEOUT',
-            message: 'La requête a pris trop de temps',
-            categories: [],
-          };
-
-        default: // Autres erreurs
-          toast.error('Erreur lors du chargement des catégories');
-          return {
-            success: false,
-            code: 'API_ERROR',
-            message:
-              isJsonResponse && responseBody.message
-                ? responseBody.message
-                : `Erreur ${statusCode}`,
-            status: statusCode,
-            categories: [],
-          };
-      }
-    }
-
-    // Traitement de la réponse en cas de succès HTTP (200)
-    if (isJsonResponse) {
-      // Si JSON valide
-      if (responseBody.success === true) {
-        // Cas de succès API explicite
-        logger.info('Successfully fetched categories', {
-          requestId,
-          categoryCount: responseBody.data?.categories?.length || 0,
-          action: 'api_success',
-        });
-
-        // Vérifier si des catégories sont présentes dans la réponse
-        if (responseBody.data?.count > 0) {
-          // Cas standard avec des catégories trouvées
-          // L'API a déjà mis en cache les données, on les retourne directement
-          return {
-            success: true,
-            message:
-              responseBody.message || 'Catégories récupérées avec succès',
-            categories: responseBody.data.categories,
-            cached: responseBody.data?.cached || false,
-            timestamp: responseBody.data?.timestamp,
-            count:
-              responseBody.data?.count || responseBody.data?.categories?.length,
-          };
-        } else {
-          // Cas spécifique où aucune catégorie n'est trouvée mais la requête est réussie
-          return {
-            success: true,
-            message: responseBody.message || 'Aucune catégorie trouvée',
-            categories: [],
-            count: 0,
-          };
-        }
-      } else if (responseBody.success === false) {
-        // Cas d'erreur API explicite mais avec statut HTTP 200
-        logger.warn('API returned success: false', {
-          requestId,
-          message: responseBody.message,
-          code: responseBody.code,
-          action: 'api_business_error',
-        });
-
-        toast.info(
-          responseBody.message || 'Erreur lors du chargement des catégories',
-        );
-
-        return {
-          success: false,
-          code: responseBody.code || 'API_BUSINESS_ERROR',
-          message: responseBody.message || 'Erreur côté serveur',
-          categories: [],
-        };
-      } else {
-        // Structure de réponse inattendue
-        logger.error('Unexpected API response structure', {
-          requestId,
-          responseBody: JSON.stringify(responseBody).substring(0, 200),
-          action: 'unexpected_response_structure',
-        });
-
-        // Tenter d'extraire les catégories même si la structure est inattendue
-        const categories = Array.isArray(responseBody.data?.categories)
-          ? responseBody.data.categories
-          : Array.isArray(responseBody.categories)
-            ? responseBody.categories
-            : [];
-
-        if (categories.length > 0) {
-          // Des catégories ont été trouvées malgré la structure inattendue
-          return {
-            success: true,
-            code: 'UNEXPECTED_STRUCTURE',
-            message:
-              'Structure de réponse inattendue, mais des catégories ont été trouvées',
-            categories: categories,
-          };
-        } else {
-          toast.error('Format de réponse incorrect');
-          return {
-            success: false,
-            code: 'UNEXPECTED_RESPONSE',
-            message: 'Format de réponse inattendu',
-            categories: [],
-          };
-        }
-      }
-    } else {
-      // Réponse non-JSON mais statut HTTP 200
-      logger.error('Non-JSON response with HTTP 200', {
-        requestId,
-        parseError: parseErrorMessage,
-        responseBodyPreview:
-          typeof responseBody === 'string'
-            ? responseBody.substring(0, 200)
-            : 'Unknown response type',
-        action: 'non_json_response',
-      });
-
-      toast.error('Erreur lors de la récupération des catégories');
-
-      return {
-        success: false,
-        code: 'INVALID_RESPONSE_FORMAT',
-        message: 'Le serveur a répondu avec un format invalide',
-        errorDetails: parseErrorMessage,
-        categories: [],
-      };
-    }
-  } catch (error) {
-    logger.error('Exception in getCategories', {
-      requestId,
-      error: error.message,
-      stack: error.stack,
-      retryAttempt,
-      action: 'get_categories_error',
-    });
-
-    // Déterminer si l'erreur est récupérable
-    const isRetryable =
-      error.name === 'AbortError' ||
-      error.name === 'TimeoutError' ||
-      error.message.includes('network') ||
-      error.message.includes('connection');
-
-    if (isRetryable && retryAttempt < maxRetries) {
-      const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
-      logger.warn(`Retrying after exception (${retryDelay}ms)`, {
-        requestId,
-        retryAttempt: retryAttempt + 1,
-        maxRetries,
-        action: 'retry_scheduled',
-      });
-
-      clearTimeout(timeoutId);
-      await new Promise((resolve) => setTimeout(resolve, retryDelay));
-      return getCategories(retryAttempt + 1, maxRetries);
-    }
-
-    captureException(error, {
-      tags: { action: 'get_categories' },
-      extra: { requestId, retryAttempt },
-    });
-
-    // Retourner une erreur typée en fonction de la nature de l'exception
-    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
-      toast.error('La récupération des catégories a pris trop de temps');
-      return {
-        success: false,
-        code: 'CLIENT_TIMEOUT',
-        message:
-          "La requête a été interrompue en raison d'un délai d'attente excessif",
-        categories: [],
-      };
-    } else if (
-      error.message.includes('network') ||
-      error.message.includes('connection')
-    ) {
-      toast.error('Problème de connexion réseau');
-      return {
-        success: false,
-        code: 'NETWORK_ERROR',
-        message: 'Problème de connexion réseau',
-        categories: [],
-      };
-    } else {
-      toast.error('Erreur lors du chargement des catégories');
-      return {
-        success: false,
-        code: 'CLIENT_ERROR',
-        message:
-          "Une erreur s'est produite lors de la récupération des catégories",
-        errorDetails: error.message,
-        categories: [],
-      };
-    }
-  } finally {
     clearTimeout(timeoutId);
+
+    // 3. Vérifier le statut HTTP
+    if (!res.ok) {
+      console.error(`API Error: ${res.status} - ${res.statusText}`);
+
+      // Gestion simple pour les erreurs principales
+      if (res.status === 404) {
+        return {
+          success: true, // Succès mais liste vide
+          message: 'Aucune catégorie disponible',
+          categories: [],
+          count: 0,
+        };
+      }
+
+      // Erreur serveur générique
+      return {
+        success: false,
+        message: 'Erreur lors de la récupération des catégories',
+        categories: [],
+        count: 0,
+      };
+    }
+
+    // 4. Parser la réponse JSON
+    const responseBody = await res.json();
+
+    // 5. Vérifier la structure de la réponse
+    if (!responseBody.success || !responseBody.data) {
+      console.error('Invalid API response structure:', responseBody);
+      return {
+        success: false,
+        message: responseBody.message || 'Réponse API invalide',
+        categories: [],
+        count: 0,
+      };
+    }
+
+    // 6. Retourner les données avec succès
+    const categories = responseBody.data.categories || [];
+
+    return {
+      success: true,
+      message: 'Catégories récupérées avec succès',
+      categories: categories,
+      count: responseBody.data.count || categories.length,
+    };
+  } catch (error) {
+    // 7. Gestion des erreurs réseau/timeout
+    if (error.name === 'AbortError') {
+      console.error('Request timeout after 5 seconds');
+      return {
+        success: false,
+        message: 'La requête a pris trop de temps',
+        categories: [],
+        count: 0,
+      };
+    }
+
+    // Erreur réseau générique
+    console.error('Network error:', error.message);
+    return {
+      success: false,
+      message: 'Problème de connexion réseau',
+      categories: [],
+      count: 0,
+    };
   }
 };
 
