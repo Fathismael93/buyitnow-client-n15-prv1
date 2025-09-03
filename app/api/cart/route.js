@@ -188,6 +188,8 @@ export async function POST(req) {
         user: user._id,
         product: productId,
         quantity: Math.min(quantity, product.stock),
+        price: product.price, // Ajouter le prix du produit
+        productName: product.name, // Ajouter le nom du produit
       });
     }
 

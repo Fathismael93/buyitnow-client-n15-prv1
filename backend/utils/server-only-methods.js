@@ -3,20 +3,6 @@ import 'server-only';
 import { cookies } from 'next/headers';
 import mongoose from 'mongoose';
 import { getCookieName } from '@/helpers/helpers';
-import { toast } from 'react-toastify';
-import {
-  // appCache,
-  CACHE_DURATIONS,
-  // getCacheHeaders,
-  // getCacheKey,
-} from '@/utils/cache';
-// import {
-//   categorySchema,
-//   maxPriceSchema,
-//   minPriceSchema,
-//   pageSchema,
-//   searchSchema,
-// } from '@/helpers/schemas';
 import { captureException } from '@/monitoring/sentry';
 import logger from '@/utils/logger';
 import { parseProductSearchParams } from '@/utils/inputSanitizer';
@@ -506,456 +492,143 @@ export const getAllAddresses = async (page = 'shipping') => {
   }
 };
 
-export const getSingleAddress = async (
-  id,
-  retryAttempt = 0,
-  maxRetries = 3,
-) => {
-  const controller = new AbortController();
-  const requestId = `address-${id}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-
-  // Validation améliorée de l'ID
-  if (!id || typeof id !== 'string') {
-    logger.warn('Invalid address ID format (undefined or not string)', {
-      requestId,
-      addressId: id,
-      action: 'invalid_id_format',
-    });
-    return {
-      success: false,
-      code: 'INVALID_ID_FORMAT',
-      message: "Format d'identifiant d'adresse invalide",
-      notFound: true,
-    };
-  }
-
-  const isValidId = mongoose.isValidObjectId(id);
-  if (!isValidId) {
-    logger.warn('Invalid MongoDB ObjectId format', {
-      requestId,
-      addressId: id,
-      action: 'invalid_mongodb_id',
-    });
-    return {
-      success: false,
-      code: 'INVALID_ID_FORMAT',
-      message: "Format d'identifiant d'adresse invalide",
-      notFound: true,
-    };
-  }
-
-  // Obtenir les cookies pour l'authentification
-  const nextCookies = await cookies();
-  const cookieName = getCookieName();
-  const nextAuthSessionToken = nextCookies.get(cookieName);
-
-  if (!nextAuthSessionToken) {
-    logger.warn('No authentication token found in getSingleAddress', {
-      requestId,
-      addressId: id,
-      action: 'missing_auth_token',
-    });
-    return {
-      success: false,
-      code: 'UNAUTHORIZED',
-      message: 'Authentification requise',
-      notFound: true,
-    };
-  }
-
-  // Vérifier le cache d'abord
-  // const userIdentifier = nextAuthSessionToken.value.substring(0, 10);
-  // const cacheKey = getCacheKey('address_detail', {
-  //   userId: userIdentifier,
-  //   addressId: id,
-  // });
-
-  // const cachedAddress = appCache.addresses.get(cacheKey);
-  // if (cachedAddress && !retryAttempt) {
-  //   logger.debug('Address cache hit', {
-  //     requestId,
-  //     addressId: id,
-  //     action: 'cache_hit',
-  //   });
-  //   return {
-  //     success: true,
-  //     address: cachedAddress,
-  //     message: 'Adresse récupérée depuis le cache',
-  //     fromCache: true,
-  //   };
-  // }
-
-  // Timeout de 5 secondes pour éviter les requêtes bloquées
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-    logger.warn('Request timeout in getSingleAddress', {
-      requestId,
-      addressId: id,
-      timeoutMs: 5000,
-      action: 'request_timeout',
-    });
-  }, 5000);
-
-  logger.info('Starting getSingleAddress request', {
-    requestId,
-    addressId: id,
-    retryAttempt,
-    action: 'get_single_address',
-  });
-
+/**
+ * Récupère une adresse spécifique par son ID
+ * Version simplifiée et optimisée pour ~500 visiteurs/jour
+ *
+ * @param {string} id - L'ID MongoDB de l'adresse
+ * @returns {Promise<Object>} Détails de l'adresse ou erreur
+ */
+export const getSingleAddress = async (id) => {
   try {
-    // Avant l'appel API
-    logger.debug('Fetching address from API', {
-      requestId,
-      addressId: id,
-      retryAttempt,
-      action: 'api_request_start',
-    });
+    // 1. Validation simple de l'ID MongoDB (24 caractères hexadécimaux)
+    if (!id || typeof id !== 'string' || !/^[0-9a-fA-F]{24}$/.test(id)) {
+      console.error('Invalid address ID format:', id);
+      return {
+        success: false,
+        message: "Format d'identifiant d'adresse invalide",
+        notFound: true,
+      };
+    }
 
-    // Utiliser les headers de cache optimisés
-    // const cacheControl = getCacheHeaders('addressDetail');
-    const apiUrl = `${process.env.API_URL}/api/address/${id}`;
+    // 2. Obtenir le cookie d'authentification
+    const nextCookies = await cookies();
+    const cookieName = getCookieName();
+    const authToken = nextCookies.get(cookieName);
+
+    // 3. Vérifier l'authentification
+    if (!authToken) {
+      console.warn('No authentication token found');
+      return {
+        success: false,
+        message: 'Authentification requise',
+        notFound: false,
+      };
+    }
+
+    // 4. Construire l'URL de l'API
+    const apiUrl = `${process.env.API_URL || ''}/api/address/${id}`;
+
+    console.log('Fetching address from:', apiUrl); // Log pour debug
+
+    // 5. Faire l'appel API avec timeout (5 secondes)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     const res = await fetch(apiUrl, {
       signal: controller.signal,
       headers: {
-        Cookie: `${nextAuthSessionToken?.name}=${nextAuthSessionToken?.value}`,
-        // 'Cache-Control': cacheControl['Cache-Control'],
-        'X-Request-ID': requestId,
+        Cookie: `${authToken.name}=${authToken.value}`,
       },
       next: {
-        // Les données d'adresse sont des données utilisateur, donc pas de mise en cache côté serveur
-        revalidate: 0,
+        revalidate: 0, // Pas de cache pour les données utilisateur
         tags: [`address-${id}`],
       },
     });
 
-    // Après l'appel API
-    logger.debug('API response received', {
-      requestId,
-      addressId: id,
-      status: res.status,
-      retryAttempt,
-      action: 'api_request_complete',
-    });
+    clearTimeout(timeoutId);
 
-    // Tenter de récupérer le corps de la réponse, que ce soit JSON ou texte
-    let responseBody;
-    let isJsonResponse = true;
-    let parseErrorMessage = null;
-
-    try {
-      responseBody = await res.json();
-    } catch (parseError) {
-      isJsonResponse = false;
-      parseErrorMessage = parseError.message;
-      logger.error('JSON parsing error in getSingleAddress', {
-        requestId,
-        addressId: id,
-        error: parseError.message,
-        retryAttempt,
-        action: 'parse_error',
-      });
-
-      try {
-        // Si ce n'est pas du JSON, essayer de récupérer comme texte
-        responseBody = await res.clone().text();
-      } catch (textError) {
-        logger.error('Failed to get response text after JSON parse failure', {
-          requestId,
-          addressId: id,
-          error: textError.message,
-          action: 'text_extraction_failed',
-        });
-        responseBody = 'Impossible de lire la réponse';
-      }
-    }
-
-    // Gestion différenciée des cas de réponse
+    // 6. Vérifier le statut HTTP
     if (!res.ok) {
-      // Gestion des cas d'erreur HTTP
-      const statusCode = res.status;
-
-      // Déterminer si l'erreur est récupérable pour les retries
-      const isRetryable = statusCode >= 500 || [408, 429].includes(statusCode);
-
-      if (isRetryable && retryAttempt < maxRetries) {
-        // Calculer le délai de retry avec backoff exponentiel
-        const retryDelay = Math.min(
-          1000 * Math.pow(2, retryAttempt), // 1s, 2s, 4s, ...
-          15000, // Maximum 15 secondes
-        );
-
-        logger.warn(`Retrying address request after ${retryDelay}ms`, {
-          requestId,
-          addressId: id,
-          retryAttempt: retryAttempt + 1,
-          maxRetries,
-          action: 'retry_scheduled',
-        });
-
-        // Nettoyer le timeout actuel
-        clearTimeout(timeoutId);
-
-        // Attendre avant de réessayer
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
-
-        // Réessayer avec le compteur incrémenté
-        return getSingleAddress(id, retryAttempt + 1, maxRetries);
-      }
-
-      // Erreurs spécifiques après épuisement des retries ou erreurs non-récupérables
-      switch (statusCode) {
-        case 400: // Bad Request
-          return {
-            success: false,
-            code:
-              isJsonResponse && responseBody.code
-                ? responseBody.code
-                : 'BAD_REQUEST',
-            message:
-              isJsonResponse && responseBody.message
-                ? responseBody.message
-                : "Format d'identifiant d'adresse invalide",
-            notFound: false,
-          };
-
-        case 401: // Unauthorized
-          return {
-            success: false,
-            code: 'UNAUTHORIZED',
-            message: 'Authentification requise',
-            notFound: false,
-          };
-
-        case 403: // Forbidden
-          return {
-            success: false,
-            code: 'FORBIDDEN',
-            message: 'Accès interdit à cette adresse',
-            notFound: false,
-          };
-
-        case 404: // Not Found
-          logger.info('Address not found', {
-            requestId,
-            addressId: id,
-            action: 'address_not_found',
-          });
-          return {
-            success: false,
-            code: 'ADDRESS_NOT_FOUND',
-            message: 'Adresse non trouvée',
-            notFound: true,
-          };
-
-        case 429: // Too Many Requests
-          return {
-            success: false,
-            code: 'RATE_LIMIT_EXCEEDED',
-            message: 'Trop de requêtes, veuillez réessayer plus tard',
-            retryAfter: res.headers.get('Retry-After')
-              ? parseInt(res.headers.get('Retry-After'))
-              : 60,
-            notFound: false,
-          };
-
-        case 500: // Internal Server Error
-          return {
-            success: false,
-            code: 'INTERNAL_SERVER_ERROR',
-            message:
-              'Une erreur interne est survenue, veuillez réessayer ultérieurement',
-            notFound: false,
-          };
-
-        case 503: // Service Unavailable
-          return {
-            success: false,
-            code: 'SERVICE_UNAVAILABLE',
-            message: 'Service temporairement indisponible',
-            notFound: false,
-          };
-
-        case 504: // Gateway Timeout
-          return {
-            success: false,
-            code: 'TIMEOUT',
-            message: 'La requête a pris trop de temps',
-            notFound: false,
-          };
-
-        default: // Autres erreurs
-          return {
-            success: false,
-            code: 'API_ERROR',
-            message:
-              isJsonResponse && responseBody.message
-                ? responseBody.message
-                : `Erreur ${statusCode}`,
-            status: statusCode,
-            notFound: false,
-          };
-      }
-    }
-
-    // Traitement de la réponse en cas de succès HTTP (200)
-    if (isJsonResponse) {
-      // Vérifier les erreurs business
-      if (responseBody.success === false) {
-        logger.warn('API returned success: false', {
-          requestId,
-          addressId: id,
-          message: responseBody.message,
-          code: responseBody.code,
-          action: 'api_business_error',
-        });
-
-        // Déterminer si l'erreur business nécessite un notFound ou non
-        if (
-          responseBody.code === 'ADDRESS_NOT_FOUND' ||
-          (responseBody.message &&
-            responseBody.message.toLowerCase().includes('not found'))
-        ) {
-          return {
-            success: false,
-            code: responseBody.code || 'ADDRESS_NOT_FOUND',
-            message: responseBody.message || 'Adresse non trouvée',
-            notFound: true,
-          };
-        }
-
+      // Gestion simple des erreurs principales
+      if (res.status === 400) {
         return {
           success: false,
-          code: responseBody.code || 'API_BUSINESS_ERROR',
-          message:
-            responseBody.message ||
-            "Erreur lors de la récupération de l'adresse",
-          notFound: false,
-        };
-      }
-
-      // Vérifier que l'adresse existe dans la réponse
-      if (!responseBody.data?.address) {
-        logger.error('Address data missing in response', {
-          requestId,
-          addressId: id,
-          action: 'address_data_missing',
-        });
-        return {
-          success: false,
-          code: 'ADDRESS_DATA_MISSING',
-          message: "Données d'adresse manquantes dans la réponse",
+          message: "Format d'identifiant invalide",
           notFound: true,
         };
       }
 
-      // Cas de succès - l'adresse a été trouvée
-      const address = responseBody.data.address;
+      if (res.status === 401) {
+        return {
+          success: false,
+          message: 'Authentification requise',
+          notFound: false,
+        };
+      }
 
-      logger.info('Successfully fetched address details', {
-        requestId,
-        addressId: id,
-        isDefaultAddress: !!address.isDefault,
-        action: 'api_success',
-        duration: Date.now() - parseInt(requestId.split('-')[2]), // Calcul approximatif de la durée
-      });
+      if (res.status === 403) {
+        return {
+          success: false,
+          message: 'Accès interdit à cette adresse',
+          notFound: false,
+        };
+      }
 
-      return {
-        success: true,
-        address: address,
-        message: 'Adresse récupérée avec succès',
-        fromCache: false,
-      };
-    } else {
-      // Réponse non-JSON mais statut HTTP 200
-      logger.error('Non-JSON response with HTTP 200', {
-        requestId,
-        addressId: id,
-        parseError: parseErrorMessage,
-        responseBodyPreview:
-          typeof responseBody === 'string'
-            ? responseBody.substring(0, 200)
-            : 'Unknown response type',
-        action: 'non_json_response',
-      });
+      if (res.status === 404) {
+        return {
+          success: false,
+          message: 'Adresse non trouvée',
+          notFound: true,
+        };
+      }
 
+      // Erreur serveur générique
+      console.error(`API Error: ${res.status} - ${res.statusText}`);
       return {
         success: false,
-        code: 'INVALID_RESPONSE_FORMAT',
-        message: 'Le serveur a répondu avec un format invalide',
-        errorDetails: parseErrorMessage,
+        message: "Erreur lors de la récupération de l'adresse",
         notFound: false,
       };
     }
+
+    // 7. Parser la réponse JSON
+    const responseBody = await res.json();
+
+    // 8. Vérifier la structure de la réponse
+    if (!responseBody.success || !responseBody.data?.address) {
+      console.error('Invalid API response structure:', responseBody);
+      return {
+        success: false,
+        message: responseBody.message || "Données d'adresse manquantes",
+        notFound: true,
+      };
+    }
+
+    // 9. Retourner les données avec succès
+    return {
+      success: true,
+      address: responseBody.data.address,
+      message: 'Adresse récupérée avec succès',
+    };
   } catch (error) {
-    logger.error('Exception in getSingleAddress', {
-      requestId,
-      addressId: id,
-      error: error.message,
-      stack: error.stack,
-      retryAttempt,
-      action: 'get_single_address_error',
-    });
-
-    // Déterminer si l'erreur est récupérable
-    const isRetryable =
-      error.name === 'AbortError' ||
-      error.name === 'TimeoutError' ||
-      error.message.includes('network') ||
-      error.message.includes('connection');
-
-    if (isRetryable && retryAttempt < maxRetries) {
-      const retryDelay = Math.min(1000 * Math.pow(2, retryAttempt), 15000);
-      logger.warn(`Retrying after exception (${retryDelay}ms)`, {
-        requestId,
-        addressId: id,
-        retryAttempt: retryAttempt + 1,
-        maxRetries,
-        action: 'retry_scheduled',
-      });
-
-      clearTimeout(timeoutId);
-      await new Promise((resolve) => setTimeout(resolve, retryDelay));
-      return getSingleAddress(id, retryAttempt + 1, maxRetries);
-    }
-
-    captureException(error, {
-      tags: { action: 'get_single_address' },
-      extra: { addressId: id, requestId, retryAttempt },
-    });
-
-    // Retourner une erreur typée en fonction de la nature de l'exception
-    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+    // 10. Gestion des erreurs réseau/timeout
+    if (error.name === 'AbortError') {
+      console.error('Request timeout after 5 seconds');
       return {
         success: false,
-        code: 'CLIENT_TIMEOUT',
-        message:
-          "La requête a été interrompue en raison d'un délai d'attente excessif",
-        notFound: false,
-      };
-    } else if (
-      error.message.includes('network') ||
-      error.message.includes('connection')
-    ) {
-      return {
-        success: false,
-        code: 'NETWORK_ERROR',
-        message: 'Problème de connexion réseau',
-        notFound: false,
-      };
-    } else {
-      return {
-        success: false,
-        code: 'CLIENT_ERROR',
-        message:
-          "Une erreur s'est produite lors de la récupération de l'adresse",
-        errorDetails: error.message,
+        message: 'La requête a pris trop de temps',
         notFound: false,
       };
     }
-  } finally {
-    clearTimeout(timeoutId);
+
+    // Erreur réseau générique
+    console.error('Network error:', error.message);
+    return {
+      success: false,
+      message: 'Problème de connexion réseau',
+      notFound: false,
+    };
   }
 };
 
