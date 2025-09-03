@@ -1,7 +1,9 @@
 /* eslint-disable no-unused-vars */
 'use client';
 
+import { validateRegister } from '@/helpers/validation/schemas/auth';
 import { captureException } from '@/monitoring/sentry';
+import { sanitizeRegisterData } from '@/utils/authSanitizers';
 import { appCache, getCacheKey } from '@/utils/cache';
 import { useRouter } from 'next/navigation';
 import { createContext, useState } from 'react';
@@ -19,262 +21,81 @@ export const AuthProvider = ({ children }) => {
 
   const registerUser = async ({ name, phone, email, password }) => {
     try {
-      // Mettre à jour l'état de chargement
       setLoading(true);
       setError(null);
 
-      // Vérifier le rate limiting côté client
-      const clientIp = 'CLIENT-IP'; // En réalité, ce serait déterminé côté serveur
-      const clientRateLimitKey = `register:${email}:${clientIp}`;
-      const maxClientAttempts = 5; // 5 tentatives maximum
-
-      // Utiliser le cache pour suivre les tentatives d'inscription
-      let registrationAttempts = 0;
-
-      try {
-        // Utilisation du PersistentCache pour stocker les tentatives d'inscription
-        if (appCache.ui) {
-          registrationAttempts = appCache.ui.get(clientRateLimitKey) || 0;
-
-          // Si trop de tentatives, bloquer temporairement
-          if (registrationAttempts >= maxClientAttempts) {
-            const retryAfter = 10 * 60; // 10 minutes en secondes
-            setError(
-              `Trop de tentatives d'inscription. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
-            );
-            setLoading(false);
-            return;
-          }
-
-          // Incrémenter le compteur de tentatives
-          appCache.ui.set(clientRateLimitKey, registrationAttempts + 1, {
-            ttl: 10 * 60 * 1000, // 10 minutes
-          });
-        }
-      } catch (cacheError) {
-        // Si erreur de cache, continuer quand même (fail open)
-        console.warn(
-          'Cache error during registration attempt tracking:',
-          cacheError,
-        );
+      // 1. Validation côté client avec Yup
+      const validation = await validateRegister({
+        name,
+        email,
+        phone,
+        password,
+      });
+      if (!validation.isValid) {
+        setError(Object.values(validation.errors)[0]); // Première erreur
+        setLoading(false);
+        return;
       }
 
-      // Utiliser un AbortController pour pouvoir annuler la requête
+      // 2. Sanitization
+      const cleanData = sanitizeRegisterData(validation.data);
+
+      // 3. Simple fetch avec timeout court
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s comme vos APIs
 
-      // Configuration des headers avec protection contre les attaques
-      const headers = {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'X-Requested-With': 'XMLHttpRequest', // Protection CSRF supplémentaire
-        'Cache-Control':
-          'no-store, no-cache, must-revalidate, proxy-revalidate',
-        Pragma: 'no-cache',
-        Expires: '0',
-      };
-
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
-          {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ name, email, phone, password }),
-            signal: controller.signal,
-            credentials: 'include', // Inclure les cookies pour les sessions
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
           },
-        );
+          body: JSON.stringify(cleanData),
+          signal: controller.signal,
+          credentials: 'include',
+        },
+      );
 
-        clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
 
-        // Vérifier le rate limiting côté serveur (en fonction des headers de réponse)
-        if (res.status === 429) {
-          // Extraire la durée d'attente depuis les headers
-          const retryAfter = parseInt(
-            res.headers.get('Retry-After') || '60',
-            10,
-          );
-          setError(
-            `Trop de tentatives d'inscription. Veuillez réessayer dans ${Math.ceil(retryAfter / 60)} minutes.`,
-          );
+      const data = await res.json();
 
-          // Mettre à jour le cache des tentatives locales
-          if (appCache.ui) {
-            appCache.ui.set(clientRateLimitKey, maxClientAttempts, {
-              ttl: retryAfter * 1000,
-            });
-          }
-
-          setLoading(false);
-          return;
+      // 4. Gestion simple des erreurs (comme vos APIs)
+      if (!res.ok) {
+        switch (res.status) {
+          case 400:
+            setError(data.message || "Données d'inscription invalides");
+            break;
+          case 409:
+            setError('Cet email est déjà utilisé');
+            break;
+          case 429:
+            setError('Trop de tentatives. Réessayez plus tard.');
+            break;
+          default:
+            setError(data.message || "Erreur lors de l'inscription");
         }
+        setLoading(false);
+        return;
+      }
 
-        // Traitement de la réponse
-        let data;
-        try {
-          data = await res.json();
-        } catch (jsonError) {
-          setError('Erreur lors du traitement de la réponse du serveur');
-          setLoading(false);
-          return;
-        }
-
-        // Gestion des erreurs HTTP
-        if (!res.ok) {
-          const statusCode = res.status;
-
-          // Traitement unifié des erreurs HTTP
-          switch (statusCode) {
-            case 400:
-              // Erreur de validation ou requête incorrecte
-              setError(data.message || "Données d'inscription invalides");
-              break;
-            case 409:
-              // Conflit (email déjà utilisé)
-              setError('Cet email est déjà utilisé');
-
-              // Réinitialiser le compteur de tentatives pour cet email
-              if (appCache.ui) {
-                appCache.ui.delete(clientRateLimitKey);
-              }
-              break;
-            case 401:
-            case 403:
-              // Erreur d'authentification
-              setError("Erreur de sécurité lors de l'inscription");
-              break;
-            case 422:
-              // Erreur de validation avec détails
-              if (
-                data.errors &&
-                Array.isArray(data.errors) &&
-                data.errors.length > 0
-              ) {
-                setError(data.errors.join(', '));
-              } else {
-                setError(data.message || 'Erreur de validation des données');
-              }
-              break;
-            case 500:
-            case 502:
-            case 503:
-            case 504:
-              // Erreurs serveur
-              setError(
-                "Le service d'inscription est temporairement indisponible. Veuillez réessayer plus tard.",
-              );
-              break;
-            default:
-              // Autres erreurs
-              setError(
-                data.message || `Erreur lors de l'inscription (${statusCode})`,
-              );
-          }
-
-          setLoading(false);
-          return;
-        }
-
-        // Traitement des réponses avec JSON valide
-        if (data) {
-          if (data.success === true) {
-            // Cas de succès - Réinitialiser le compteur de tentatives
-            if (appCache.ui) {
-              appCache.ui.delete(clientRateLimitKey);
-            }
-
-            // Loguer le succès (uniquement en local)
-            console.info('User registered successfully', {
-              component: 'auth',
-              action: 'register',
-            });
-
-            // Afficher un message de réussite (seul toast autorisé)
-            toast.success(
-              'Inscription réussie! Vous pouvez maintenant vous connecter.',
-            );
-
-            // Redirection avec un délai pour que le toast soit visible
-            setTimeout(() => router.push('/login'), 1000);
-          } else {
-            // Cas où success est explicitement false
-            setError(data.message || "Échec de l'inscription");
-
-            // Si des erreurs détaillées sont disponibles, les agréger
-            if (
-              data.errors &&
-              Array.isArray(data.errors) &&
-              data.errors.length > 0
-            ) {
-              setError(
-                `${data.message || "Échec de l'inscription"}: ${data.errors.join(', ')}`,
-              );
-            }
-          }
-        } else {
-          // Réponse vide ou mal formatée
-          setError("Réponse inattendue du serveur lors de l'inscription");
-        }
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-
-        // Erreurs réseau - Toutes gérées via setError sans toast
-        const isAborted = fetchError.name === 'AbortError';
-        const isNetworkError =
-          fetchError.message.includes('network') ||
-          fetchError.message.includes('fetch') ||
-          !navigator.onLine;
-        const isTimeout = isAborted || fetchError.message.includes('timeout');
-
-        if (isTimeout) {
-          // Timeout
-          setError(
-            "La requête d'inscription a pris trop de temps. Veuillez réessayer.",
-          );
-        } else if (isNetworkError) {
-          // Erreur réseau simple
-          setError(
-            'Problème de connexion internet. Vérifiez votre connexion et réessayez.',
-          );
-        } else {
-          // Autres erreurs fetch
-          setError(`Erreur lors de l'inscription: ${fetchError.message}`);
-
-          // Enrichir l'erreur pour le boundary sans la lancer
-          if (!fetchError.componentName) {
-            fetchError.componentName = 'RegisterPage';
-            fetchError.additionalInfo = {
-              context: 'registration',
-              operation: 'fetch',
-            };
-          }
-
-          // Capture pour Sentry en production
-          if (process.env.NODE_ENV === 'production') {
-            captureException(fetchError);
-          }
-        }
+      // 5. Succès
+      if (data.success) {
+        toast.success('Inscription réussie!');
+        setTimeout(() => router.push('/login'), 1000);
       }
     } catch (error) {
-      // Pour toute erreur non gérée spécifiquement
-      setError("Une erreur inattendue est survenue lors de l'inscription");
-
-      // Journaliser localement en dev
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Registration error:', error);
+      // 6. Erreurs réseau uniquement - PAS de Sentry ici
+      if (error.name === 'AbortError') {
+        setError('La requête a pris trop de temps');
+      } else {
+        setError('Problème de connexion. Vérifiez votre connexion.');
       }
 
-      // Capture pour Sentry en production
-      if (process.env.NODE_ENV === 'production') {
-        if (!error.componentName) {
-          error.componentName = 'RegisterPage';
-          error.additionalInfo = {
-            context: 'registration',
-          };
-        }
-        captureException(error);
-      }
+      // L'API capturera les vraies erreurs serveur
+      console.error('Registration error:', error.message);
     } finally {
       setLoading(false);
     }
