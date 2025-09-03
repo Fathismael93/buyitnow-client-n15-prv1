@@ -24,22 +24,6 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      // 1. Validation côté client avec Yup
-      const validation = await validateRegister({
-        name,
-        email,
-        phone,
-        password,
-      });
-      if (!validation.isValid) {
-        setError(Object.values(validation.errors)[0]); // Première erreur
-        setLoading(false);
-        return;
-      }
-
-      // 2. Sanitization
-      const cleanData = sanitizeRegisterData(validation.data);
-
       // 3. Simple fetch avec timeout court
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s comme vos APIs
@@ -52,7 +36,7 @@ export const AuthProvider = ({ children }) => {
             'Content-Type': 'application/json',
             Accept: 'application/json',
           },
-          body: JSON.stringify(cleanData),
+          body: JSON.stringify({ name, phone, email, password }),
           signal: controller.signal,
           credentials: 'include',
         },
