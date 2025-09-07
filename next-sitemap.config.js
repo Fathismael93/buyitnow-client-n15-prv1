@@ -15,7 +15,7 @@ const { captureException } = require('./monitoring/sentry');
  */
 
 // Définir la constante en haut du fichier
-const DEFAULT_SITE_URL = 'https://buyitnow-client-n15-prv1.vercel.app/';
+const DEFAULT_SITE_URL = 'https://testing-apps.me/';
 let SITE_URL = process.env.NEXT_PUBLIC_SITE_URL;
 
 try {
@@ -89,14 +89,6 @@ module.exports = {
   sitemapSize: 5000, // Diviser les sitemaps volumineux
   generateIndexSitemap: true,
 
-  // Optimisation pour les sites multilingues (si applicable)
-  // alternateRefs: process.env.NEXT_PUBLIC_LOCALES
-  //   ? process.env.NEXT_PUBLIC_LOCALES.split(',').map(locale => ({
-  //       href: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://buyitnow-client-next15.vercel.app/'}${locale !== 'en' ? `/${locale}` : ''}`,
-  //       hreflang: locale,
-  //     }))
-  //   : [],
-
   // Fonction transform plus robuste
   transform: async (config) => {
     try {
@@ -140,16 +132,6 @@ module.exports = {
           ...(config.lastmod ? { lastmod: config.lastmod } : {}),
         };
       }
-
-      // Pages statiques informatives
-      // if (url.includes('/about') || url.includes('/contact') || url.includes('/faq')) {
-      //   return {
-      //     loc: url,
-      //     changefreq: 'monthly',
-      //     priority: 0.6,
-      //     ...(config.lastmod ? { lastmod: config.lastmod } : {})
-      //   };
-      // }
 
       // Configuration par défaut pour toutes les autres pages
       return {
