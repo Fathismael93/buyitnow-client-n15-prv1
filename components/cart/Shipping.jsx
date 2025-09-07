@@ -19,8 +19,6 @@ import { captureException } from '@/monitoring/sentry';
 import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
 import { isArrayEmpty, formatPrice, safeValue } from '@/helpers/helpers';
-import { useOnlineStatus } from '@/hooks/useCustomHooks';
-// import { validateShippingAddressSelection } from '@/helpers/schemas';
 
 // Chargement dynamique des composants
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
@@ -73,7 +71,6 @@ const Shipping = ({ initialData }) => {
   } = useContext(OrderContext);
 
   const router = useRouter();
-  const isOnline = useOnlineStatus();
 
   // Chemins de fil d'Ariane
   const breadCrumbs = useMemo(
@@ -152,13 +149,6 @@ const Shipping = ({ initialData }) => {
         toast.error(
           'Une erreur est survenue lors du chargement des options de livraison',
         );
-
-        // Rediriger vers le panier en cas d'erreur critique
-        if (!isOnline) {
-          toast.error(
-            'Vous êtes actuellement hors ligne. Veuillez vérifier votre connexion et réessayer.',
-          );
-        }
       } finally {
         setIsLoading(false);
       }
@@ -167,7 +157,7 @@ const Shipping = ({ initialData }) => {
     if (!dataInitialized) {
       initializeData();
     }
-  }, [shippingInfo, dataInitialized, isOnline]);
+  }, [shippingInfo, dataInitialized]);
 
   // Gérer la sélection d'adresse avec validation
   const handleAddressSelection = useCallback(

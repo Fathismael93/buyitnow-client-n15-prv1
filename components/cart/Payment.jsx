@@ -19,8 +19,6 @@ import { captureException } from '@/monitoring/sentry';
 import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
 import { isArrayEmpty, formatPrice, safeValue } from '@/helpers/helpers';
-import { useOnlineStatus } from '@/hooks/useCustomHooks';
-// import { validatePaymentDetails } from '@/helpers/schemas';
 import PaymentPageSkeleton from '../skeletons/PaymentPageSkeleton';
 
 // Chargement dynamique des composants
@@ -55,7 +53,6 @@ const Payment = () => {
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [errors, setErrors] = useState({});
-  // const [isFormValid, setIsFormValid] = useState(false);
   const [dataInitialized, setDataInitialized] = useState(false);
 
   // Référence pour limiter les soumissions multiples
@@ -76,7 +73,6 @@ const Payment = () => {
   } = useContext(OrderContext);
 
   const router = useRouter();
-  const isOnline = useOnlineStatus();
 
   // Calcul du montant total
   const totalAmount = useMemo(() => {
@@ -149,12 +145,6 @@ const Payment = () => {
         toast.error(
           'Une erreur est survenue lors du chargement des options de paiement',
         );
-
-        if (!isOnline) {
-          toast.error(
-            'Vous êtes hors ligne. Veuillez vérifier votre connexion internet.',
-          );
-        }
       } finally {
         setIsLoading(false);
       }
@@ -163,7 +153,7 @@ const Payment = () => {
     if (!dataInitialized) {
       initializePaymentPage();
     }
-  }, [shippingInfo, paymentTypes, dataInitialized, isOnline]);
+  }, [shippingInfo, paymentTypes, dataInitialized]);
 
   // Validation du formulaire à chaque changement
   // useEffect(() => {
