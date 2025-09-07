@@ -14,9 +14,7 @@ const ServiceWorkerManager = dynamic(
 );
 
 // Création d'une constante réutilisable
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  'https://buyitnow-client-n15-prv1.vercel.app';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://testing-apps.me';
 
 // Métadonnées globales pour le site
 export const metadata = {
@@ -76,7 +74,7 @@ export const metadata = {
     creator: '@benew',
     site: '@benew',
   },
-  manifest: '/manifest.json',
+  manifest: './manifest.json',
 };
 
 // app/layout.js - ajouter cet export
