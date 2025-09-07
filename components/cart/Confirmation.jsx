@@ -13,7 +13,7 @@ import { toast } from 'react-toastify';
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'));
 
 const Confirmation = () => {
-  const { secret, paymentTypes } = useContext(OrderContext);
+  const { orderId, paymentTypes } = useContext(OrderContext);
   const { setCartToState } = useContext(CartContext);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ const Confirmation = () => {
     loadCart();
   }, []);
 
-  if (secret === undefined || secret === null) {
+  if (orderId === undefined || orderId === null) {
     return notFound();
   }
 
@@ -56,7 +56,7 @@ const Confirmation = () => {
 
                 <div className="grid sm:grid-cols-2 gap-4 mb-6">
                   Code secret :{' '}
-                  <span className="font-bold">{secret && secret}</span>
+                  <span className="font-bold">{orderId && orderId}</span>
                 </div>
               </article>
             </main>
