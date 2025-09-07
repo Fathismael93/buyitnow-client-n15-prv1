@@ -244,6 +244,7 @@ const UpdatePassword = ({ userId, referer }) => {
       await updatePassword({
         currentPassword: formState.currentPassword,
         newPassword: formState.newPassword,
+        confirmPassword: formState.confirmPassword,
       });
 
       // Succès (si aucune erreur n'est déclenchée)

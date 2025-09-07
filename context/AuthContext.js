@@ -159,7 +159,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const updatePassword = async ({ currentPassword, newPassword }) => {
+  const updatePassword = async ({
+    currentPassword,
+    newPassword,
+    confirmPassword,
+  }) => {
     try {
       setLoading(true);
       setError(null);
@@ -183,6 +187,14 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
+      if (newPassword !== confirmPassword) {
+        setError(
+          'Le nouveau mot de passe et la confirmation ne correspondent pas',
+        );
+        setLoading(false);
+        return;
+      }
+
       // Simple fetch avec timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -195,7 +207,11 @@ export const AuthProvider = ({ children }) => {
             'Content-Type': 'application/json',
             Accept: 'application/json',
           },
-          body: JSON.stringify({ currentPassword, newPassword }),
+          body: JSON.stringify({
+            currentPassword,
+            newPassword,
+            confirmPassword,
+          }),
           signal: controller.signal,
           credentials: 'include',
         },
