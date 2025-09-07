@@ -4,13 +4,8 @@ import dynamic from 'next/dynamic';
 import '@/app/globals.css';
 
 import { GlobalProvider } from './GlobalProvider';
+import Header from '@/components/layouts/Header';
 const Head = dynamic(() => import('@/app/head'));
-const HeaderWithErrorBoundary = dynamic(
-  () => import('@/components/layouts/HeaderWithErrorBoundary'),
-  {
-    ssr: true,
-  },
-);
 const Footer = dynamic(() => import('@/components/layouts/Footer'));
 
 // Import dynamique du gestionnaire de Service Worker
@@ -103,7 +98,7 @@ export default function RootLayout({ children }) {
         <GlobalProvider>
           <ServiceWorkerManager />
           <Suspense>
-            <HeaderWithErrorBoundary />
+            <Header />
           </Suspense>
           <main className="flex-grow">{children}</main>
           <Footer />
