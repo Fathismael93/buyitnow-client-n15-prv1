@@ -18,8 +18,6 @@ const ServiceWorkerManager = dynamic(
   () => import('@/components/utils/ServiceWorkerManager'),
 );
 
-import EnvInit from '@/components/utils/EnvInit';
-
 // Création d'une constante réutilisable
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -102,8 +100,6 @@ export default function RootLayout({ children }) {
     <html lang="fr">
       <Head />
       <body className="flex flex-col min-h-screen bg-gray-50">
-        {/* Composant pour initialiser les variables d'environnement côté client */}
-        <EnvInit />
         <GlobalProvider>
           <ServiceWorkerManager />
           <Suspense>

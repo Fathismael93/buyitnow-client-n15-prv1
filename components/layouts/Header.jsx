@@ -145,7 +145,6 @@ const Header = () => {
       });
     } finally {
       setIsLoadingCart(false);
-      // endTimer();
     }
   }, [setCartToState]);
 
