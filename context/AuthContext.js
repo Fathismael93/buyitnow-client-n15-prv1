@@ -1,10 +1,5 @@
-/* eslint-disable no-unused-vars */
 'use client';
 
-import { validateRegister } from '@/helpers/validation/schemas/auth';
-import { captureException } from '@/monitoring/sentry';
-import { sanitizeRegisterData } from '@/utils/authSanitizers';
-import { appCache, getCacheKey } from '@/utils/cache';
 import { useRouter } from 'next/navigation';
 import { createContext, useState } from 'react';
 import { toast } from 'react-toastify';
