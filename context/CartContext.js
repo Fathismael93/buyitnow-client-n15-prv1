@@ -68,7 +68,7 @@ export const CartProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [loading]);
+  }, []);
 
   // Ajouter au panier - SIMPLIFIÉ (40 lignes max)
   const addItemToCart = async ({ product, quantity = 1 }) => {
