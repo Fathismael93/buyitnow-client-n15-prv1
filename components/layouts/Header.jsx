@@ -74,7 +74,7 @@ const UserDropdown = memo(({ user }) => {
             priority={false}
           />
         </div>
-        <div className="hidden large-xs:block">
+        <div className="hidden lg:block">
           <p className="text-sm font-medium text-gray-700">{user?.name}</p>
           <p className="text-xs text-gray-500 truncate max-w-[150px]">
             {user?.email}
@@ -129,6 +129,8 @@ const Header = () => {
 
   // Fonction sécurisée pour charger le panier
   const loadCart = useCallback(async () => {
+    // const endTimer = startTimer('header.load_cart');
+
     try {
       setIsLoadingCart(true);
       await setCartToState();
@@ -207,40 +209,11 @@ const Header = () => {
   };
 
   return (
-    <header
-      className="
-      bg-white py-2 border-b sticky top-0 z-50 shadow-sm
-      portrait:py-2
-      landscape:py-1 mobile-landscape:py-1
-      medium-sm:py-2
-      large-xs:py-3
-    "
-    >
-      <div
-        className="
-        container max-w-[1440px] mx-auto px-4
-        portrait:px-3 mobile-landscape:px-2
-        medium-sm:px-5
-        large-xs:px-6
-      "
-      >
-        <div
-          className="
-          flex flex-wrap items-center justify-between
-          portrait:gap-2
-          landscape:gap-1 mobile-landscape:gap-1
-          medium-sm:gap-4
-        "
-        >
+    <header className="bg-white py-2 border-b sticky top-0 z-50 shadow-sm">
+      <div className="container max-w-[1440px] mx-auto px-4">
+        <div className="flex flex-wrap items-center justify-between">
           {/* Logo */}
-          <div
-            className="
-            shrink-0 mr-5
-            portrait:mr-3 mobile-landscape:mr-2
-            medium-sm:mr-6
-            large-xs:mr-8
-          "
-          >
+          <div className="shrink-0 mr-5">
             <Link href="/" aria-label="Accueil Buy It Now">
               <Image
                 priority={true}
@@ -248,50 +221,22 @@ const Header = () => {
                 height={40}
                 width={120}
                 alt="BuyItNow"
-                className="
-                  h-10 w-auto
-                  portrait:h-9 mobile-landscape:h-8
-                  medium-sm:h-11
-                  large-xs:h-12
-                "
+                className="h-10 w-auto"
               />
             </Link>
           </div>
 
           {/* Mobile menu button */}
-          <div
-            className="
-            small-only:flex medium-sm:hidden items-center
-            portrait:space-x-2
-            landscape:space-x-1 mobile-landscape:space-x-1
-          "
-          >
+          <div className="md:hidden flex items-center">
             {user && (
               <Link
                 href="/cart"
-                className="
-                  px-3 py-2 inline-block text-center text-gray-700 
-                  bg-white shadow-sm border border-gray-200 rounded-md mr-2 relative
-                  portrait:px-2 portrait:py-1 portrait:mr-1
-                  mobile-landscape:px-2 mobile-landscape:py-1 mobile-landscape:mr-1
-                "
+                className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md mr-2 relative"
                 aria-label="Panier"
               >
-                <i
-                  className="
-                  text-gray-400 w-5 fa fa-shopping-cart
-                  portrait:w-4 mobile-landscape:w-4
-                "
-                ></i>
+                <i className="text-gray-400 w-5 fa fa-shopping-cart"></i>
                 {cartCount > 0 && (
-                  <span
-                    className="
-                    absolute -top-2 -right-2 bg-red-500 text-white rounded-full 
-                    w-5 h-5 flex items-center justify-center text-xs
-                    portrait:w-4 portrait:h-4 portrait:-top-1 portrait:-right-1
-                    mobile-landscape:w-4 mobile-landscape:h-4 mobile-landscape:-top-1 mobile-landscape:-right-1
-                  "
-                  >
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
                     {cartCount}
                   </span>
                 )}
@@ -299,75 +244,34 @@ const Header = () => {
             )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="
-                px-3 py-2 border border-gray-200 rounded-md text-gray-700
-                portrait:px-2 portrait:py-1
-                mobile-landscape:px-2 mobile-landscape:py-1
-              "
+              className="px-3 py-2 border border-gray-200 rounded-md text-gray-700"
               aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-menu"
             >
               <i
-                className={`
-                  fa ${mobileMenuOpen ? 'fa-times' : 'fa-bars'}
-                  portrait:text-sm mobile-landscape:text-sm
-                `}
+                className={`fa ${mobileMenuOpen ? 'fa-times' : 'fa-bars'}`}
               ></i>
             </button>
           </div>
 
           {/* Search - Desktop */}
-          <div
-            className="
-            hidden medium-sm:block medium-sm:flex-1 max-w-xl mx-4
-            portrait:max-w-lg
-            landscape:max-w-xl tablets-and-computers:max-w-2xl
-            large-xs:max-w-3xl
-          "
-          >
+          <div className="hidden md:block md:flex-1 max-w-xl mx-4">
             <Search setLoading={setAuthLoading} />
           </div>
 
           {/* User navigation - Desktop */}
-          <div
-            className="
-            hidden medium-sm:flex items-center space-x-3
-            portrait:space-x-2
-            landscape:space-x-3
-            large-xs:space-x-4
-          "
-          >
+          <div className="hidden md:flex items-center space-x-3">
             {user && <CartButton cartCount={cartCount} />}
 
             {!user ? (
               <Link
                 href="/login"
-                className="
-                  px-3 py-2 inline-block text-center text-gray-700 
-                  bg-white shadow-sm border border-gray-200 rounded-md 
-                  hover:bg-blue-50 hover:border-blue-200 transition-colors
-                  portrait:px-2 portrait:py-1 portrait:text-sm
-                  landscape:px-3 landscape:py-2
-                  large-xs:px-4
-                "
+                className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors"
                 data-testid="login"
               >
-                <i
-                  className="
-                  text-gray-400 w-5 fa fa-user
-                  portrait:w-4 mobile-landscape:w-4
-                "
-                ></i>
-                <span
-                  className="
-                  ml-1
-                  portrait:text-sm portrait:ml-0.5
-                  mobile-landscape:text-sm mobile-landscape:ml-0.5
-                "
-                >
-                  Connexion
-                </span>
+                <i className="text-gray-400 w-5 fa fa-user"></i>
+                <span className="ml-1">Connexion</span>
               </Link>
             ) : (
               <UserDropdown user={user} />
@@ -379,44 +283,21 @@ const Header = () => {
         {mobileMenuOpen && (
           <div
             id="mobile-menu"
-            className="
-              small-only:block medium-sm:hidden mt-4 border-t pt-4
-              portrait:mt-3 portrait:pt-3
-              mobile-landscape:mt-2 mobile-landscape:pt-2
-            "
+            className="md:hidden mt-4 border-t pt-4"
             role="dialog"
             aria-modal="true"
             aria-label="Menu principal"
           >
-            <div
-              className="
-              mb-4
-              portrait:mb-3 mobile-landscape:mb-2
-            "
-            >
+            <div className="mb-4">
               <Search setLoading={setAuthLoading} />
             </div>
             {user ? (
-              <div
-                className="
-                space-y-3
-                portrait:space-y-2 mobile-landscape:space-y-1
-              "
-              >
+              <div className="space-y-3">
                 <Link
                   href="/me"
-                  className="
-                    flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-blue-50
-                    portrait:space-x-1 portrait:px-1 portrait:py-1
-                    mobile-landscape:space-x-1 mobile-landscape:px-1 mobile-landscape:py-1
-                  "
+                  className="flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-blue-50"
                 >
-                  <div
-                    className="
-                    relative w-8 h-8 rounded-full overflow-hidden border border-gray-200
-                    portrait:w-6 portrait:h-6 mobile-landscape:w-6 mobile-landscape:h-6
-                  "
-                  >
+                  <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
                     <Image
                       alt={`Photo de profil de ${user?.name || 'utilisateur'}`}
                       src={
@@ -428,53 +309,29 @@ const Header = () => {
                     />
                   </div>
                   <div>
-                    <p
-                      className="
-                      text-sm font-medium text-gray-700
-                      portrait:text-xs mobile-landscape:text-xs
-                    "
-                    >
+                    <p className="text-sm font-medium text-gray-700">
                       {user?.name}
                     </p>
-                    <p
-                      className="
-                      text-xs text-gray-500 truncate max-w-[200px]
-                      portrait:text-xs portrait:max-w-[150px]
-                      mobile-landscape:text-xs mobile-landscape:max-w-[120px]
-                    "
-                    >
+                    <p className="text-xs text-gray-500 truncate max-w-[200px]">
                       {user?.email}
                     </p>
                   </div>
                 </Link>
                 <Link
                   href="/me/orders"
-                  className="
-                    block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md
-                    portrait:px-1 portrait:py-1 portrait:text-xs
-                    mobile-landscape:px-1 mobile-landscape:py-1 mobile-landscape:text-xs
-                  "
+                  className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
                 >
                   Mes commandes
                 </Link>
                 <Link
                   href="/me/contact"
-                  className="
-                    block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md
-                    portrait:px-1 portrait:py-1 portrait:text-xs
-                    mobile-landscape:px-1 mobile-landscape:py-1 mobile-landscape:text-xs
-                  "
+                  className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
                 >
                   Contactez le vendeur
                 </Link>
                 <button
                   onClick={handleSignOut}
-                  className="
-                    block cursor-pointer w-full text-left px-2 py-2 
-                    text-sm text-red-600 hover:bg-red-50 rounded-md
-                    portrait:px-1 portrait:py-1 portrait:text-xs
-                    mobile-landscape:px-1 mobile-landscape:py-1 mobile-landscape:text-xs
-                  "
+                  className="block cursor-pointer w-full text-left px-2 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
                 >
                   Déconnexion
                 </button>
@@ -482,12 +339,7 @@ const Header = () => {
             ) : (
               <Link
                 href="/login"
-                className="
-                  block w-full text-center px-4 py-2 
-                  bg-blue-600 text-white rounded-md hover:bg-blue-700
-                  portrait:px-3 portrait:py-1 portrait:text-sm
-                  mobile-landscape:px-3 mobile-landscape:py-1 mobile-landscape:text-sm
-                "
+                className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Connexion
               </Link>
