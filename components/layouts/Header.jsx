@@ -16,7 +16,6 @@ import * as Sentry from '@sentry/nextjs';
 import CartContext from '@/context/CartContext';
 import { signOut, useSession } from 'next-auth/react';
 import AuthContext from '@/context/AuthContext';
-// import { startTimer } from '@/monitoring/sentry';
 
 // Chargement dynamique optimisé du composant Search
 const Search = dynamic(() => import('./Search'), {
@@ -51,6 +50,7 @@ const UserDropdown = memo(({ user }) => {
     () => [
       { href: '/me', label: 'Mon profil' },
       { href: '/me/orders', label: 'Mes commandes' },
+      { href: '/me/contact', label: 'Contactez le vendeur' },
     ],
     [],
   );
@@ -324,6 +324,12 @@ const Header = () => {
                   className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
                 >
                   Mes commandes
+                </Link>
+                <Link
+                  href="/me/contact"
+                  className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
+                >
+                  Contactez le vendeur
                 </Link>
                 <button
                   onClick={handleSignOut}
