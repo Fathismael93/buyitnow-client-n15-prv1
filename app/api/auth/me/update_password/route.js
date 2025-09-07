@@ -29,18 +29,12 @@ export async function PUT(req) {
       );
     }
 
-    console.log('Current password: ', passwordData.currentPassword);
-    console.log('New password: ', passwordData.newPassword);
-    console.log('Confirm password: ', passwordData.confirmPassword);
-
     // Valider avec Yup
     const validation = await validatePasswordUpdate({
       currentPassword: passwordData.currentPassword,
       newPassword: passwordData.newPassword,
       confirmPassword: passwordData.confirmPassword,
     });
-
-    console.log('Validation result: ', validation);
 
     if (!validation.isValid) {
       return NextResponse.json(
