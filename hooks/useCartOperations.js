@@ -5,13 +5,8 @@ import CartContext from '@/context/CartContext';
 import { DECREASE, INCREASE } from '@/helpers/constants';
 
 const useCartOperations = () => {
-  const {
-    updateCart,
-    deleteItemFromCart,
-    setLoading,
-    saveOnCheckout,
-    cartTotal,
-  } = useContext(CartContext);
+  const { updateCart, deleteItemFromCart, saveOnCheckout, cartTotal } =
+    useContext(CartContext);
 
   const [deleteInProgress, setDeleteInProgress] = useState(false);
   const [itemBeingRemoved, setItemBeingRemoved] = useState(null);
@@ -19,7 +14,6 @@ const useCartOperations = () => {
   // Fonction optimisée pour augmenter la quantité
   const increaseQty = async (cartItem) => {
     try {
-      setLoading(true);
       await updateCart(cartItem, INCREASE);
     } catch (error) {
       console.error("Erreur lors de l'augmentation de la quantité:", error);
@@ -33,7 +27,6 @@ const useCartOperations = () => {
   // Fonction optimisée pour diminuer la quantité
   const decreaseQty = async (cartItem) => {
     try {
-      setLoading(true);
       await updateCart(cartItem, DECREASE);
     } catch (error) {
       console.error('Erreur lors de la diminution de la quantité:', error);
