@@ -147,12 +147,20 @@ const Header = () => {
     }
   }, [setCartToState]);
 
-  // Effet pour charger les données utilisateur et panier
+  // Dans le useEffect qui charge les données
   useEffect(() => {
     if (data) {
       try {
         setUser(data?.user);
-        loadCart();
+
+        // Si c'est une nouvelle connexion, attendre un peu avant de charger le panier
+        if (data?.isNewLogin) {
+          setTimeout(() => {
+            loadCart();
+          }, 500); // Délai de 500ms pour laisser le cookie se propager
+        } else {
+          loadCart();
+        }
       } catch (error) {
         Sentry.captureException(error, {
           tags: {

@@ -94,8 +94,8 @@ const authOptions = {
   ],
 
   callbacks: {
-    // Callback JWT - Ajouter les données utilisateur au token
-    jwt: async ({ token, user }) => {
+    // Modifier le callback JWT pour ajouter un timestamp
+    jwt: async ({ token, user, trigger }) => {
       if (user) {
         token.user = {
           _id: user._id,
@@ -106,16 +106,47 @@ const authOptions = {
           avatar: user.avatar,
           verified: user.verified,
         };
+        // Ajouter un timestamp pour tracker les nouvelles connexions
+        token.isNewLogin = true;
+        token.loginTime = Date.now();
       }
+
+      // Marquer que ce n'est plus une nouvelle connexion après 5 secondes
+      if (token.loginTime && Date.now() - token.loginTime > 5000) {
+        token.isNewLogin = false;
+      }
+
       return token;
     },
 
-    // Callback Session - Ajouter les données utilisateur à la session
+    // Modifier le callback session
     session: async ({ session, token }) => {
       if (token?.user) {
         session.user = token.user;
+        session.isNewLogin = token.isNewLogin || false;
       }
       return session;
+    },
+
+    // Ajouter un callback redirect
+    redirect: async ({ url, baseUrl }) => {
+      // S'assurer que les redirections restent sur le même domaine
+      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      else if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
+    },
+  },
+
+  // Ajouter des options de cookies explicites
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
     },
   },
 
