@@ -140,12 +140,20 @@ const authOptions = {
   // Ajouter des options de cookies explicites
   cookies: {
     sessionToken: {
-      name: `next-auth.session-token`,
+      name:
+        process.env.NODE_ENV === 'production'
+          ? `__Secure-next-auth.session-token`
+          : `next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
+        // Ajout important : domaine explicite
+        domain:
+          process.env.NODE_ENV === 'production'
+            ? '.testing-apps.me'
+            : undefined,
       },
     },
   },
@@ -167,6 +175,8 @@ const authOptions = {
 
   // Debug seulement en développement
   debug: process.env.NODE_ENV === 'development',
+  // Ajoutez aussi ceci
+  useSecureCookies: process.env.NODE_ENV === 'production',
 };
 
 // Créer le handler NextAuth
