@@ -176,25 +176,40 @@ const Header = () => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       const mobileMenu = document.getElementById('mobile-menu');
-      if (mobileMenu && !mobileMenu.contains(event.target) && mobileMenuOpen) {
+      const menuButton = event.target.closest(
+        'button[aria-controls="mobile-menu"]',
+      );
+
+      // Ne fermer que si on clique en dehors ET que ce n'est pas le bouton hamburger
+      if (
+        mobileMenu &&
+        !mobileMenu.contains(event.target) &&
+        !menuButton &&
+        mobileMenuOpen
+      ) {
         setMobileMenuOpen(false);
       }
     };
 
-    // Ajouter la gestion des touches clavier pour l'accessibilité
     const handleEscape = (event) => {
       if (event.key === 'Escape' && mobileMenuOpen) {
         setMobileMenuOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
+    // Ajouter un petit délai pour éviter la fermeture immédiate
+    if (mobileMenuOpen) {
+      const timer = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+      }, 100);
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('keydown', handleEscape);
+      };
+    }
   }, [mobileMenuOpen]);
 
   const handleSignOut = async () => {
@@ -214,6 +229,11 @@ const Header = () => {
       console.error('Erreur lors de la déconnexion:', error);
       window.location.href = '/login';
     }
+  };
+
+  // Fonction helper à ajouter dans le composant Header :
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
   };
 
   return (
@@ -251,7 +271,10 @@ const Header = () => {
               </Link>
             )}
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={(e) => {
+                e.stopPropagation(); // Empêche la propagation vers le listener "click outside"
+                setMobileMenuOpen(!mobileMenuOpen);
+              }}
               className="px-3 py-2 border border-gray-200 rounded-md text-gray-700"
               aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
               aria-expanded={mobileMenuOpen}
@@ -303,6 +326,7 @@ const Header = () => {
               <div className="space-y-3">
                 <Link
                   href="/me"
+                  onClick={closeMobileMenu} // Ajouter cette ligne
                   className="flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-blue-50"
                 >
                   <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
@@ -327,18 +351,23 @@ const Header = () => {
                 </Link>
                 <Link
                   href="/me/orders"
+                  onClick={closeMobileMenu} // Ajouter cette ligne
                   className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
                 >
                   Mes commandes
                 </Link>
                 <Link
                   href="/me/contact"
+                  onClick={closeMobileMenu} // Ajouter cette ligne
                   className="block px-2 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-md"
                 >
                   Contactez le vendeur
                 </Link>
                 <button
-                  onClick={handleSignOut}
+                  onClick={async () => {
+                    closeMobileMenu(); // Fermer le menu d'abord
+                    await handleSignOut(); // Puis déconnecter
+                  }}
                   className="block cursor-pointer w-full text-left px-2 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
                 >
                   Déconnexion
@@ -347,6 +376,7 @@ const Header = () => {
             ) : (
               <Link
                 href="/login"
+                onClick={closeMobileMenu} // Ajouter cette ligne
                 className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Connexion
