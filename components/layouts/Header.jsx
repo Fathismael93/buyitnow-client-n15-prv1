@@ -127,6 +127,9 @@ const Header = () => {
   const [isLoadingCart, setIsLoadingCart] = useState(false);
   const { data } = useSession();
 
+  console.log('Session data in Header:', data);
+  console.log('User from AuthContext in Header:', user);
+
   // Fonction sécurisée pour charger le panier
   const loadCart = useCallback(async () => {
     // const endTimer = startTimer('header.load_cart');
