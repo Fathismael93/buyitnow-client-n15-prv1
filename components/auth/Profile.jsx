@@ -59,26 +59,43 @@ const Profile = ({ addresses = [] }) => {
 
   return (
     <section className="profile-container">
-      <figure className="flex items-start sm:items-center">
-        <div className="relative mr-3 rounded-full overflow-hidden w-10 h-10">
-          <Image
-            className="rounded-full object-cover"
-            src={userData.avatarUrl}
-            alt={`${userData.name}'s profile picture`}
-            width={40}
-            height={40}
-            priority
-            onError={() => setImageError(true)}
-          />
+      <figure className="flex items-start sm:items-center justify-between w-full">
+        {/* Avatar à gauche - zone fixe */}
+        <div className="flex-shrink-0">
+          <div className="relative rounded-full overflow-hidden w-16 h-16">
+            <Image
+              className="rounded-full object-cover"
+              src={userData.avatarUrl}
+              alt={`${userData.name}'s profile picture`}
+              width={64}
+              height={64}
+              priority
+              onError={() => setImageError(true)}
+            />
+          </div>
         </div>
-        <figcaption className="text-xs md:text-sm">
-          <p className="break-words max-w-md">
-            <span className="font-semibold">Email: </span>
-            <span className="text-gray-700">{userData.email}</span> |
-            <span className="font-semibold"> Mobile: </span>
-            <span className="text-gray-700">{userData.phone}</span>
-          </p>
-        </figcaption>
+
+        {/* Informations au centre - zone flexible */}
+        <div className="flex-1 px-4">
+          <figcaption className="text-xs md:text-sm text-center">
+            <p className="break-words">
+              <span className="font-semibold">Email: </span>
+              <span className="text-gray-700">{userData.email}</span> |
+              <span className="font-semibold"> Mobile: </span>
+              <span className="text-gray-700">{userData.phone}</span>
+            </p>
+          </figcaption>
+        </div>
+
+        {/* Menu 3 dots à droite - zone fixe */}
+        <div className="flex-shrink-0">
+          <button
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="Plus d'options"
+          >
+            <i className="fa fa-ellipsis-v" aria-hidden="true"></i>
+          </button>
+        </div>
       </figure>
 
       <hr className="my-4 border-gray-200" />

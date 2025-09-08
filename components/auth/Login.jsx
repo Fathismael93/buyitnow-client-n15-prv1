@@ -106,7 +106,6 @@ const Login = ({ csrfToken }) => {
         }
       } else if (data?.ok) {
         // Connexion réussie
-        console.log('data after signIn:', data);
         toast.success('Connexion réussie!');
         router.push('/');
       }
