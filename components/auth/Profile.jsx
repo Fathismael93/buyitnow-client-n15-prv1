@@ -36,11 +36,53 @@ const Profile = ({ addresses = [] }) => {
   const { user } = useContext(AuthContext);
   const [isClient, setIsClient] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Ensure component is only rendered client-side to prevent hydration errors
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Gestion de la fermeture du modal en cliquant en dehors
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Si le modal est ouvert et qu'on clique en dehors du bouton et du modal
+      if (
+        isModalOpen &&
+        !event.target.closest('.actions-modal') &&
+        !event.target.closest('.dots-button')
+      ) {
+        setIsModalOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape' && isModalOpen) {
+        setIsModalOpen(false);
+      }
+    };
+
+    if (isModalOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isModalOpen]);
+
+  // Fonction pour toggle le modal
+  const toggleModal = (e) => {
+    e.stopPropagation();
+    setIsModalOpen(!isModalOpen);
+  };
+
+  // Fonction pour fermer le modal quand on clique sur un lien
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
 
   // Prevent rendering if user data is not available
   if (!isClient || !user) {
@@ -87,14 +129,68 @@ const Profile = ({ addresses = [] }) => {
           </figcaption>
         </div>
 
-        {/* Menu 3 dots à droite - zone fixe */}
-        <div className="flex-shrink-0">
+        {/* Menu 3 dots à droite - zone fixe avec modal */}
+        <div className="flex-shrink-0 relative">
           <button
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+            onClick={toggleModal}
+            className="dots-button p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
             aria-label="Plus d'options"
+            aria-expanded={isModalOpen}
+            aria-haspopup="true"
           >
             <i className="fa fa-ellipsis-v" aria-hidden="true"></i>
           </button>
+
+          {/* Modal dropdown */}
+          {isModalOpen && (
+            <div
+              className="actions-modal absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
+              role="menu"
+              aria-orientation="vertical"
+            >
+              {/* Flèche pointant vers le bouton */}
+              <div className="absolute -top-2 right-3 w-4 h-4 bg-white border-l border-t border-gray-200 transform rotate-45"></div>
+
+              <Link
+                href="/address/new"
+                onClick={closeModal}
+                className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors"
+                role="menuitem"
+              >
+                <i
+                  className="fa fa-plus mr-3 text-green-600"
+                  aria-hidden="true"
+                ></i>
+                <span>Add Address</span>
+              </Link>
+
+              <Link
+                href="/me/update"
+                onClick={closeModal}
+                className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-800 transition-colors"
+                role="menuitem"
+              >
+                <i
+                  className="fa fa-pencil mr-3 text-orange-600"
+                  aria-hidden="true"
+                ></i>
+                <span>Update Profile</span>
+              </Link>
+
+              <Link
+                href="/me/update_password"
+                onClick={closeModal}
+                className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-800 transition-colors"
+                role="menuitem"
+              >
+                <i
+                  className="fa fa-lock mr-3 text-blue-600"
+                  aria-hidden="true"
+                ></i>
+                <span>Change Password</span>
+              </Link>
+            </div>
+          )}
         </div>
       </figure>
 
@@ -114,34 +210,6 @@ const Profile = ({ addresses = [] }) => {
           </Link>
         </div>
       )}
-
-      <hr className="my-4 border-gray-200" />
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Link
-          href="/address/new"
-          className="px-4 py-2 flex items-center text-sm bg-green-50 text-green-800 font-medium rounded-md hover:bg-green-100 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-        >
-          <i className="fa fa-plus mr-2" aria-hidden="true"></i>
-          Add Address
-        </Link>
-
-        <Link
-          href="/me/update"
-          className="px-4 py-2 flex items-center text-sm bg-orange-50 text-orange-800 font-medium rounded-md hover:bg-orange-100 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-        >
-          <i className="fa fa-pencil mr-2" aria-hidden="true"></i>
-          Update Profile
-        </Link>
-
-        <Link
-          href="/me/update_password"
-          className="px-4 py-2 flex items-center text-sm bg-blue-50 text-blue-800 font-medium rounded-md hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          <i className="fa fa-lock mr-2" aria-hidden="true"></i>
-          Change Password
-        </Link>
-      </div>
     </section>
   );
 };
