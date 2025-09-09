@@ -539,7 +539,7 @@ const Payment = () => {
                     onClick={handlePayment}
                     disabled={isSubmitting /*|| !isFormValid*/}
                     className={`flex-1 px-5 py-2 text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                      isSubmitting && isFormValid
+                      isSubmitting
                         ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
                         : 'bg-gray-400 cursor-not-allowed'
                     }`}
