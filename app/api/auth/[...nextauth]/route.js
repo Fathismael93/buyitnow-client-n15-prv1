@@ -46,6 +46,8 @@ const authOptions = {
             email: email, // Déjà en lowercase grâce à Yup
           }).select('+password');
 
+          console.log('User found:', user ? user.email : 'No user found');
+
           if (!user) {
             console.log('Login failed: User not found');
             throw new Error('Invalid email or password');
@@ -56,6 +58,8 @@ const authOptions = {
             password,
             user.password,
           );
+
+          console.log('Password validation result:', isPasswordValid);
 
           if (!isPasswordValid) {
             console.log('Login failed: Invalid password');
