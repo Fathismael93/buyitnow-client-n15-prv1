@@ -35,9 +35,7 @@ export async function GET(req) {
     // Récupérer les paramètres de pagination
     const searchParams = req.nextUrl.searchParams;
     const page = parseInt(req.nextUrl.searchParams.get('page') || '1', 10);
-    const resPerPage = 10; // 10 commandes par page
-
-    console.log('Pagination params:', { page, resPerPage });
+    const resPerPage = 2; // 10 commandes par page
 
     // Compter le total de commandes
     const ordersCount = await Order.countDocuments({ user: user._id });
