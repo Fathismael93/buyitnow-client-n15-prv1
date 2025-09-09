@@ -20,6 +20,7 @@ import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
 import { isArrayEmpty, formatPrice, safeValue } from '@/helpers/helpers';
 import PaymentPageSkeleton from '../skeletons/PaymentPageSkeleton';
+import { validateDjiboutiPayment } from '@/helpers/validation';
 
 // Chargement dynamique des composants
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
@@ -155,66 +156,6 @@ const Payment = () => {
     }
   }, [shippingInfo, paymentTypes, dataInitialized]);
 
-  // Validation du formulaire à chaque changement
-  // useEffect(() => {
-  //   const validateForm = async () => {
-  //     try {
-  //       // Ne pas valider si des champs requis sont vides
-  //       if (!paymentType || !accountName || !accountNumber) {
-  //         setIsFormValid(false);
-  //         return;
-  //       }
-
-  //       const validationResult = await validatePaymentDetails(
-  //         {
-  //           paymentType,
-  //           accountName,
-  //           accountNumber,
-  //         },
-  //         paymentTypes, // Passer les types de paiement disponibles pour une validation contextuelle
-  //       );
-
-  //       if (validationResult.isValid) {
-  //         setErrors({});
-  //         setIsFormValid(true);
-
-  //         // Afficher un avertissement si détecté
-  //         if (
-  //           validationResult.warnings &&
-  //           validationResult.warnings.includes('pattern_warning')
-  //         ) {
-  //           console.warn(
-  //             'Avertissement de validation:',
-  //             validationResult.message,
-  //           );
-  //         }
-  //       } else {
-  //         setErrors(validationResult.errors || {});
-  //         setIsFormValid(false);
-  //       }
-  //     } catch (validationError) {
-  //       // Fallback en cas d'erreur lors de l'import dynamique
-  //       console.error(
-  //         'Erreur lors de la validation du formulaire:',
-  //         validationError,
-  //       );
-
-  //       // Capture l'exception pour le monitoring
-  //       captureException(validationError, {
-  //         tags: { component: 'Payment', action: 'validateForm' },
-  //       });
-
-  //       setErrors({
-  //         general:
-  //           'Une erreur est survenue lors de la validation du formulaire',
-  //       });
-  //       setIsFormValid(false);
-  //     }
-  //   };
-
-  //   validateForm();
-  // }, [paymentType, accountName, accountNumber, paymentTypes]);
-
   // Handle auth context updates
   useEffect(() => {
     if (error) {
@@ -243,6 +184,15 @@ const Payment = () => {
     setAccountNumber(rawValue); // Stocke la valeur sans espaces pour le traitement
   }, []);
 
+  // 2. Créer une fonction d'adaptation pour mapper tes champs vers le schéma existant
+  const mapToPaymentSchema = (paymentType, accountName, accountNumber) => {
+    return {
+      paymentPlatform: paymentType?.toLowerCase().replace(/[\s-]/g, '-'), // Adapter le nom
+      accountHolderName: accountName,
+      phoneNumber: accountNumber, // En assumant que le numéro de compte est un téléphone
+    };
+  };
+
   // Handler pour la soumission du paiement
   const handlePayment = useCallback(async () => {
     // Empêcher les soumissions multiples rapides
@@ -259,44 +209,74 @@ const Payment = () => {
     try {
       setIsSubmitting(true);
 
-      // Vérification finale du formulaire avec la nouvelle fonction de validation
-      // if (!isFormValid) {
-      //   const missingFields = [];
-      //   if (!paymentType) missingFields.push('type de paiement');
-      //   if (!accountName) missingFields.push('nom du compte');
-      //   if (!accountNumber) missingFields.push('numéro de compte');
+      // Vérifications basiques
+      if (!paymentType || !accountName || !accountNumber) {
+        const missingFields = [];
+        if (!paymentType) missingFields.push('type de paiement');
+        if (!accountName) missingFields.push('nom du compte');
+        if (!accountNumber) missingFields.push('numéro de compte');
 
-      //   toast.error(
-      //     `Veuillez compléter tous les champs requis : ${missingFields.join(', ')}`,
-      //     {
-      //       position: 'bottom-right',
-      //     },
-      //   );
-      //   setIsSubmitting(false);
-      //   submitAttempts.current = 0;
-      //   return;
-      // }
+        toast.error(
+          `Veuillez compléter tous les champs requis : ${missingFields.join(', ')}`,
+          { position: 'bottom-right' },
+        );
+        setIsSubmitting(false);
+        submitAttempts.current = 0;
+        return;
+      }
 
-      // const validationResult = await validatePaymentDetails(
-      //   {
-      //     paymentType,
-      //     accountName,
-      //     accountNumber,
-      //   },
-      //   paymentTypes,
-      // );
+      // Validation avec le schéma existant (si c'est un paiement djiboutien)
+      if (accountNumber.match(/^77[0-9]{6}$/)) {
+        const paymentData = mapToPaymentSchema(
+          paymentType,
+          accountName,
+          accountNumber,
+        );
 
-      // if (!validationResult.isValid) {
-      //   // Afficher les erreurs de validation
-      //   const errorMessages = Object.values(validationResult.errors);
-      //   errorMessages.forEach((msg) => {
-      //     toast.error(msg, { position: 'bottom-right' });
-      //   });
+        const validationResult = await validateDjiboutiPayment(paymentData);
 
-      //   setIsSubmitting(false);
-      //   submitAttempts.current = 0;
-      //   return;
-      // }
+        if (!validationResult.isValid) {
+          // Afficher les erreurs de validation
+          const errorMessages = Object.values(validationResult.errors);
+          errorMessages.forEach((msg) => {
+            toast.error(msg, { position: 'bottom-right' });
+          });
+
+          setIsSubmitting(false);
+          submitAttempts.current = 0;
+          return;
+        }
+      } else {
+        // Validation basique pour les autres types de comptes
+        if (accountName.trim().length < 3) {
+          toast.error('Le nom du compte doit contenir au moins 3 caractères', {
+            position: 'bottom-right',
+          });
+          setIsSubmitting(false);
+          submitAttempts.current = 0;
+          return;
+        }
+
+        if (accountNumber.length < 4) {
+          toast.error('Le numéro de compte doit contenir au moins 4 chiffres', {
+            position: 'bottom-right',
+          });
+          setIsSubmitting(false);
+          submitAttempts.current = 0;
+          return;
+        }
+
+        // Vérifier que le nom contient au moins 2 mots
+        const words = accountName.trim().split(/\s+/);
+        if (words.length < 2) {
+          toast.error('Veuillez saisir votre prénom et nom complets', {
+            position: 'bottom-right',
+          });
+          setIsSubmitting(false);
+          submitAttempts.current = 0;
+          return;
+        }
+      }
 
       // Création des informations de paiement
       const paymentInfo = {
@@ -354,13 +334,15 @@ const Payment = () => {
       submitAttempts.current = 0;
     }
   }, [
-    // isFormValid,
     paymentType,
     accountName,
     accountNumber,
     shippingStatus,
     totalAmount,
-    paymentTypes,
+    orderInfo,
+    checkoutInfo,
+    deliveryPrice,
+    addOrder,
   ]);
 
   // Rendu conditionnel pour le cas de chargement
@@ -557,10 +539,9 @@ const Payment = () => {
                     onClick={handlePayment}
                     disabled={isSubmitting /*|| !isFormValid*/}
                     className={`flex-1 px-5 py-2 text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                      isSubmitting && 'bg-gray-400 cursor-wait'
-                      // : isFormValid
-                      //   ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                      //   : 'bg-gray-400 cursor-not-allowed'
+                      isSubmitting && isFormValid
+                        ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                        : 'bg-gray-400 cursor-not-allowed'
                     }`}
                     aria-live="polite"
                   >
