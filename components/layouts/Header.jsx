@@ -149,6 +149,7 @@ const Header = () => {
 
   // Dans le useEffect qui charge les données
   useEffect(() => {
+    console.log('Header: useEffect - data changed', data);
     if (data) {
       try {
         setUser(data?.user);

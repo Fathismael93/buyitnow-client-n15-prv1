@@ -38,18 +38,6 @@ const Login = ({ csrfToken }) => {
     };
   }, [navigator]);
 
-  // Validation à la volée des champs individuels
-  // const validateField = async (name, value) => {
-  //   try {
-  //     await loginSchema.validateAt(name, { [name]: value });
-  //     setErrors((prev) => ({ ...prev, [name]: undefined }));
-  //     return true;
-  //   } catch (error) {
-  //     setErrors((prev) => ({ ...prev, [name]: error.message }));
-  //     return false;
-  //   }
-  // };
-
   // Gestionnaire de soumission du formulaire
   const submitHandler = async (e) => {
     e.preventDefault();
@@ -105,6 +93,7 @@ const Login = ({ csrfToken }) => {
           toast.error(data.error || 'Échec de connexion');
         }
       } else if (data?.ok) {
+        console.log('Login successful:', data);
         // Connexion réussie
         toast.success('Connexion réussie!');
         router.push('/');
