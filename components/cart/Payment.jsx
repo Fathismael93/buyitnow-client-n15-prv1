@@ -537,11 +537,11 @@ const Payment = () => {
                   <button
                     type="button"
                     onClick={handlePayment}
-                    disabled={!isSubmitting}
+                    disabled={isSubmitting}
                     className={`flex-1 px-5 py-2 text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                      !isSubmitting
-                        ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                        : 'bg-gray-400 cursor-not-allowed'
+                      isSubmitting
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
                     }`}
                     aria-live="polite"
                   >
