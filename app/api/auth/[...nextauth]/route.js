@@ -21,7 +21,6 @@ const authOptions = {
 
       async authorize(credentials) {
         try {
-          console.log('Attempting to authorize user:', credentials);
           // 1. Validation Yup des données d'entrée
           const validation = await validateLogin({
             email: credentials?.email || '',
@@ -46,8 +45,6 @@ const authOptions = {
             email: email, // Déjà en lowercase grâce à Yup
           }).select('+password');
 
-          console.log('User found:', user ? user.email : 'No user found');
-
           if (!user) {
             console.log('Login failed: User not found');
             throw new Error('Invalid email or password');
@@ -58,8 +55,6 @@ const authOptions = {
             password,
             user.password,
           );
-
-          console.log('Password validation result:', isPasswordValid);
 
           if (!isPasswordValid) {
             console.log('Login failed: Invalid password');
