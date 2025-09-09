@@ -14,7 +14,9 @@ const ServiceWorkerManager = dynamic(
 );
 
 // Création d'une constante réutilisable
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://testing-apps.me';
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  'https://buyitnow-client-n15-prv1.vercel.app/';
 
 // Métadonnées globales pour le site
 export const metadata = {
