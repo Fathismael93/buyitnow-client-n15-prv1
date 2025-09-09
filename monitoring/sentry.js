@@ -1,104 +1,10 @@
-// monitoring/sentry.js
+// monitoring/sentry.js - VERSION REFACTORISÉE
 import * as Sentry from '@sentry/nextjs';
 
 /**
- * Initialise et configure Sentry pour la surveillance des erreurs
- * Cette fonction est appelée depuis _app.js
+ * NE PAS initialiser Sentry ici !
+ * L'initialisation se fait dans instrumentation.js / sentry.server.config.js
  */
-export const initSentry = () => {
-  if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-    Sentry.init({
-      dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-      environment: process.env.NODE_ENV,
-      enabled: process.env.NODE_ENV === 'production',
-
-      // Configurer les erreurs ignorées
-      ignoreErrors: [
-        // Erreurs réseau communes
-        'Network request failed',
-        'Failed to fetch',
-        'NetworkError',
-        'AbortError',
-        'TypeError: Failed to fetch',
-
-        // Erreurs de rendu React
-        'ResizeObserver loop limit exceeded',
-        'ResizeObserver loop completed with undelivered notifications',
-
-        // Erreurs de navigation
-        'Cancel rendering route',
-        'The operation was aborted',
-        'Navigating to current location',
-
-        // Erreurs de CSP
-        'Content Security Policy',
-        'violated directive',
-
-        // Extensions de navigateur
-        'chrome-extension',
-        'safari-extension',
-      ],
-
-      // Ne pas suivre les erreurs pour certaines URL
-      denyUrls: [
-        // Ressources externes
-        /^chrome:\/\//i,
-        /^chrome-extension:\/\//i,
-        /^moz-extension:\/\//i,
-        /^safari-extension:\/\//i,
-
-        // Ressources tierces
-        /googletagmanager\.com/i,
-        /analytics\.google\.com/i,
-      ],
-
-      // Configurer le traitement des breadcrumbs
-      beforeBreadcrumb(breadcrumb) {
-        // Filtrer certains types d'événements de breadcrumb
-        if (breadcrumb.category === 'xhr' || breadcrumb.category === 'fetch') {
-          // Masquer les URLs sensibles
-          if (
-            breadcrumb.data?.url?.includes('/auth') ||
-            breadcrumb.data?.url?.includes('/login') ||
-            breadcrumb.data?.url?.includes('/cart')
-          ) {
-            breadcrumb.data.url = '[Filtered URL]';
-          }
-        }
-        return breadcrumb;
-      },
-
-      // Configurer le traitement des événements avant l'envoi
-      beforeSend(event) {
-        // Ne pas envoyer d'événements pour les pages d'authentification
-        if (
-          event.request?.url?.includes('/auth') ||
-          event.request?.url?.includes('/login') ||
-          event.request?.url?.includes('/register')
-        ) {
-          return null;
-        }
-
-        // Anonymiser les informations utilisateur
-        if (event.user) {
-          if (event.user.email) event.user.email = '[Filtered]';
-          if (event.user.ip_address) event.user.ip_address = '[Filtered]';
-        }
-
-        // Anonymiser les données sensibles dans les URL
-        if (event.request?.url) {
-          const url = new URL(event.request.url);
-          if (url.searchParams.has('token')) {
-            url.searchParams.set('token', '[Filtered]');
-            event.request.url = url.toString();
-          }
-        }
-
-        return event;
-      },
-    });
-  }
-};
 
 /**
  * Capture une exception avec des informations contextuelles supplémentaires
@@ -106,6 +12,12 @@ export const initSentry = () => {
  * @param {Object} context - Contexte supplémentaire sur l'erreur
  */
 export const captureException = (error, context = {}) => {
+  // Vérifier que Sentry est initialisé
+  if (!Sentry.getCurrentScope()) {
+    console.error('Sentry not initialized:', error);
+    return;
+  }
+
   Sentry.withScope((scope) => {
     // Ajouter des tags pour faciliter le filtrage dans Sentry
     Object.entries(context.tags || {}).forEach(([key, value]) => {
@@ -133,6 +45,12 @@ export const captureException = (error, context = {}) => {
  * @param {Object} context - Contexte supplémentaire sur le message
  */
 export const captureMessage = (message, context = {}) => {
+  // Vérifier que Sentry est initialisé
+  if (!Sentry.getCurrentScope()) {
+    console.warn('Sentry not initialized:', message);
+    return;
+  }
+
   Sentry.withScope((scope) => {
     // Ajouter des tags pour faciliter le filtrage dans Sentry
     Object.entries(context.tags || {}).forEach(([key, value]) => {
@@ -159,6 +77,10 @@ export const captureMessage = (message, context = {}) => {
  * @param {Object} user - Informations de l'utilisateur à enregistrer
  */
 export const setUser = (user) => {
+  if (!Sentry.getCurrentScope()) {
+    return;
+  }
+
   if (!user) {
     Sentry.setUser(null);
     return;
@@ -188,8 +110,8 @@ function hashCode(str) {
   return Math.abs(hash).toString(16);
 }
 
+// Export par défaut pour compatibilité
 export default {
-  initSentry,
   captureException,
   captureMessage,
   setUser,
