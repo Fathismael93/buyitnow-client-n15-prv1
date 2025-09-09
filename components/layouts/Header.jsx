@@ -170,6 +170,10 @@ const Header = () => {
           },
         });
       }
+    } else if (data === null) {
+      // Session NextAuth indique pas d'utilisateur connecté
+      console.log('No user in NextAuth session, clearing AuthContext');
+      setUser(null);
     }
   }, [data, setUser, loadCart]);
 
