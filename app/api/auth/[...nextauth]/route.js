@@ -21,6 +21,7 @@ const authOptions = {
 
       async authorize(credentials) {
         try {
+          console.log('Attempting to authorize user:', credentials);
           // 1. Validation Yup des données d'entrée
           const validation = await validateLogin({
             email: credentials?.email || '',
