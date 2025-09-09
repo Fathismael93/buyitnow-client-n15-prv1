@@ -19,6 +19,7 @@ import { captureException } from '@/monitoring/sentry';
 import CartContext from '@/context/CartContext';
 import OrderContext from '@/context/OrderContext';
 import { isArrayEmpty, formatPrice, safeValue } from '@/helpers/helpers';
+import { validateAddressSelection } from '@/helpers/validation';
 
 // Chargement dynamique des composants
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
@@ -159,44 +160,49 @@ const Shipping = ({ initialData }) => {
     }
   }, [shippingInfo, dataInitialized]);
 
-  // Gérer la sélection d'adresse avec validation
+  // 2. Remplacer la fonction handleAddressSelection par ceci :
   const handleAddressSelection = useCallback(
     async (addressId) => {
       try {
-        // Valider la sélection d'adresse
-        // const { isValid, error } = await validateShippingAddressSelection(
-        //   addressId,
-        //   addressList,
-        // );
-        // if (isValid) {
-        //   setSelectedAddress(addressId);
-        //   setShippinInfo(addressId);
-        //   // Feedback positif (optionnel)
-        //   toast.success('Adresse de livraison sélectionnée', {
-        //     position: 'bottom-right',
-        //     autoClose: 2000,
-        //   });
-        // } else {
-        //   // Afficher l'erreur de validation
-        //   toast.error(error || 'Adresse de livraison invalide', {
-        //     position: 'bottom-right',
-        //   });
-        //   // Ne pas mettre à jour la sélection
-        //   console.warn("Sélection d'adresse non valide:", error);
-        // }
+        // Utiliser la validation existante
+        const { isValid, errors } = await validateAddressSelection({
+          selectedAddressId: addressId,
+        });
+
+        if (isValid) {
+          setSelectedAddress(addressId);
+          setShippinInfo(addressId);
+
+          // Feedback positif optionnel
+          toast.success('Adresse de livraison sélectionnée', {
+            position: 'bottom-right',
+            autoClose: 2000,
+          });
+        } else {
+          // Afficher l'erreur de validation
+          const errorMessage =
+            errors.selectedAddressId || 'Adresse de livraison invalide';
+          toast.error(errorMessage, {
+            position: 'bottom-right',
+          });
+          console.warn("Sélection d'adresse non valide:", errors);
+        }
       } catch (error) {
         console.error("Erreur lors de la validation d'adresse:", error);
         captureException(error, {
           tags: { component: 'Shipping', action: 'handleAddressSelection' },
         });
 
-        // Comportement dégradé: accepter la sélection même en cas d'erreur de validation
-        // pour ne pas bloquer l'utilisateur, mais logger l'erreur
+        // Comportement dégradé: accepter la sélection même en cas d'erreur
         setSelectedAddress(addressId);
         setShippinInfo(addressId);
+
+        toast.error('Erreur de validation, mais adresse sélectionnée', {
+          position: 'bottom-right',
+        });
       }
     },
-    [addressList],
+    [setShippinInfo],
   );
 
   // Gérer le passage au paiement
