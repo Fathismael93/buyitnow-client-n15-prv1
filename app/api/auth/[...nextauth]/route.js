@@ -155,10 +155,10 @@ const authOptions = {
         path: '/',
         secure: process.env.NODE_ENV === 'production',
         // Ajout important : domaine explicite
-        domain:
-          process.env.NODE_ENV === 'production'
-            ? 'https://buyitnow-client-n15-prv1.vercel.app'
-            : undefined,
+        // domain:
+        //   process.env.NODE_ENV === 'production'
+        //     ? 'https://buyitnow-client-n15-prv1.vercel.app'
+        //     : undefined,
       },
     },
   },
