@@ -151,9 +151,7 @@ const authOptions = {
         secure: process.env.NODE_ENV === 'production',
         // Ajout important : domaine explicite
         domain:
-          process.env.NODE_ENV === 'production'
-            ? '.testing-apps.me'
-            : undefined,
+          process.env.NODE_ENV === 'production' ? '.vercel.app' : undefined,
       },
     },
   },
