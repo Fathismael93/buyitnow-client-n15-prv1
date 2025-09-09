@@ -152,7 +152,7 @@ const authOptions = {
         // Ajout important : domaine explicite
         domain:
           process.env.NODE_ENV === 'production'
-            ? 'https://buyitnow-client-n15-prv1.vercel.app/'
+            ? 'https://buyitnow-client-n15-prv1.vercel.app'
             : undefined,
       },
     },
