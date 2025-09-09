@@ -1,6 +1,5 @@
 import dynamic from 'next/dynamic';
 
-import { getProductDetails } from '@/backend/utils/server-only-methods';
 import { Suspense } from 'react';
 import { captureException } from '@/monitoring/sentry';
 import { notFound } from 'next/navigation';
@@ -13,6 +12,113 @@ const ProductDetails = dynamic(
     ssr: true,
   },
 );
+
+/**
+ * Récupère les détails d'un produit par son ID
+ * Version simplifiée et optimisée pour ~500 visiteurs/jour
+ *
+ * @param {string} id - L'ID MongoDB du produit
+ * @returns {Promise<Object>} Détails du produit ou erreur
+ */
+const getProductDetails = async (id) => {
+  try {
+    // 1. Validation simple de l'ID MongoDB (24 caractères hexadécimaux)
+    if (!id || typeof id !== 'string' || !/^[0-9a-fA-F]{24}$/.test(id)) {
+      console.error('Invalid product ID format:', id);
+      return {
+        success: false,
+        message: "Format d'identifiant de produit invalide",
+        notFound: true,
+      };
+    }
+
+    // 2. Construire l'URL de l'API
+    const apiUrl = `${process.env.API_URL || ''}/api/products/${id}`;
+
+    console.log('Fetching product details from:', apiUrl); // Log pour debug
+
+    // 3. Faire l'appel API avec timeout raisonnable (5 secondes)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch(apiUrl, {
+      signal: controller.signal,
+      next: {
+        revalidate: 600, // Cache Next.js de 10 minutes pour un produit spécifique
+        tags: ['product', `product-${id}`],
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    // 4. Vérifier le statut HTTP
+    if (!res.ok) {
+      // Gestion simple des erreurs principales
+      if (res.status === 400) {
+        return {
+          success: false,
+          message: "Format d'identifiant invalide",
+          notFound: true,
+        };
+      }
+
+      if (res.status === 404) {
+        return {
+          success: false,
+          message: 'Produit non trouvé',
+          notFound: true,
+        };
+      }
+
+      // Erreur serveur générique
+      console.error(`API Error: ${res.status} - ${res.statusText}`);
+      return {
+        success: false,
+        message: 'Erreur lors de la récupération du produit',
+        notFound: false,
+      };
+    }
+
+    // 5. Parser la réponse JSON
+    const responseBody = await res.json();
+
+    // 6. Vérifier la structure de la réponse
+    if (!responseBody.success || !responseBody.data?.product) {
+      console.error('Invalid API response structure:', responseBody);
+      return {
+        success: false,
+        message: responseBody.message || 'Données du produit manquantes',
+        notFound: true,
+      };
+    }
+
+    // 7. Retourner les données avec succès
+    return {
+      success: true,
+      product: responseBody.data.product,
+      sameCategoryProducts: responseBody.data.sameCategoryProducts || [],
+      message: 'Produit récupéré avec succès',
+    };
+  } catch (error) {
+    // 8. Gestion des erreurs réseau/timeout
+    if (error.name === 'AbortError') {
+      console.error('Request timeout after 5 seconds');
+      return {
+        success: false,
+        message: 'La requête a pris trop de temps',
+        notFound: false,
+      };
+    }
+
+    // Erreur réseau générique
+    console.error('Network error:', error.message);
+    return {
+      success: false,
+      message: 'Problème de connexion réseau',
+      notFound: false,
+    };
+  }
+};
 
 // Types d'erreurs personnalisés pour une meilleure gestion
 class ProductNotFoundError extends Error {

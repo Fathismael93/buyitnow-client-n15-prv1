@@ -4,7 +4,6 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { captureException } from '@/monitoring/sentry';
 
-import { getAllOrders } from '@/backend/utils/server-only-methods';
 import logger from '@/utils/logger';
 import { getCookieName } from '@/helpers/helpers';
 
@@ -13,6 +12,206 @@ const ListOrders = dynamic(() => import('@/components/orders/ListOrders'), {
   loading: () => <OrdersPageSkeleton />,
   ssr: true, // Activer le SSR pour améliorer la première charge
 });
+
+/**
+ * Récupère l'historique des commandes de l'utilisateur connecté
+ * Version simplifiée et optimisée pour ~500 visiteurs/jour
+ *
+ * @param {Object} searchParams - Paramètres de recherche (page)
+ * @returns {Promise<Object>} Données des commandes ou erreur
+ */
+const getAllOrders = async (searchParams) => {
+  try {
+    // 1. Obtenir le cookie d'authentification
+    const nextCookies = await cookies();
+    const cookieName = getCookieName();
+    const authToken = nextCookies.get(cookieName);
+
+    // 2. Vérifier l'authentification
+    if (!authToken) {
+      console.warn('No authentication token found');
+      return {
+        success: false,
+        message: 'Authentification requise',
+        data: {
+          orders: [],
+          totalPages: 0,
+          currentPage: 1,
+          count: 0,
+          deliveryPrice: [],
+        },
+      };
+    }
+
+    // 3. Valider et construire les paramètres de pagination
+    const urlParams = {};
+
+    if (searchParams?.page) {
+      const parsedPage = parseInt(searchParams.page, 10);
+      // Validation simple : page entre 1 et 100
+      if (!isNaN(parsedPage) && parsedPage > 0 && parsedPage <= 100) {
+        urlParams.page = parsedPage;
+      } else {
+        console.warn('Invalid page parameter:', searchParams.page);
+        urlParams.page = 1;
+      }
+    }
+
+    // 4. Construire l'URL de l'API
+    const searchQuery = new URLSearchParams(urlParams).toString();
+    const apiUrl = `${process.env.API_URL || ''}/api/orders/me${
+      searchQuery ? `?${searchQuery}` : ''
+    }`;
+
+    console.log('Fetching orders from:', apiUrl); // Log pour debug
+
+    // 5. Faire l'appel API avec timeout (8 secondes - un peu plus pour les commandes)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const res = await fetch(apiUrl, {
+      signal: controller.signal,
+      headers: {
+        Cookie: `${authToken.name}=${authToken.value}`,
+      },
+      next: {
+        revalidate: 0, // Pas de cache pour les données utilisateur
+        tags: ['user-orders'],
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    // 6. Vérifier le statut HTTP
+    if (!res.ok) {
+      // Gestion simple des erreurs principales
+      if (res.status === 401) {
+        return {
+          success: false,
+          message: 'Authentification requise',
+          data: {
+            orders: [],
+            totalPages: 0,
+            currentPage: 1,
+            count: 0,
+            deliveryPrice: [],
+          },
+        };
+      }
+
+      if (res.status === 404) {
+        // Utilisateur non trouvé ou pas de commandes
+        return {
+          success: true,
+          message: 'Aucune commande trouvée',
+          data: {
+            orders: [],
+            totalPages: 0,
+            currentPage: urlParams.page || 1,
+            count: 0,
+            deliveryPrice: [],
+          },
+        };
+      }
+
+      // Erreur serveur générique
+      console.error(`API Error: ${res.status} - ${res.statusText}`);
+      return {
+        success: false,
+        message: 'Erreur lors de la récupération des commandes',
+        data: {
+          orders: [],
+          totalPages: 0,
+          currentPage: 1,
+          count: 0,
+          deliveryPrice: [],
+        },
+      };
+    }
+
+    // 7. Parser la réponse JSON
+    const responseBody = await res.json();
+
+    // 8. Vérifier la structure de la réponse
+    if (!responseBody.success || !responseBody.data) {
+      console.error('Invalid API response structure:', responseBody);
+      return {
+        success: false,
+        message: responseBody.message || 'Réponse API invalide',
+        data: {
+          orders: [],
+          totalPages: 0,
+          currentPage: 1,
+          count: 0,
+          deliveryPrice: [],
+        },
+      };
+    }
+
+    // 9. Masquer les informations sensibles de paiement
+    const sanitizedOrders = (responseBody.data.orders || []).map((order) => ({
+      ...order,
+      // Masquer le numéro de compte de paiement
+      paymentInfo: order.paymentInfo
+        ? {
+            ...order.paymentInfo,
+            paymentAccountNumber:
+              order.paymentInfo.paymentAccountNumber?.includes('••••••')
+                ? order.paymentInfo.paymentAccountNumber
+                : '••••••' +
+                  (order.paymentInfo.paymentAccountNumber?.slice(-4) || ''),
+          }
+        : order.paymentInfo,
+    }));
+
+    // 10. Retourner les données avec succès
+    return {
+      success: true,
+      message:
+        responseBody.data.count > 0
+          ? 'Commandes récupérées avec succès'
+          : 'Aucune commande trouvée',
+      data: {
+        orders: sanitizedOrders,
+        totalPages: responseBody.data.totalPages || 0,
+        currentPage: responseBody.data.currentPage || urlParams.page || 1,
+        count: responseBody.data.count || 0,
+        perPage: responseBody.data.perPage || 10,
+        deliveryPrice: responseBody.data.deliveryPrice || [],
+      },
+    };
+  } catch (error) {
+    // 11. Gestion des erreurs réseau/timeout
+    if (error.name === 'AbortError') {
+      console.error('Request timeout after 8 seconds');
+      return {
+        success: false,
+        message: 'La requête a pris trop de temps',
+        data: {
+          orders: [],
+          totalPages: 0,
+          currentPage: 1,
+          count: 0,
+          deliveryPrice: [],
+        },
+      };
+    }
+
+    // Erreur réseau générique
+    console.error('Network error:', error.message);
+    return {
+      success: false,
+      message: 'Problème de connexion réseau',
+      data: {
+        orders: [],
+        totalPages: 0,
+        currentPage: 1,
+        count: 0,
+        deliveryPrice: [],
+      },
+    };
+  }
+};
 
 // Composant de chargement dédié pour une meilleure expérience utilisateur
 const OrdersPageSkeleton = () => (
