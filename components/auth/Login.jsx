@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-toastify';
 
-// import { loginSchema } from '@/helpers/schemas';
 import { parseCallbackUrl } from '@/helpers/helpers';
 import { validateLogin } from '@/helpers/validation/schemas/auth';
 
@@ -151,9 +150,7 @@ const Login = ({ csrfToken }) => {
             value={email}
             onChange={(e) => {
               setEmail(e.target.value);
-              // validateField('email', e.target.value);
             }}
-            // onBlur={() => validateField('email', email)}
             autoComplete="email"
             aria-invalid={errors.email ? 'true' : 'false'}
             aria-describedby={errors.email ? 'email-error' : undefined}
@@ -187,9 +184,7 @@ const Login = ({ csrfToken }) => {
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
-              // validateField('password', e.target.value);
             }}
-            // onBlur={() => validateField('password', password)}
             autoComplete="current-password"
             aria-invalid={errors.password ? 'true' : 'false'}
             aria-describedby={errors.password ? 'password-error' : undefined}

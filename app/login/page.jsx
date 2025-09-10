@@ -1,13 +1,8 @@
-import { lazy } from 'react';
 import { headers } from 'next/headers';
 import { getServerSession } from 'next-auth/next';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { getCsrfToken } from 'next-auth/react';
-
-// Chargement dynamique avec retries
-const Login = lazy(() => import('@/components/auth/Login'), {
-  ssr: true, // Activer le SSR pour améliorer la première charge
-});
+import Login from '@/components/auth/Login';
 
 export const dynamic = 'force-dynamic';
 

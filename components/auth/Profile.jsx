@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Image from 'next/image';
 import AuthContext from '@/context/AuthContext';
+import { EllipsisVertical, Lock, Pencil, Plus } from 'lucide-react';
 
 const AddressesSkeleton = () => (
   <div className="animate-pulse space-y-4">
@@ -147,7 +148,7 @@ const Profile = ({ addresses = [] }) => {
             aria-expanded={isModalOpen}
             aria-haspopup="true"
           >
-            <i className="fa fa-ellipsis-v" aria-hidden="true"></i>
+            <EllipsisVertical />
           </button>
 
           {isModalOpen && (
@@ -165,10 +166,7 @@ const Profile = ({ addresses = [] }) => {
                 className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors"
                 role="menuitem"
               >
-                <i
-                  className="fa fa-plus mr-3 text-green-600"
-                  aria-hidden="true"
-                ></i>
+                <Plus />
                 <span>Add Address</span>
               </Link>
 
@@ -178,10 +176,7 @@ const Profile = ({ addresses = [] }) => {
                 className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-800 transition-colors"
                 role="menuitem"
               >
-                <i
-                  className="fa fa-pencil mr-3 text-orange-600"
-                  aria-hidden="true"
-                ></i>
+                <Pencil />
                 <span>Update Profile</span>
               </Link>
 
@@ -191,10 +186,7 @@ const Profile = ({ addresses = [] }) => {
                 className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-800 transition-colors"
                 role="menuitem"
               >
-                <i
-                  className="fa fa-lock mr-3 text-blue-600"
-                  aria-hidden="true"
-                ></i>
+                <Lock />
                 <span>Change Password</span>
               </Link>
             </div>
