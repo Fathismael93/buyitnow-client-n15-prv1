@@ -12,7 +12,7 @@ export default async function UserLayout({ children }) {
   let user;
   try {
     // AJOUT: Passer les headers pour maintenir le contexte de requête
-    const headersList = headers();
+    const headersList = await headers();
     user = await getAuthenticatedUser(headersList);
   } catch (error) {
     // MODIFICATION: Logger conditionnel
