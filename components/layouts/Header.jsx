@@ -7,6 +7,7 @@ import {
   useCallback,
   memo,
   useMemo,
+  useRef,
 } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -23,6 +24,10 @@ const Search = dynamic(() => import('./Search'), {
   ),
   ssr: true,
 });
+
+// Constantes pour éviter les recréations
+const CART_LOAD_DELAY = 500;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 // Sous-composants memoïsés pour éviter les re-rendus inutiles
 const CartButton = memo(({ cartCount }) => (
@@ -127,38 +132,67 @@ const Header = () => {
   const [isLoadingCart, setIsLoadingCart] = useState(false);
   const { data } = useSession();
 
-  // Fonction sécurisée pour charger le panier
+  // Refs pour gérer les timeouts
+  const loadCartTimeoutRef = useRef(null);
+  const signOutTimeoutRef = useRef(null);
+  const mobileMenuTimeoutRef = useRef(null);
+
+  // Flag pour éviter les chargements multiples
+  const isCartLoadingRef = useRef(false);
+
+  // Cleanup des timeouts au démontage
+  useEffect(() => {
+    return () => {
+      if (loadCartTimeoutRef.current) clearTimeout(loadCartTimeoutRef.current);
+      if (signOutTimeoutRef.current) clearTimeout(signOutTimeoutRef.current);
+      if (mobileMenuTimeoutRef.current)
+        clearTimeout(mobileMenuTimeoutRef.current);
+    };
+  }, []);
+
+  // Fonction loadCart optimisée avec debounce
   const loadCart = useCallback(async () => {
-    // const endTimer = startTimer('header.load_cart');
+    // Éviter les chargements multiples
+    if (isCartLoadingRef.current) return;
 
     try {
+      isCartLoadingRef.current = true;
       setIsLoadingCart(true);
       await setCartToState();
     } catch (error) {
-      console.error('Error loading cart:', error);
+      if (!IS_PRODUCTION) {
+        console.error('Error loading cart:', error);
+      }
       Sentry.captureException(error, {
         tags: {
           component: 'Header',
           action: 'loadCart',
         },
+        level: 'warning', // Pas critique
       });
     } finally {
       setIsLoadingCart(false);
+      isCartLoadingRef.current = false;
     }
   }, [setCartToState]);
 
-  // Dans le useEffect qui charge les données
+  // useEffect optimisé pour la gestion de session
   useEffect(() => {
-    console.log('Header: useEffect - data changed', data);
-    if (data) {
+    let mounted = true;
+
+    if (data && mounted) {
       try {
         setUser(data?.user);
 
-        // Si c'est une nouvelle connexion, attendre un peu avant de charger le panier
+        // Nettoyer l'ancien timeout s'il existe
+        if (loadCartTimeoutRef.current) {
+          clearTimeout(loadCartTimeoutRef.current);
+        }
+
         if (data?.isNewLogin) {
-          setTimeout(() => {
-            loadCart();
-          }, 500); // Délai de 500ms pour laisser le cookie se propager
+          loadCartTimeoutRef.current = setTimeout(() => {
+            if (mounted) loadCart();
+          }, CART_LOAD_DELAY);
         } else {
           loadCart();
         }
@@ -170,11 +204,13 @@ const Header = () => {
           },
         });
       }
-    } else if (data === null) {
-      // Session NextAuth indique pas d'utilisateur connecté
-      console.log('No user in NextAuth session, clearing AuthContext');
+    } else if (data === null && mounted) {
       setUser(null);
     }
+
+    return () => {
+      mounted = false;
+    };
   }, [data, setUser, loadCart]);
 
   // Fermer le menu mobile si on clique en dehors
@@ -217,24 +253,25 @@ const Header = () => {
     }
   }, [mobileMenuOpen]);
 
-  const handleSignOut = async () => {
+  // handleSignOut optimisé
+  const handleSignOut = useCallback(async () => {
     try {
-      // Réinitialiser les contextes
       clearUser();
       clearCartOnLogout();
-
-      // Déconnexion Next-Auth
       await signOut({ callbackUrl: '/login' });
 
-      // Force une navigation hard après une courte pause
-      setTimeout(() => {
+      // Utiliser ref pour le timeout
+      signOutTimeoutRef.current = setTimeout(() => {
         window.location.href = '/login';
       }, 100);
     } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error);
+      if (!IS_PRODUCTION) {
+        console.error('Erreur lors de la déconnexion:', error);
+      }
+      // Fallback immédiat en cas d'erreur
       window.location.href = '/login';
     }
-  };
+  }, [clearUser, clearCartOnLogout]);
 
   // Fonction helper à ajouter dans le composant Header :
   const closeMobileMenu = () => {
