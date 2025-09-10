@@ -1,48 +1,41 @@
-// app/me/layout.jsx
-import { getServerSession } from 'next-auth';
-import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { redirect } from 'next/navigation';
+// MODIFICATION: Import depuis un fichier lib centralisé
+import { getAuthenticatedUser } from '@/lib/auth';
+import { headers } from 'next/headers';
 
-// Auth configuration import
-import { auth } from '../api/auth/[...nextauth]/route';
+// AJOUT: Import du logger conditionnel
+// import { logger } from '@/lib/logger';
 
-// Server-side error monitoring is handled automatically through instrumentation.js
-// so explicit imports aren't needed in server components
-
-/**
- * User profile layout component for authenticated users
- * This component handles authentication verification and renders the user profile
- * layout with proper error boundaries and performance optimizations
- *
- * @param {Object} props - Component props
- * @param {React.ReactNode} props.children - Child components to render within layout
- * @returns {Promise<JSX.Element>} - User profile layout component
- */
 export default async function UserLayout({ children }) {
-  // Server-side authentication check with error handling
-  let session;
+  // MODIFICATION: Utiliser une fonction DAL pour l'authentification
+  let user;
   try {
-    session = await getServerSession(auth);
-    // eslint-disable-next-line no-unused-vars
+    // AJOUT: Passer les headers pour maintenir le contexte de requête
+    const headersList = headers();
+    user = await getAuthenticatedUser(headersList);
   } catch (error) {
-    // Error caught by onRequestError in instrumentation.js
-    // Redirect to error page with minimal information for security
+    // MODIFICATION: Logger conditionnel
+    console.error('Authentication error in layout', {
+      error: error.message,
+      route: '/me',
+    });
+
     redirect('/error?code=auth_error');
   }
 
-  // Security: Redirect unauthenticated users to login with secure callback URL
-  if (!session) {
-    // Security: encoding the callback URL to prevent open redirect vulnerabilities
+  // MODIFICATION: Vérification simplifiée car getAuthenticatedUser gère déjà la logique
+  if (!user) {
     const callbackPath = encodeURIComponent('/me');
     return redirect(`/login?callbackUrl=${callbackPath}`);
   }
 
-  // Safe access to user name with fallbacks for robustness
-  const userName = session?.user?.name || 'User Profile';
+  // Safe access to user name
+  const userName = user?.name || 'User Profile';
 
   return (
     <>
-      {/* User profile header section with responsive design and print optimization */}
+      {/* User profile header section */}
       <section className="flex flex-row py-3 sm:py-7 bg-blue-100 print:hidden">
         <div className="container max-w-[var(--breakpoint-xl)] mx-auto px-4">
           <h2 className="font-medium text-2xl text-slate-800">
@@ -51,13 +44,12 @@ export default async function UserLayout({ children }) {
         </div>
       </section>
 
-      {/* Main content section with responsive layout */}
+      {/* Main content section */}
       <section className="py-6 md:py-10">
         <div className="container max-w-[var(--breakpoint-xl)] mx-auto px-4">
           <div className="flex justify-center items-center flex-col md:flex-row -mx-4">
             <main className="md:w-2/3 lg:w-3/4 px-4 w-full">
               <article className="border border-gray-200 bg-white shadow-sm rounded-md mb-5 p-3 lg:p-5">
-                {/* Loading state with optimized skeleton */}
                 <Suspense
                   fallback={
                     <div

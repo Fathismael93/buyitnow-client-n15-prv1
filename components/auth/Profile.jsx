@@ -1,14 +1,11 @@
 'use client';
 
-import { memo, useContext, useState, useEffect } from 'react';
+import { memo, useContext, useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Image from 'next/image';
-
-// Context import
 import AuthContext from '@/context/AuthContext';
 
-// Optimized skeleton loader
 const AddressesSkeleton = () => (
   <div className="animate-pulse space-y-4">
     <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
@@ -19,37 +16,42 @@ const AddressesSkeleton = () => (
   </div>
 );
 
-// Dynamic import with custom loading state
+// MODIFICATION: Retirer ssr: false si possible
 const UserAddresses = dynamic(() => import('@/components/user/UserAddresses'), {
   loading: () => <AddressesSkeleton />,
-  ssr: false, // Client-only component
+  // MODIFICATION: Essayer sans ssr: false d'abord
+  // ssr: false,
 });
 
-/**
- * User profile component
- * Displays user information and addresses with proper error handling
- *
- * @param {Object} props - Component props
- * @param {Array} props.addresses - User's saved addresses
- */
 const Profile = ({ addresses = [] }) => {
   const { user } = useContext(AuthContext);
   const [isClient, setIsClient] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Ensure component is only rendered client-side to prevent hydration errors
+  // AJOUT: Ref pour gérer les cleanup des event listeners
+  const modalRef = useRef(null);
+  const cleanupRef = useRef(null);
+
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Gestion de la fermeture du modal en cliquant en dehors
+  // MODIFICATION: Meilleure gestion des event listeners avec cleanup
   useEffect(() => {
+    if (!isModalOpen) {
+      // Nettoyer les listeners si le modal est fermé
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+      return;
+    }
+
     const handleClickOutside = (event) => {
-      // Si le modal est ouvert et qu'on clique en dehors du bouton et du modal
       if (
-        isModalOpen &&
-        !event.target.closest('.actions-modal') &&
+        modalRef.current &&
+        !modalRef.current.contains(event.target) &&
         !event.target.closest('.dots-button')
       ) {
         setIsModalOpen(false);
@@ -57,39 +59,45 @@ const Profile = ({ addresses = [] }) => {
     };
 
     const handleEscape = (event) => {
-      if (event.key === 'Escape' && isModalOpen) {
+      if (event.key === 'Escape') {
         setIsModalOpen(false);
       }
     };
 
-    if (isModalOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscape);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
 
-    return () => {
+    // AJOUT: Stocker la fonction de cleanup
+    cleanupRef.current = () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
+
+    return cleanupRef.current;
   }, [isModalOpen]);
 
-  // Fonction pour toggle le modal
+  // AJOUT: Cleanup au unmount
+  useEffect(() => {
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current();
+      }
+    };
+  }, []);
+
   const toggleModal = (e) => {
     e.stopPropagation();
     setIsModalOpen(!isModalOpen);
   };
 
-  // Fonction pour fermer le modal quand on clique sur un lien
   const closeModal = () => {
     setIsModalOpen(false);
   };
 
-  // Prevent rendering if user data is not available
   if (!isClient || !user) {
     return <AddressesSkeleton />;
   }
 
-  // Sanitized user data with fallbacks for safety
   const userData = {
     name: user?.name || 'User',
     email: user?.email || 'No email provided',
@@ -102,7 +110,6 @@ const Profile = ({ addresses = [] }) => {
   return (
     <section className="profile-container">
       <figure className="flex items-start sm:items-center justify-between w-full">
-        {/* Avatar à gauche - zone fixe */}
         <div className="flex-shrink-0">
           <div className="relative rounded-full overflow-hidden w-16 h-16">
             <Image
@@ -113,11 +120,14 @@ const Profile = ({ addresses = [] }) => {
               height={64}
               priority
               onError={() => setImageError(true)}
+              // AJOUT: Optimisation de l'image
+              quality={75}
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ..."
             />
           </div>
         </div>
 
-        {/* Informations au centre - zone flexible */}
         <div className="flex-1 px-4">
           <figcaption className="text-xs md:text-sm text-center">
             <p className="break-words">
@@ -129,7 +139,6 @@ const Profile = ({ addresses = [] }) => {
           </figcaption>
         </div>
 
-        {/* Menu 3 dots à droite - zone fixe avec modal */}
         <div className="flex-shrink-0 relative">
           <button
             onClick={toggleModal}
@@ -141,14 +150,13 @@ const Profile = ({ addresses = [] }) => {
             <i className="fa fa-ellipsis-v" aria-hidden="true"></i>
           </button>
 
-          {/* Modal dropdown */}
           {isModalOpen && (
             <div
+              ref={modalRef}
               className="actions-modal absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
               role="menu"
               aria-orientation="vertical"
             >
-              {/* Flèche pointant vers le bouton */}
               <div className="absolute -top-2 right-3 w-4 h-4 bg-white border-l border-t border-gray-200 transform rotate-45"></div>
 
               <Link
@@ -196,7 +204,6 @@ const Profile = ({ addresses = [] }) => {
 
       <hr className="my-4 border-gray-200" />
 
-      {/* Only render addresses if they exist */}
       {Array.isArray(addresses) && addresses.length > 0 ? (
         <UserAddresses addresses={addresses} />
       ) : (
@@ -214,5 +221,4 @@ const Profile = ({ addresses = [] }) => {
   );
 };
 
-// Memoize component to prevent unnecessary re-renders
 export default memo(Profile);

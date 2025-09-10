@@ -3,8 +3,11 @@ import dynamic from 'next/dynamic';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { getCookieName } from '@/helpers/helpers';
+// AJOUT: Import du logger
+// import { logger } from '@/lib/logger';
+// AJOUT: Import du cache
+import { unstable_cache } from 'next/cache';
 
-// Optimized loading component
 const ProfileSkeleton = () => (
   <div className="animate-pulse space-y-4" aria-busy="true" aria-live="polite">
     <div className="h-10 bg-gray-200 rounded w-1/4 mb-6"></div>
@@ -18,7 +21,6 @@ const ProfileSkeleton = () => (
   </div>
 );
 
-// Dynamic import with a custom loading state
 const Profile = dynamic(
   () => import('@/components/auth/Profile').then((mod) => mod.default),
   {
@@ -27,29 +29,23 @@ const Profile = dynamic(
   },
 );
 
-/**
- * Récupère toutes les adresses d'un utilisateur
- * Version simplifiée et optimisée pour ~500 visiteurs/jour
- *
- * @param {string} page - Contexte de la page ('profile' ou 'shipping')
- * @returns {Promise<Object>} Données des adresses ou erreur
- */
+// MODIFICATION: Fonction avec cache et meilleure gestion d'erreurs
 const getAllAddresses = async (page = 'shipping') => {
   try {
-    // 1. Valider le paramètre page
+    // Valider le paramètre page
     if (page && !['profile', 'shipping'].includes(page)) {
-      console.warn('Invalid page parameter, using default:', page);
+      console.warn('Invalid page parameter, using default:', { page });
       page = 'shipping';
     }
 
-    // 2. Obtenir le cookie d'authentification
+    // Obtenir le cookie d'authentification
     const nextCookies = await cookies();
     const cookieName = getCookieName();
     const authToken = nextCookies.get(cookieName);
 
-    // 3. Vérifier l'authentification
+    // Vérifier l'authentification
     if (!authToken) {
-      console.warn('No authentication token found');
+      console.warn('No authentication token found for address fetch');
       return {
         success: false,
         message: 'Authentification requise',
@@ -60,31 +56,37 @@ const getAllAddresses = async (page = 'shipping') => {
       };
     }
 
-    // 4. Construire l'URL de l'API avec le contexte
-    const apiUrl = `${process.env.API_URL || ''}/api/address?context=${page}`;
+    // MODIFICATION: Utiliser une variable d'environnement validée
+    const apiUrl =
+      process.env.API_URL || 'https://buyitnow-client-n15-prv1.vercel.app';
+    if (!apiUrl) {
+      throw new Error('API_URL not configured');
+    }
 
-    console.log('Fetching addresses from:', apiUrl); // Log pour debug
+    const fullUrl = `${apiUrl}/api/address?context=${page}`;
 
-    // 5. Faire l'appel API avec timeout (5 secondes)
+    // MODIFICATION: Log conditionnel
+    console.debug('Fetching addresses', { url: fullUrl, page });
+
+    // Faire l'appel API avec timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    const res = await fetch(apiUrl, {
+    const res = await fetch(fullUrl, {
       signal: controller.signal,
       headers: {
         Cookie: `${authToken.name}=${authToken.value}`,
       },
       next: {
-        revalidate: 0, // Pas de cache pour les données utilisateur
+        revalidate: 0,
         tags: ['user-addresses'],
       },
     });
 
     clearTimeout(timeoutId);
 
-    // 6. Vérifier le statut HTTP
+    // Vérifier le statut HTTP
     if (!res.ok) {
-      // Gestion simple des erreurs principales
       if (res.status === 401) {
         return {
           success: false,
@@ -98,7 +100,7 @@ const getAllAddresses = async (page = 'shipping') => {
 
       if (res.status === 404) {
         return {
-          success: true, // Succès mais liste vide
+          success: true,
           message: 'Aucune adresse trouvée',
           data:
             page === 'profile'
@@ -107,7 +109,6 @@ const getAllAddresses = async (page = 'shipping') => {
         };
       }
 
-      // Erreur serveur générique
       console.error(`API Error: ${res.status} - ${res.statusText}`);
       return {
         success: false,
@@ -119,12 +120,10 @@ const getAllAddresses = async (page = 'shipping') => {
       };
     }
 
-    // 7. Parser la réponse JSON
     const responseBody = await res.json();
 
-    // 8. Vérifier la structure de la réponse
     if (!responseBody.success || !responseBody.data) {
-      console.error('Invalid API response structure:', responseBody);
+      console.error('Invalid API response structure', { responseBody });
       return {
         success: false,
         message: responseBody.message || 'Réponse API invalide',
@@ -135,16 +134,14 @@ const getAllAddresses = async (page = 'shipping') => {
       };
     }
 
-    // 9. Formater les données selon le contexte
+    // Formater les données selon le contexte
     let responseData = { ...responseBody.data };
 
-    // Si on est sur la page profil, on n'a pas besoin des données de paiement
     if (page === 'profile') {
       responseData = {
         addresses: responseData.addresses || [],
       };
     } else {
-      // Page shipping : on garde tout
       responseData = {
         addresses: responseData.addresses || [],
         paymentTypes: responseData.paymentTypes || [],
@@ -152,14 +149,12 @@ const getAllAddresses = async (page = 'shipping') => {
       };
     }
 
-    // 10. Retourner les données avec succès
     return {
       success: true,
       message: 'Adresses récupérées avec succès',
       data: responseData,
     };
   } catch (error) {
-    // 11. Gestion des erreurs réseau/timeout
     if (error.name === 'AbortError') {
       console.error('Request timeout after 5 seconds');
       return {
@@ -172,8 +167,7 @@ const getAllAddresses = async (page = 'shipping') => {
       };
     }
 
-    // Erreur réseau générique
-    console.error('Network error:', error.message);
+    console.error('Network error:', { error: error.message });
     return {
       success: false,
       message: 'Problème de connexion réseau',
@@ -185,9 +179,12 @@ const getAllAddresses = async (page = 'shipping') => {
   }
 };
 
-/**
- * Metadata for the profile page
- */
+// AJOUT: Version cachée de la fonction pour optimiser les performances
+const getCachedAddresses = unstable_cache(getAllAddresses, ['addresses'], {
+  revalidate: 60, // Cache pour 1 minute
+  tags: ['user-addresses'],
+});
+
 export const metadata = {
   title: 'Buy It Now - Your Profile',
   description: 'Manage your account settings and addresses',
@@ -197,36 +194,18 @@ export const metadata = {
   },
 };
 
-/**
- * User profile page component
- * Displays user profile information and addresses
- * Throws errors to be handled by app/me/error.jsx
- *
- * @returns {Promise<JSX.Element>} - Rendered profile page
- */
 export default async function ProfilePage() {
-  // Fetch data with timeout to prevent hanging requests
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-  const data = await getAllAddresses('profile', { signal: controller.signal })
-    .catch((error) => {
-      if (error.name === 'AbortError') {
-        throw new Error('Request timeout: Unable to fetch profile data');
-      }
-      throw error;
-    })
-    .finally(() => clearTimeout(timeoutId));
+  // MODIFICATION: Utiliser la version cachée
+  const data = await getCachedAddresses('profile');
 
   if (!data) {
     return notFound();
   }
 
-  // Security: Sanitize address data to prevent XSS
+  // Security: Sanitize address data
   const sanitizedAddresses =
     data?.data?.addresses?.map((address) => ({
       ...address,
-      // Ensure text fields are strings and trim to prevent overflow attacks
       street: String(address.street || '').trim(),
       city: String(address.city || '').trim(),
       state: String(address.state || '').trim(),

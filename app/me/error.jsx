@@ -1,27 +1,29 @@
-'use client'; // Error boundaries must be Client Components
+'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import monitoring from '@/monitoring/sentry';
 
-/**
- * Error boundary component for user profile pages
- * Provides a user-friendly error interface with recovery options
- *
- * @param {Object} props - Component props from Next.js error boundary
- * @param {Error} props.error - The error that was thrown
- * @param {Function} props.reset - Function to reset the error boundary
- */
+// Constante pour le nombre max de tentatives
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 10000; // 10 secondes
+
 export default function UserProfileError({ error, reset }) {
+  // AJOUT: Compteur de tentatives
+  const [retryCount, setRetryCount] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(RETRY_DELAY_MS / 1000);
+
   // Send error to monitoring system
   useEffect(() => {
-    // Only log in production to avoid noise in development
-    if (process.env.NODE_ENV === 'production') {
-      // Anonymous function to avoid recreating on each render
+    // MODIFICATION: Utiliser une variable d'environnement pour le logging
+    const shouldLog = process.env.NEXT_PUBLIC_ENABLE_ERROR_LOGGING === 'true';
+
+    if (shouldLog && process.env.NODE_ENV === 'production') {
       const logError = () => {
         monitoring.captureException(error, {
           tags: {
             component: 'UserProfileError',
             route: '/me',
+            retryCount, // AJOUT: Tracker le nombre de tentatives
           },
           level: 'error',
         });
@@ -29,30 +31,59 @@ export default function UserProfileError({ error, reset }) {
 
       logError();
     }
+  }, [error, retryCount]);
 
-    // Cleanup function not needed here since logging happens only once
-  }, [error]);
-
-  // Safe error display - don't expose sensitive details
+  // Safe error display
   const errorMessage =
     error?.message && !containsSensitiveInfo(error.message)
       ? error.message
       : 'An unexpected error occurred';
 
-  // Attempt automatic recovery after a timeout
+  // AJOUT: Timer pour le countdown visuel
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      // Try to recover automatically after 10 seconds
-      try {
-        reset();
-        // eslint-disable-next-line no-unused-vars
-      } catch (e) {
-        // Silent catch - if auto recovery fails, user can still use the button
+    if (retryCount >= MAX_RETRY_ATTEMPTS) return;
+
+    const countdownInterval = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(countdownInterval);
+  }, [retryCount]);
+
+  // MODIFICATION: Auto-recovery avec limite de tentatives
+  useEffect(() => {
+    if (retryCount >= MAX_RETRY_ATTEMPTS) {
+      // AJOUT: Log quand on atteint la limite
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Max retry attempts reached');
       }
-    }, 10000);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      try {
+        setRetryCount((prev) => prev + 1);
+        reset();
+      } catch (e) {
+        // Silent catch
+      }
+    }, RETRY_DELAY_MS);
 
     return () => clearTimeout(timeoutId);
-  }, [reset]);
+  }, [reset, retryCount]);
+
+  // AJOUT: Fonction de reset manuel avec compteur
+  const handleManualReset = () => {
+    setRetryCount((prev) => prev + 1);
+    setTimeRemaining(RETRY_DELAY_MS / 1000);
+    reset();
+  };
 
   return (
     <div className="rounded-lg bg-white p-6 shadow-sm border border-red-100">
@@ -75,20 +106,34 @@ export default function UserProfileError({ error, reset }) {
           </svg>
         </div>
 
-        <div>
+        <div className="flex-1">
           <h2 className="text-lg font-medium text-gray-900">
             Something went wrong
           </h2>
 
           <p className="mt-1 text-sm text-gray-600">{errorMessage}</p>
 
+          {/* AJOUT: Affichage du nombre de tentatives */}
+          {retryCount > 0 && (
+            <p className="mt-1 text-xs text-gray-500">
+              Retry attempt: {retryCount}/{MAX_RETRY_ATTEMPTS}
+            </p>
+          )}
+
           <div className="mt-4 flex gap-3">
             <button
-              onClick={() => reset()}
-              className="inline-flex items-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+              onClick={handleManualReset}
+              disabled={retryCount >= MAX_RETRY_ATTEMPTS}
+              className={`inline-flex items-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors ${
+                retryCount >= MAX_RETRY_ATTEMPTS
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-red-600 hover:bg-red-700'
+              }`}
               type="button"
             >
-              Try again
+              {retryCount >= MAX_RETRY_ATTEMPTS
+                ? 'Max retries reached'
+                : 'Try again'}
             </button>
 
             <button
@@ -100,28 +145,35 @@ export default function UserProfileError({ error, reset }) {
             </button>
           </div>
 
-          <p className="mt-3 text-xs text-gray-500">
-            <span className="countdown font-mono">
-              Auto-retry in progress...
-            </span>
-          </p>
+          {/* MODIFICATION: Countdown animé */}
+          {retryCount < MAX_RETRY_ATTEMPTS && (
+            <div className="mt-3 text-xs text-gray-500">
+              <span className="flex items-center gap-2">
+                Auto-retry in{' '}
+                <span className="font-mono bg-gray-100 px-1 rounded">
+                  {timeRemaining}s
+                </span>
+                {/* AJOUT: Barre de progression */}
+                <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-red-500 transition-all duration-1000"
+                    style={{
+                      width: `${(timeRemaining / (RETRY_DELAY_MS / 1000)) * 100}%`,
+                    }}
+                  />
+                </div>
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-/**
- * Check if a string contains potentially sensitive information
- * to prevent exposing private data in error messages
- *
- * @param {string} str - String to check for sensitive information
- * @returns {boolean} - True if sensitive information is detected
- */
 function containsSensitiveInfo(str) {
   if (!str || typeof str !== 'string') return false;
 
-  // Patterns to detect sensitive data
   const patterns = [
     /password/i,
     /token/i,
@@ -130,9 +182,9 @@ function containsSensitiveInfo(str) {
     /auth/i,
     /cookie/i,
     /session/i,
-    /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/, // Email pattern
-    /\b(?:\d{4}[ -]?){3}\d{4}\b/, // Credit card pattern
-    /\b\d{3}[ -]?\d{2}[ -]?\d{4}\b/, // SSN pattern
+    /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/,
+    /\b(?:\d{4}[ -]?){3}\d{4}\b/,
+    /\b\d{3}[ -]?\d{2}[ -]?\d{4}\b/,
   ];
 
   return patterns.some((pattern) => pattern.test(str));
