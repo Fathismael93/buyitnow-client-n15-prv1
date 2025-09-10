@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import DOMPurify from 'dompurify';
 
 import AuthContext from '@/context/AuthContext';
-import { Check, Circle, Eye, EyeOff } from 'lucide-react';
+import { Check, CircleSlash2, Eye, EyeOff } from 'lucide-react';
 // import { validatePasswordUpdate } from '@/helpers/schemas';
 
 /**
@@ -366,14 +366,14 @@ const UpdatePassword = ({ userId, referer }) => {
               className="mt-1 text-xs text-gray-500 space-y-1"
             >
               <li
-                className={
-                  formState.newPassword.length >= 8 ? 'text-green-600' : ''
-                }
+                className={`display-flex
+                  ${formState.newPassword.length >= 8 ? 'text-green-600' : ''}
+                `}
               >
                 {formState.newPassword.length >= 8 ? (
                   <Check className="mr-1" />
                 ) : (
-                  <Circle className="mr-1" />
+                  <CircleSlash2 className="mr-1" />
                 )}
                 Au moins 8 caractères
               </li>
@@ -385,7 +385,7 @@ const UpdatePassword = ({ userId, referer }) => {
                 {/[A-Z]/.test(formState.newPassword) ? (
                   <Check className="mr-1" />
                 ) : (
-                  <Circle className="mr-1" />
+                  <CircleSlash2 className="mr-1" />
                 )}
                 Au moins une lettre majuscule
               </li>
@@ -397,7 +397,7 @@ const UpdatePassword = ({ userId, referer }) => {
                 {/[a-z]/.test(formState.newPassword) ? (
                   <Check className="mr-1" />
                 ) : (
-                  <Circle className="mr-1" />
+                  <CircleSlash2 className="mr-1" />
                 )}
                 Au moins une lettre minuscule
               </li>
@@ -409,7 +409,7 @@ const UpdatePassword = ({ userId, referer }) => {
                 {/\d/.test(formState.newPassword) ? (
                   <Check className="mr-1" />
                 ) : (
-                  <Circle className="mr-1" />
+                  <CircleSlash2 className="mr-1" />
                 )}
                 Au moins un chiffre
               </li>
@@ -423,7 +423,7 @@ const UpdatePassword = ({ userId, referer }) => {
                 {/[@$!%*?&#]/.test(formState.newPassword) ? (
                   <Check className="mr-1" />
                 ) : (
-                  <Circle className="mr-1" />
+                  <CircleSlash2 className="mr-1" />
                 )}
                 Au moins un caractère spécial (@$!%*?&#)
               </li>
