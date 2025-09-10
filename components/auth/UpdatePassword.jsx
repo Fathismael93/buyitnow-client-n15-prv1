@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import DOMPurify from 'dompurify';
 
 import AuthContext from '@/context/AuthContext';
+import { Eye, EyeOff } from 'lucide-react';
 // import { validatePasswordUpdate } from '@/helpers/schemas';
 
 /**
@@ -190,40 +191,6 @@ const UpdatePassword = ({ userId, referer }) => {
     return { label: 'Fort', color: 'bg-green-500' };
   }, [passwordStrength]);
 
-  // Validation complète du formulaire en utilisant le schéma importé
-  // const validateForm = useCallback(async () => {
-  //   try {
-  //     const validation = await validatePasswordUpdate({
-  //       currentPassword: formState.currentPassword,
-  //       newPassword: formState.newPassword,
-  //       confirmPassword: formState.confirmPassword,
-  //     });
-
-  //     if (!validation.isValid) {
-  //       // Mettre à jour l'état des erreurs de validation avec les erreurs reçues
-  //       setValidationErrors(validation.errors);
-  //       return false;
-  //     }
-
-  //     // Si la validation réussit, mettre à jour l'état de force du mot de passe
-  //     if (validation.security) {
-  //       setPasswordStrength(validation.security.score);
-  //     }
-
-  //     // Effacer les erreurs précédentes
-  //     setValidationErrors({});
-  //     return true;
-  //   } catch (error) {
-  //     console.error('Password validation error:', error);
-
-  //     // En cas d'erreur inattendue, ajouter une erreur générale
-  //     setValidationErrors({
-  //       general: 'Une erreur est survenue pendant la validation du formulaire',
-  //     });
-  //     return false;
-  //   }
-  // }, [formState]);
-
   // Fonction de soumission du formulaire
   const submitHandler = async (e) => {
     e.preventDefault();
@@ -231,15 +198,6 @@ const UpdatePassword = ({ userId, referer }) => {
     setIsSubmitting(true);
 
     try {
-      // Valider le formulaire avec la nouvelle méthode
-      // const isValid = await validateForm();
-
-      // if (!isValid) {
-      //   toast.error('Veuillez corriger les erreurs dans le formulaire');
-      //   setIsSubmitting(false);
-      //   return;
-      // }
-
       // Soumettre la mise à jour du mot de passe
       await updatePassword({
         currentPassword: formState.currentPassword,
@@ -349,9 +307,7 @@ const UpdatePassword = ({ userId, referer }) => {
                   : 'Afficher le mot de passe'
               }
             >
-              <i
-                className={`fa ${showPassword.current ? 'fa-eye-slash' : 'fa-eye'}`}
-              ></i>
+              {showPassword.current ? <EyeOff /> : <Eye />}
             </button>
           </div>
           {validationErrors.currentPassword && (
@@ -397,9 +353,7 @@ const UpdatePassword = ({ userId, referer }) => {
                   : 'Afficher le mot de passe'
               }
             >
-              <i
-                className={`fa ${showPassword.new ? 'fa-eye-slash' : 'fa-eye'}`}
-              ></i>
+              {showPassword.current ? <EyeOff /> : <Eye />}
             </button>
           </div>
           {validationErrors.newPassword ? (

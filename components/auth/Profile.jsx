@@ -166,7 +166,7 @@ const Profile = ({ addresses = [] }) => {
                 className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors"
                 role="menuitem"
               >
-                <Plus />
+                <Plus className="mr-3 text-green-600" />
                 <span>Add Address</span>
               </Link>
 
@@ -176,7 +176,7 @@ const Profile = ({ addresses = [] }) => {
                 className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-800 transition-colors"
                 role="menuitem"
               >
-                <Pencil />
+                <Pencil className="mr-3 text-orange-600" />
                 <span>Update Profile</span>
               </Link>
 
@@ -186,7 +186,7 @@ const Profile = ({ addresses = [] }) => {
                 className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-800 transition-colors"
                 role="menuitem"
               >
-                <Lock />
+                <Lock className="mr-3 text-blue-600" />
                 <span>Change Password</span>
               </Link>
             </div>
