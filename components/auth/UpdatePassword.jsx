@@ -378,9 +378,9 @@ const UpdatePassword = ({ userId, referer }) => {
                 Au moins 8 caractères
               </li>
               <li
-                className={
-                  /[A-Z]/.test(formState.newPassword) ? 'text-green-600' : ''
-                }
+                className={`flex flex-row
+                  ${/[A-Z]/.test(formState.newPassword) ? 'text-green-600' : ''}
+                `}
               >
                 {/[A-Z]/.test(formState.newPassword) ? (
                   <Check className="mr-1" />
@@ -390,9 +390,9 @@ const UpdatePassword = ({ userId, referer }) => {
                 Au moins une lettre majuscule
               </li>
               <li
-                className={
-                  /[a-z]/.test(formState.newPassword) ? 'text-green-600' : ''
-                }
+                className={`flex flex-row
+                  ${/[a-z]/.test(formState.newPassword) ? 'text-green-600' : ''}
+                `}
               >
                 {/[a-z]/.test(formState.newPassword) ? (
                   <Check className="mr-1" />
@@ -402,9 +402,9 @@ const UpdatePassword = ({ userId, referer }) => {
                 Au moins une lettre minuscule
               </li>
               <li
-                className={
-                  /\d/.test(formState.newPassword) ? 'text-green-600' : ''
-                }
+                className={`flex flex-row
+                  ${/\d/.test(formState.newPassword) ? 'text-green-600' : ''}
+                `}
               >
                 {/\d/.test(formState.newPassword) ? (
                   <Check className="mr-1" />
@@ -414,11 +414,13 @@ const UpdatePassword = ({ userId, referer }) => {
                 Au moins un chiffre
               </li>
               <li
-                className={
-                  /[@$!%*?&#]/.test(formState.newPassword)
-                    ? 'text-green-600'
-                    : ''
-                }
+                className={`flex flex-row
+                  ${
+                    /[@$!%*?&#]/.test(formState.newPassword)
+                      ? 'text-green-600'
+                      : ''
+                  }
+                `}
               >
                 {/[@$!%*?&#]/.test(formState.newPassword) ? (
                   <Check className="mr-1" />
