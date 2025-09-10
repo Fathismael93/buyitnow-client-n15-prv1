@@ -366,7 +366,7 @@ const UpdatePassword = ({ userId, referer }) => {
               className="mt-1 text-xs text-gray-500 space-y-1"
             >
               <li
-                className={`display-flex
+                className={`flex flex-row
                   ${formState.newPassword.length >= 8 ? 'text-green-600' : ''}
                 `}
               >
