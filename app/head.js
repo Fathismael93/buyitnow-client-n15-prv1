@@ -32,7 +32,7 @@ export default function Head() {
       <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
 
       {/* Font Awesome avec chargement optimisé (non-bloquant) */}
-      <link
+      {/* <link
         rel="preload"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
         as="style"
@@ -49,7 +49,7 @@ export default function Head() {
           crossOrigin="anonymous"
           referrerPolicy="no-referrer"
         />
-      </noscript>
+      </noscript> */}
     </>
   );
 }
