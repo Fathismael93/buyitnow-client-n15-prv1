@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import DOMPurify from 'dompurify';
 
 import AuthContext from '@/context/AuthContext';
-import { Eye, EyeOff } from 'lucide-react';
+import { Check, Circle, Eye, EyeOff } from 'lucide-react';
 // import { validatePasswordUpdate } from '@/helpers/schemas';
 
 /**
@@ -370,9 +370,11 @@ const UpdatePassword = ({ userId, referer }) => {
                   formState.newPassword.length >= 8 ? 'text-green-600' : ''
                 }
               >
-                <i
-                  className={`fa ${formState.newPassword.length >= 8 ? 'fa-check' : 'fa-circle'} mr-1`}
-                ></i>
+                {formState.newPassword.length >= 8 ? (
+                  <Check className="mr-1" />
+                ) : (
+                  <Circle className="mr-1" />
+                )}
                 Au moins 8 caractères
               </li>
               <li
@@ -380,9 +382,11 @@ const UpdatePassword = ({ userId, referer }) => {
                   /[A-Z]/.test(formState.newPassword) ? 'text-green-600' : ''
                 }
               >
-                <i
-                  className={`fa ${/[A-Z]/.test(formState.newPassword) ? 'fa-check' : 'fa-circle'} mr-1`}
-                ></i>
+                {/[A-Z]/.test(formState.newPassword) ? (
+                  <Check className="mr-1" />
+                ) : (
+                  <Circle className="mr-1" />
+                )}
                 Au moins une lettre majuscule
               </li>
               <li
@@ -390,9 +394,11 @@ const UpdatePassword = ({ userId, referer }) => {
                   /[a-z]/.test(formState.newPassword) ? 'text-green-600' : ''
                 }
               >
-                <i
-                  className={`fa ${/[a-z]/.test(formState.newPassword) ? 'fa-check' : 'fa-circle'} mr-1`}
-                ></i>
+                {/[a-z]/.test(formState.newPassword) ? (
+                  <Check className="mr-1" />
+                ) : (
+                  <Circle className="mr-1" />
+                )}
                 Au moins une lettre minuscule
               </li>
               <li
@@ -400,9 +406,11 @@ const UpdatePassword = ({ userId, referer }) => {
                   /\d/.test(formState.newPassword) ? 'text-green-600' : ''
                 }
               >
-                <i
-                  className={`fa ${/\d/.test(formState.newPassword) ? 'fa-check' : 'fa-circle'} mr-1`}
-                ></i>
+                {/\d/.test(formState.newPassword) ? (
+                  <Check className="mr-1" />
+                ) : (
+                  <Circle className="mr-1" />
+                )}
                 Au moins un chiffre
               </li>
               <li
@@ -412,9 +420,11 @@ const UpdatePassword = ({ userId, referer }) => {
                     : ''
                 }
               >
-                <i
-                  className={`fa ${/[@$!%*?&#]/.test(formState.newPassword) ? 'fa-check' : 'fa-circle'} mr-1`}
-                ></i>
+                {/[@$!%*?&#]/.test(formState.newPassword) ? (
+                  <Check className="mr-1" />
+                ) : (
+                  <Circle className="mr-1" />
+                )}
                 Au moins un caractère spécial (@$!%*?&#)
               </li>
             </ul>
@@ -485,9 +495,7 @@ const UpdatePassword = ({ userId, referer }) => {
                   : 'Afficher le mot de passe'
               }
             >
-              <i
-                className={`fa ${showPassword.confirm ? 'fa-eye-slash' : 'fa-eye'}`}
-              ></i>
+              {showPassword.confirm ? <EyeOff /> : <Eye />}
             </button>
           </div>
           {validationErrors.confirmPassword && (
