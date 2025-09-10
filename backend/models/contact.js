@@ -34,7 +34,7 @@ const contactSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'processing', 'resolved', 'spam'],
+      enum: ['pending', 'processing', 'resolved', 'sent'],
       default: 'pending',
       index: true, // Indexation pour recherche par statut
     },
