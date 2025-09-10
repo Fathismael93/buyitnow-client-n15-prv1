@@ -5,7 +5,7 @@ import '@/app/globals.css';
 
 import { GlobalProvider } from './GlobalProvider';
 import Header from '@/components/layouts/Header';
-const Head = dynamic(() => import('@/app/head'));
+import Head from './head';
 const Footer = dynamic(() => import('@/components/layouts/Footer'));
 
 // Import dynamique du gestionnaire de Service Worker
@@ -16,7 +16,7 @@ const ServiceWorkerManager = dynamic(
 // Création d'une constante réutilisable
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
-  'https://buyitnow-client-n15-prv1.vercel.app/';
+  'https://buyitnow-client-n15-prv1.vercel.app';
 
 // Métadonnées globales pour le site
 export const metadata = {
