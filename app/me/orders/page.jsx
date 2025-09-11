@@ -1,11 +1,12 @@
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { captureException } from '@/monitoring/sentry';
 
 import logger from '@/utils/logger';
 import { getCookieName } from '@/helpers/helpers';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 // Chargement dynamique avec fallback
 const ListOrders = dynamic(() => import('@/components/orders/ListOrders'), {
@@ -21,6 +22,33 @@ const ListOrders = dynamic(() => import('@/components/orders/ListOrders'), {
  * @returns {Promise<Object>} Données des commandes ou erreur
  */
 const getAllOrders = async (searchParams) => {
+  // Identifiant unique pour la traçabilité
+  const requestId = `orderspage-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
+
+  // AJOUTER : Première vérification d'authentification avec getAuthenticatedUser
+  const headersList = await headers();
+  const user = await getAuthenticatedUser(headersList);
+
+  if (!user) {
+    logger.warn(
+      'Unauthenticated access to orders page (getAuthenticatedUser)',
+      {
+        requestId,
+        action: 'unauthenticated_access_primary',
+      },
+    );
+    return redirect('/login?callbackUrl=/me/orders');
+  }
+
+  logger.info('Orders page accessed', {
+    requestId,
+    page: searchParams?.page || 1,
+    userId: user._id
+      ? `${user._id.substring(0, 2)}...${user._id.slice(-2)}`
+      : 'unknown',
+    action: 'orders_page_access',
+  });
+
   try {
     // 1. Obtenir le cookie d'authentification
     const nextCookies = await cookies();
