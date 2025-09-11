@@ -1,8 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth/next';
-import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { lazy } from 'react';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 // Chargement dynamique optimisé avec retries
 const Register = lazy(() => import('@/components/auth/Register'), {
@@ -57,14 +56,14 @@ export const header = {
 async function RegisterPage() {
   try {
     // Vérifier si l'utilisateur est déjà connecté
-    const session = await getServerSession(auth);
-    if (session) {
+    const headersList = await headers();
+    const user = await getAuthenticatedUser(headersList);
+    if (user) {
       // Rediriger l'utilisateur déjà connecté vers la page d'accueil
       return redirect('/');
     }
 
     // Récupérer les en-têtes pour le monitoring et la sécurité
-    const headersList = await headers();
     const userAgent = headersList.get('user-agent') || 'unknown';
     const referer = headersList.get('referer') || 'direct';
 
