@@ -22,6 +22,7 @@ import { INCREASE } from '@/helpers/constants';
 // Pour la sécurité - nécessite d'installer cette dépendance
 // npm install dompurify
 import DOMPurify from 'dompurify';
+import { Share2, ShoppingCart, Star, Truck } from 'lucide-react';
 
 // Chargement dynamique des composants
 const BreadCrumbs = dynamic(() => import('@/components/layouts/BreadCrumbs'), {
@@ -237,19 +238,19 @@ const ProductInfo = memo(function ProductInfo({
               Ajout en cours...
             </span>
           ) : (
-            <>
-              <i className="fa fa-shopping-cart mr-2" aria-hidden="true"></i>
+            <div className="flex flex-row">
+              <ShoppingCart />
               {inStock ? 'Ajouter au panier' : 'Indisponible'}
-            </>
+            </div>
           )}
         </button>
 
         <button
-          className="w-full sm:w-auto px-4 py-2 inline-block text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors"
+          className="w-full sm:w-auto px-4 py-2 flex flex-row text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors"
           aria-label="Partager ce produit"
           onClick={onShare}
         >
-          <i className="fas fa-share-alt mr-1" aria-hidden="true"></i>
+          <Share2 className="mr-1" />
           Partager
         </button>
       </div>
@@ -314,8 +315,8 @@ const ProductInfo = memo(function ProductInfo({
 
       {/* Badge de popularité basé sur les ventes */}
       {product?.sold > 10 && (
-        <div className="mt-4 inline-block bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-amber-700 text-sm mr-2">
-          <i className="fas fa-fire mr-1" aria-hidden="true"></i>
+        <div className="mt-4 flex flex-row bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-amber-700 text-sm mr-2">
+          <Truck className="mr-1" />
           {product.sold > 100 ? 'Très populaire' : 'Populaire'}
         </div>
       )}
@@ -324,8 +325,8 @@ const ProductInfo = memo(function ProductInfo({
       {product?.createdAt &&
         new Date(product.createdAt) >
           new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) && (
-          <div className="mt-4 inline-block bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-blue-700 text-sm">
-            <i className="fas fa-star mr-1" aria-hidden="true"></i>
+          <div className="mt-4 flex flex-row bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-blue-700 text-sm">
+            <Star className="mr-1" />
             Nouveau
           </div>
         )}

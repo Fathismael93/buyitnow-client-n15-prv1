@@ -9,6 +9,7 @@ import {
   FiltersSkeleton,
   ProductItemSkeleton,
 } from '../skeletons/ListProductsSkeleton';
+import { SearchX } from 'lucide-react';
 
 // Import dynamique des composants
 const CustomPagination = dynamic(
@@ -174,7 +175,7 @@ const ListProducts = ({ data, categories }) => {
                 role="status"
               >
                 <div className="mb-4 text-5xl text-gray-300">
-                  <i className="fa fa-search" aria-hidden="true"></i>
+                  <SearchX />
                 </div>
                 <h2 className="text-xl font-semibold text-gray-800 mb-2">
                   Aucun produit trouvé
