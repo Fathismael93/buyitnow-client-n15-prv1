@@ -275,7 +275,7 @@ const MyOrdersPage = async ({ searchParams }) => {
     };
 
     // Utiliser Suspense pour mieux gérer le chargement
-    const ordersPromise = getAllOrders(sanitizedSearchParams);
+    const ordersPromise = await getAllOrders(sanitizedSearchParams);
 
     return (
       <div className="container max-w-6xl mx-auto px-4 py-8">

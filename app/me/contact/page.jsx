@@ -35,7 +35,8 @@ export async function generateMetadata() {
   const headersList = await headers();
   const referrer = headersList.get('referer') || '';
   const isInternalReferrer = referrer.includes(
-    process.env.NEXT_PUBLIC_SITE_URL || '',
+    process.env.NEXT_PUBLIC_SITE_URL ||
+      'https://buyitnow-client-n15-prv1.vercel.app',
   );
 
   // Security check: If external referrer trying to access authenticated page,
@@ -81,7 +82,8 @@ export default function ContactPage() {
   const headersList = headers();
   const referrer = headersList.get('referer') || '';
   const isInternalReferrer = referrer.includes(
-    process.env.NEXT_PUBLIC_SITE_URL || '',
+    process.env.NEXT_PUBLIC_SITE_URL ||
+      'https://buyitnow-client-n15-prv1.vercel.app',
   );
 
   // For high-security pages, you might want to enforce internal referrers

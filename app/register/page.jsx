@@ -64,7 +64,7 @@ async function RegisterPage() {
     }
 
     // Récupérer les en-têtes pour le monitoring et la sécurité
-    const headersList = headers();
+    const headersList = await headers();
     const userAgent = headersList.get('user-agent') || 'unknown';
     const referer = headersList.get('referer') || 'direct';
 

@@ -3,10 +3,6 @@ import dynamic from 'next/dynamic';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { getCookieName } from '@/helpers/helpers';
-// AJOUT: Import du logger
-// import { logger } from '@/lib/logger';
-// AJOUT: Import du cache
-// import { unstable_cache } from 'next/cache';
 
 const ProfileSkeleton = () => (
   <div className="animate-pulse space-y-4" aria-busy="true" aria-live="polite">
@@ -178,12 +174,6 @@ const getAllAddresses = async (page = 'shipping') => {
     };
   }
 };
-
-// AJOUT: Version cachée de la fonction pour optimiser les performances
-// const getCachedAddresses = unstable_cache(getAllAddresses, ['addresses'], {
-//   revalidate: 60, // Cache pour 1 minute
-//   tags: ['user-addresses'],
-// });
 
 export const metadata = {
   title: 'Buy It Now - Your Profile',

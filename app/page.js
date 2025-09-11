@@ -49,7 +49,7 @@ const getAllProducts = async (searchParams) => {
     const searchQuery = new URLSearchParams(cleanParams).toString();
 
     // 4. Construire l'URL complète de l'API
-    const apiUrl = `${process.env.API_URL || ''}/api/products${
+    const apiUrl = `${process.env.API_URL || 'https://buyitnow-client-n15-prv1.vercel.app'}/api/products${
       searchQuery ? `?${searchQuery}` : ''
     }`;
 

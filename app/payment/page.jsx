@@ -48,15 +48,6 @@ const PaymentPage = async () => {
       return;
     }
 
-    // Vérifier si l'utilisateur a un panier actif (optionnel, via cookie)
-    // const cartCookie = cookieStore.get('buyitnow_cart');
-    // if (!cartCookie || cartCookie.value === '{}') {
-    //   // Si l'utilisateur n'a pas de panier actif, rediriger vers la page principale
-    //   // return redirect('/?error=empty-cart');
-    //   console.log('Panier inexistant');
-    //   return;
-    // }
-
     return (
       <div
         className="payment-page"

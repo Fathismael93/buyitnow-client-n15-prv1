@@ -52,7 +52,7 @@ async function LoginPage() {
     }
 
     // Récupérer les en-têtes pour le logging et la sécurité
-    const headersList = headers();
+    const headersList = await headers();
     const userAgent = headersList.get('user-agent') || 'unknown';
     const referer = headersList.get('referer') || 'direct';
     const callbackUrl = '/';
