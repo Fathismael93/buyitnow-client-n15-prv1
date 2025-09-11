@@ -1,8 +1,8 @@
 import { headers } from 'next/headers';
-import { getServerSession } from 'next-auth/next';
-import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { getCsrfToken } from 'next-auth/react';
 import Login from '@/components/auth/Login';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,18 +41,19 @@ export const metadata = {
 async function LoginPage() {
   try {
     // Vérifier si l'utilisateur est déjà connecté
-    const session = await getServerSession(auth);
-    if (session) {
+    const headersList = await headers();
+    const user = await getAuthenticatedUser(headersList);
+    if (user) {
       console.log('User is already logged in', {
-        user: session.user,
-        role: session.user.role,
+        user: user,
+        role: user.role,
       });
       // Rediriger vers la page d'accueil ou tableau de bord selon le rôle
       console.log('User connected, redirecting to home page');
+      return redirect('/'); // Ajouter cette ligne
     }
 
     // Récupérer les en-têtes pour le logging et la sécurité
-    const headersList = await headers();
     const userAgent = headersList.get('user-agent') || 'unknown';
     const referer = headersList.get('referer') || 'direct';
     const callbackUrl = '/';

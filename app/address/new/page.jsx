@@ -1,11 +1,10 @@
 import { Suspense } from 'react';
 import { headers } from 'next/headers';
-import { getServerSession } from 'next-auth/next';
 import { redirect } from 'next/navigation';
-import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { captureException } from '@/monitoring/sentry';
 import NewAddressSkeleton from '@/components/skeletons/NewAddressSkeleton';
 import NewAddress from '@/components/user/NewAddress';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 // Force dynamic rendering to ensure fresh auth state
 export const dynamic = 'force-dynamic';
@@ -32,14 +31,14 @@ export const metadata = {
 async function NewAddressPage() {
   try {
     // Check if user is authenticated
-    const session = await getServerSession(auth);
-    if (!session || !session.user) {
+    const headersList = await headers();
+    const user = await getAuthenticatedUser(headersList);
+    if (!user) {
       console.log('User not authenticated, redirecting to login');
       return redirect('/login?callbackUrl=/address/new');
     }
 
     // Get headers for logging and security
-    const headersList = await headers();
     const userAgent = headersList.get('user-agent') || 'unknown';
     const referer = headersList.get('referer') || 'direct';
 
@@ -54,8 +53,8 @@ async function NewAddressPage() {
       userAgent: userAgent?.substring(0, 100),
       referer: referer?.substring(0, 200),
       ip: anonymizedIp,
-      userId: session.user._id
-        ? `${session.user._id.substring(0, 2)}...${session.user._id.slice(-2)}`
+      userId: user._id
+        ? `${user._id.substring(0, 2)}...${user._id.slice(-2)}`
         : 'unknown',
     });
 
@@ -85,7 +84,7 @@ async function NewAddressPage() {
           <div className="mt-8">
             <div className="bg-white py-8 px-4 sm:px-8 shadow sm:rounded-lg">
               <Suspense fallback={<NewAddressSkeleton />}>
-                <NewAddress userId={session.user._id} referer={referer} />
+                <NewAddress userId={user._id} referer={referer} />
               </Suspense>
             </div>
           </div>
