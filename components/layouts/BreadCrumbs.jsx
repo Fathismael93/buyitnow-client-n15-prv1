@@ -2,6 +2,7 @@ import { memo } from 'react';
 import Link from 'next/link';
 
 import { isArrayEmpty } from '@/helpers/helpers';
+import { ChevronRight } from 'lucide-react';
 
 const BreadCrumbs = memo(({ breadCrumbs }) => {
   return (
@@ -19,10 +20,7 @@ const BreadCrumbs = memo(({ breadCrumbs }) => {
                     {breadCrumb.name}
                   </Link>
                   {breadCrumbs?.length - 1 !== index && (
-                    <i
-                      className="ml-3 text-gray-400 fa fa-chevron-right"
-                      aria-hidden="true"
-                    ></i>
+                    <ChevronRight className="ml-3 text-gray-400" />
                   )}
                 </li>
               ))}
