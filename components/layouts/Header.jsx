@@ -34,7 +34,7 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const CartButton = memo(({ cartCount }) => (
   <Link
     href="/cart"
-    className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors relative"
+    className="px-3 py-2 flex flex-row text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors relative"
     aria-label="Panier"
     data-testid="cart-button"
   >
@@ -323,7 +323,7 @@ const Header = () => {
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-menu"
             >
-              {mobileMenuOpen ? <Menu /> : <X />}
+              {mobileMenuOpen ? <X /> : <Menu />}
             </button>
           </div>
 
@@ -339,7 +339,7 @@ const Header = () => {
             {!user ? (
               <Link
                 href="/login"
-                className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                className="px-3 py-2 flex flex-row text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors"
                 data-testid="login"
               >
                 <User className="text-gray-400 w-5" />
