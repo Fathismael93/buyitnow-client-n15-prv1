@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 // Custom components
 const ContactSkeleton = () => (
@@ -80,6 +81,32 @@ export async function generateMetadata() {
 export default async function ContactPage() {
   // Security check at render time
   const headersList = await headers();
+
+  // AJOUTER : Vérification d'authentification
+  const user = await getAuthenticatedUser(headersList);
+  if (!user) {
+    console.log('User not authenticated, redirecting to login');
+    return redirect('/login?callbackUrl=/me/contact');
+  }
+
+  // AJOUTER après la vérification d'authentification :
+  // Journal d'accès anonymisé pour la sécurité
+  const clientIp = (headersList.get('x-forwarded-for') || '')
+    .split(',')
+    .shift()
+    .trim();
+  const anonymizedIp = clientIp ? clientIp.replace(/\d+$/, 'xxx') : 'unknown';
+  const userAgent = headersList.get('user-agent') || 'unknown';
+
+  console.info('Contact page accessed', {
+    userAgent: userAgent?.substring(0, 100),
+    referer: referrer?.substring(0, 200),
+    ip: anonymizedIp,
+    userId: user._id
+      ? `${user._id.substring(0, 2)}...${user._id.slice(-2)}`
+      : 'unknown',
+  });
+
   const referrer = headersList.get('referer') || '';
   const isInternalReferrer = referrer.includes(
     process.env.NEXT_PUBLIC_SITE_URL ||
@@ -101,6 +128,7 @@ export default async function ContactPage() {
           <Contact
             // Pass the referrer information to the client component if needed
             referrerValidated={isInternalReferrer}
+            userId={user._id} // AJOUTER si le composant Contact en a besoin
           />
         </Suspense>
       </section>
