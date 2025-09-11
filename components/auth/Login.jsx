@@ -35,7 +35,7 @@ const Login = ({ csrfToken }) => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [navigator]);
+  }, []);
 
   // Gestionnaire de soumission du formulaire
   const submitHandler = async (e) => {
@@ -92,7 +92,6 @@ const Login = ({ csrfToken }) => {
           toast.error(data.error || 'Échec de connexion');
         }
       } else if (data?.ok) {
-        console.log('Login successful:', data);
         // Connexion réussie
         toast.success('Connexion réussie!');
         router.push('/');

@@ -1,16 +1,11 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import { getServerSession } from 'next-auth/next';
 import { redirect } from 'next/navigation';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { captureException } from '@/monitoring/sentry';
 import NewAddressSkeleton from '@/components/skeletons/NewAddressSkeleton';
-
-// Lazy load the NewAddress component with optimized configuration
-const NewAddress = lazy(() => import('@/components/user/NewAddress'), {
-  loading: () => <NewAddressSkeleton />,
-  ssr: true, // Enable SSR for better initial load
-});
+import NewAddress from '@/components/user/NewAddress';
 
 // Force dynamic rendering to ensure fresh auth state
 export const dynamic = 'force-dynamic';

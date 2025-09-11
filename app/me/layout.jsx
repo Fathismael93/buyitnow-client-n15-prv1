@@ -4,9 +4,6 @@ import { redirect } from 'next/navigation';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { headers } from 'next/headers';
 
-// AJOUT: Import du logger conditionnel
-// import { logger } from '@/lib/logger';
-
 export default async function UserLayout({ children }) {
   // MODIFICATION: Utiliser une fonction DAL pour l'authentification
   let user;

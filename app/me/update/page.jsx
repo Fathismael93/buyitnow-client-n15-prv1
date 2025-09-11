@@ -1,14 +1,10 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import { getServerSession } from 'next-auth/next';
 import { redirect } from 'next/navigation';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { captureException } from '@/monitoring/sentry';
-
-// Chargement dynamique optimisé avec SSR activé
-const UpdateProfile = lazy(() => import('@/components/auth/UpdateProfile'), {
-  ssr: true, // Activer le SSR pour améliorer le premier chargement
-});
+import UpdateProfile from '@/components/auth/UpdateProfile';
 
 // Force dynamic rendering pour garantir l'état d'authentification à jour
 export const dynamic = 'force-dynamic';
@@ -42,7 +38,7 @@ async function UpdateProfilePage() {
     }
 
     // Récupérer les en-têtes pour le logging et la sécurité
-    const headersList = headers();
+    const headersList = await headers();
     const userAgent = headersList.get('user-agent') || 'unknown';
     const referer = headersList.get('referer') || 'direct';
 

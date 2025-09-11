@@ -32,7 +32,7 @@ const Contact = dynamic(
  */
 export async function generateMetadata() {
   // Get referrer from request headers for security validation
-  const headersList = headers();
+  const headersList = await headers();
   const referrer = headersList.get('referer') || '';
   const isInternalReferrer = referrer.includes(
     process.env.NEXT_PUBLIC_SITE_URL || '',

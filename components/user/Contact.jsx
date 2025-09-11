@@ -3,7 +3,6 @@
 import { useState, useContext, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import AuthContext from '@/context/AuthContext';
-// import { validateContactMessage } from '@/helpers/schemas';
 
 /**
  * Formulaire de contact sécurisé avec validation avancée

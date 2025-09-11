@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { cookies, headers } from 'next/headers';
 import { getServerSession } from 'next-auth/next';
 import { redirect, notFound } from 'next/navigation';
@@ -7,12 +7,7 @@ import { captureException } from '@/monitoring/sentry';
 
 import UpdateAddressSkeleton from '@/components/skeletons/UpdateAddressSkeleton';
 import { getCookieName } from '@/helpers/helpers';
-
-// Chargement dynamique avec configuration optimisée
-const UpdateAddress = lazy(() => import('@/components/user/UpdateAddress'), {
-  loading: () => <UpdateAddressSkeleton />,
-  ssr: true, // Activer le SSR pour améliorer le premier chargement
-});
+import UpdateAddress from '@/components/user/UpdateAddress';
 
 // Force dynamic rendering to ensure fresh auth and data
 export const dynamic = 'force-dynamic';
@@ -52,7 +47,7 @@ const getSingleAddress = async (id) => {
     }
 
     // 4. Construire l'URL de l'API
-    const apiUrl = `${process.env.API_URL || ''}/api/address/${id}`;
+    const apiUrl = `${process.env.API_URL || 'https://buyitnow-client-n15-prv1.vercel.app'}/api/address/${id}`;
 
     console.log('Fetching address from:', apiUrl); // Log pour debug
 

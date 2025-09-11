@@ -59,7 +59,7 @@ const getAllOrders = async (searchParams) => {
 
     // 4. Construire l'URL de l'API
     const searchQuery = new URLSearchParams(urlParams).toString();
-    const apiUrl = `${process.env.API_URL || ''}/api/orders/me${
+    const apiUrl = `${process.env.API_URL || 'https://buyitnow-client-n15-prv1.vercel.app'}/api/orders/me${
       searchQuery ? `?${searchQuery}` : ''
     }`;
 
@@ -255,7 +255,7 @@ const MyOrdersPage = async ({ searchParams }) => {
 
   try {
     // Vérification de l'authentification côté serveur
-    const nextCookies = cookies();
+    const nextCookies = await cookies();
     const cookieName = getCookieName();
     const sessionCookie = nextCookies.get(cookieName);
 
