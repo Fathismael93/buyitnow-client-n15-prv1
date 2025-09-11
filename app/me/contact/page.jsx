@@ -77,9 +77,9 @@ export async function generateMetadata() {
  *
  * @returns {JSX.Element} - Rendered contact page
  */
-export default function ContactPage() {
+export default async function ContactPage() {
   // Security check at render time
-  const headersList = headers();
+  const headersList = await headers();
   const referrer = headersList.get('referer') || '';
   const isInternalReferrer = referrer.includes(
     process.env.NEXT_PUBLIC_SITE_URL ||
