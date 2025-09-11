@@ -1,10 +1,9 @@
 import { Suspense } from 'react';
 import { headers } from 'next/headers';
-import { getServerSession } from 'next-auth/next';
 import { redirect } from 'next/navigation';
-import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { captureException } from '@/monitoring/sentry';
 import UpdatePassword from '@/components/auth/UpdatePassword';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 // Force dynamic rendering pour garantir l'état d'authentification à jour
 export const dynamic = 'force-dynamic';
@@ -31,15 +30,13 @@ export const metadata = {
  */
 async function PasswordPage() {
   try {
-    // Vérifier si l'utilisateur est authentifié
-    const session = await getServerSession(auth);
-    if (!session || !session.user) {
+    const headersList = await headers();
+    const user = await getAuthenticatedUser(headersList);
+    if (!user) {
       console.log('User not authenticated, redirecting to login');
       return redirect('/login?callbackUrl=/me/update_password');
     }
 
-    // Récupérer les en-têtes pour le logging et la sécurité
-    const headersList = await headers();
     const userAgent = headersList.get('user-agent') || 'unknown';
     const referer = headersList.get('referer') || 'direct';
 
@@ -54,8 +51,8 @@ async function PasswordPage() {
       userAgent: userAgent?.substring(0, 100),
       referer: referer?.substring(0, 200),
       ip: anonymizedIp,
-      userId: session.user._id
-        ? `${session.user._id.substring(0, 2)}...${session.user._id.slice(-2)}`
+      userId: user._id
+        ? `${user._id.substring(0, 2)}...${user._id.slice(-2)}`
         : 'unknown',
     });
 
@@ -92,7 +89,7 @@ async function PasswordPage() {
 
           <div className="bg-white py-8 px-4 sm:px-8 shadow sm:rounded-lg">
             <Suspense>
-              <UpdatePassword userId={session.user._id} referer={referer} />
+              <UpdatePassword userId={user._id} referer={referer} />
             </Suspense>
           </div>
         </div>
