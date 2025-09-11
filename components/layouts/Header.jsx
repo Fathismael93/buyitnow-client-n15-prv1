@@ -16,6 +16,7 @@ import * as Sentry from '@sentry/nextjs';
 import CartContext from '@/context/CartContext';
 import { signOut, useSession } from 'next-auth/react';
 import AuthContext from '@/context/AuthContext';
+import { Menu, ShoppingCart, User, X } from 'lucide-react';
 
 // Chargement dynamique optimisé du composant Search
 const Search = dynamic(() => import('./Search'), {
@@ -37,7 +38,7 @@ const CartButton = memo(({ cartCount }) => (
     aria-label="Panier"
     data-testid="cart-button"
   >
-    <i className="text-gray-400 w-5 fa fa-shopping-cart"></i>
+    <ShoppingCart className="text-gray-400 w-5" />
     <span className="ml-1">Panier ({cartCount > 0 ? cartCount : 0})</span>
     {cartCount > 0 && (
       <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
@@ -304,7 +305,7 @@ const Header = () => {
                 className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md mr-2 relative"
                 aria-label="Panier"
               >
-                <i className="text-gray-400 w-5 fa fa-shopping-cart"></i>
+                <ShoppingCart className="text-gray-400 w-5" />
                 {cartCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
                     {cartCount}
@@ -322,9 +323,7 @@ const Header = () => {
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-menu"
             >
-              <i
-                className={`fa ${mobileMenuOpen ? 'fa-times' : 'fa-bars'}`}
-              ></i>
+              {mobileMenuOpen ? <Menu /> : <X />}
             </button>
           </div>
 
@@ -343,7 +342,7 @@ const Header = () => {
                 className="px-3 py-2 inline-block text-center text-gray-700 bg-white shadow-sm border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-200 transition-colors"
                 data-testid="login"
               >
-                <i className="text-gray-400 w-5 fa fa-user"></i>
+                <User className="text-gray-400 w-5" />
                 <span className="ml-1">Connexion</span>
               </Link>
             ) : (

@@ -4,9 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-toastify';
 import { getPriceQueryParams, isArrayEmpty } from '@/helpers/helpers';
-
-// import { isArrayEmpty, getPriceQueryParams } from '@/helpers/helpers';
-// import { maxPriceSchema, minPriceSchema } from '@/helpers/schemas';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const Filters = ({ categories, setLocalLoading }) => {
   const router = useRouter();
@@ -51,15 +49,6 @@ const Filters = ({ categories, setLocalLoading }) => {
         throw new Error('Le prix minimum doit être inférieur au prix maximum');
       }
     }
-
-    // Validation avec les schémas Yup
-    // if (min !== '') {
-    //   await minPriceSchema.validate({ minPrice: min }, { abortEarly: false });
-    // }
-
-    // if (max !== '') {
-    //   await maxPriceSchema.validate({ maxPrice: max }, { abortEarly: false });
-    // }
   }, [min, max]);
 
   // Gestionnaire de clic sur catégorie
@@ -158,10 +147,11 @@ const Filters = ({ categories, setLocalLoading }) => {
             aria-controls="filter-panel"
           >
             <span className="font-medium text-gray-700">Filtres</span>
-            <i
-              className={`fa fa-${open ? 'chevron-up' : 'chevron-down'} text-gray-500`}
-              aria-hidden="true"
-            ></i>
+            {open ? (
+              <ChevronUp className="text-gray-500" />
+            ) : (
+              <ChevronDown className="text-gray-500" />
+            )}
           </button>
 
           {hasActiveFilters && (
